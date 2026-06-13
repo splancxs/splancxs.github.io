@@ -314,148 +314,305 @@ html, body {
   }
 }
 
-/* ── MOBILE RESPONSIVE (APP-LIKE PREMIUM) ── */
+/* ── MOBILE RESPONSIVE (ULTRA-PREMIUM DARK APP) ── */
 @media screen and (max-width: 800px) {
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
   body {
     max-width: 100%;
     margin: 0;
-    padding: 12px;
-    background: #f1f5f9; /* Soft background */
+    padding: 16px 14px 100px;
+    background: #09090b;
+    color: #fafafa;
     box-shadow: none;
     border: none;
-    font-size: 14px;
-    line-height: 1.5;
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
   }
+
+  /* ─ Header ─ */
   .header {
-    padding: 20px 15px;
+    padding: 22px 18px 20px;
     margin-bottom: 20px;
-    border-radius: 16px;
-    box-shadow: 0 8px 20px rgba(15, 52, 96, 0.15);
+    border-radius: 20px;
+    background: linear-gradient(145deg, rgba(124,58,237,0.12), rgba(59,130,246,0.08));
+    border: 1px solid rgba(255,255,255,0.06);
+    box-shadow: 0 8px 32px -8px rgba(124,58,237,0.18);
+    text-align: center;
   }
   .header h1 {
     font-size: 22px;
     margin-bottom: 6px;
+    background: linear-gradient(135deg, #c084fc, #60a5fa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 800;
+    letter-spacing: -0.3px;
   }
   .header .subtitle {
-    font-size: 13px;
-    margin-bottom: 12px;
-    opacity: 0.95;
+    font-size: 12px;
+    margin-bottom: 14px;
+    color: #71717a;
+    line-height: 1.5;
+    font-weight: 400;
   }
+
+  /* ─ Macro Pills ─ */
   .macro-bar {
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 8px;
+    justify-content: center;
   }
   .macro-item {
-    font-size: 13px;
-    padding: 8px 14px;
-    border-radius: 8px;
-    background: rgba(255,255,255,0.18);
-    border: none;
+    font-size: 12px;
+    padding: 8px 0;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    color: #d4d4d8;
+    font-weight: 600;
+    justify-content: center;
+    gap: 6px;
   }
+  .macro-item .dot {
+    width: 7px; height: 7px;
+  }
+  .dot-kcal { box-shadow: 0 0 6px 1px #e94560; }
+  .dot-prot { box-shadow: 0 0 6px 1px #4cc9f0; }
+  .dot-carb { box-shadow: 0 0 6px 1px #f7b731; }
+  .dot-fat  { box-shadow: 0 0 6px 1px #26de81; }
+
+  /* ─ Week Grid ─ */
   .week-grid {
     grid-template-columns: 1fr;
-    gap: 20px;
+    gap: 16px;
   }
+
+  /* ─ Day Cards ─ */
   .day-card {
-    border: none;
-    border-radius: 16px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.06);
-    background: #fff;
+    border-radius: 20px;
+    background: #18181b;
+    border: 1px solid rgba(255,255,255,0.04);
+    box-shadow: 0 4px 20px -4px rgba(0,0,0,0.4);
     overflow: hidden;
   }
+  .day-card.training {
+    border-color: rgba(124,58,237,0.2);
+  }
+  .day-card.cheat {
+    border-color: rgba(245,158,11,0.2);
+  }
   .day-header {
-    padding: 15px;
-    font-size: 14px;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    text-align: left;
+  }
+  .day-card.training .day-header {
+    background: linear-gradient(135deg, rgba(124,58,237,0.12), transparent);
+  }
+  .day-card.rest .day-header {
+    background: linear-gradient(135deg, rgba(100,116,139,0.08), transparent);
+  }
+  .day-card.cheat .day-header {
+    background: linear-gradient(135deg, rgba(245,158,11,0.1), transparent);
   }
   .day-header .day-name {
     font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.3px;
+    color: #fafafa;
   }
   .day-header .day-sub {
-    font-size: 13px;
-    margin-top: 4px;
+    font-size: 12px;
+    margin-top: 0;
+    color: #a1a1aa;
+    background: rgba(255,255,255,0.04);
+    padding: 5px 10px;
+    border-radius: 10px;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
   }
   .day-body {
-    padding: 15px;
+    padding: 10px 14px 14px;
   }
-  
-  /* Make meals look like premium app bubbles */
+
+  /* ─ Meal Blocks ─ */
   .meal {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 12px 15px;
-    margin-bottom: 12px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.04);
+    border-radius: 14px;
+    padding: 13px 14px;
+    margin-bottom: 10px;
+    border-bottom: none;
   }
-  .meal:last-child {
-    margin-bottom: 0;
-  }
+  .meal:last-child { margin-bottom: 0; }
   .meal-label {
-    font-size: 16px;
+    font-size: 15px;
+    font-weight: 700;
     margin-bottom: 6px;
-    color: #0f172a;
+    color: #e4e4e7;
+    gap: 6px;
   }
   .meal-items {
     font-size: 14px;
-    color: #334155;
+    color: #a1a1aa;
+    padding-left: 0;
   }
   .meal-items li {
-    padding-left: 14px;
-    margin-bottom: 5px;
+    padding-left: 16px;
+    margin-bottom: 4px;
+    line-height: 1.5;
   }
-  .savory-tag, .whey-tag {
-    font-size: 11px;
-    padding: 3px 6px;
-    border-radius: 4px;
+  .meal-items li::before {
+    content: '›';
+    color: #52525b;
+    font-weight: 400;
+  }
+  .weight {
+    color: #60a5fa;
+    font-weight: 700;
   }
   .note {
-    font-size: 12px;
-    display: inline-block;
-    margin-top: 2px;
+    color: #71717a;
+    font-size: 13px;
+    font-style: italic;
   }
-  
-  /* Cheat meal styling */
+
+  /* ─ Tags ─ */
+  .savory-tag {
+    background: rgba(251,146,60,0.1);
+    color: #fdba74;
+    border: 1px solid rgba(251,146,60,0.2);
+    border-radius: 6px;
+    padding: 2px 7px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  .whey-tag {
+    background: rgba(239,68,68,0.12);
+    color: #fca5a5;
+    border: 1px solid rgba(239,68,68,0.2);
+    border-radius: 6px;
+    padding: 2px 7px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+
+  /* ─ Cheat Meal ─ */
   .cheat-meal {
-    padding: 15px;
-    border-radius: 12px;
-    background: linear-gradient(135deg, #fffbeb, #fef3c7);
-    border: 2px dashed #fbbf24;
+    background: rgba(245,158,11,0.06) !important;
+    border: 1px dashed rgba(251,191,36,0.3) !important;
+    border-radius: 14px;
+    padding: 16px;
+    text-align: center;
   }
   .cheat-meal .meal-label {
-    font-size: 18px;
+    color: #fbbf24 !important;
+    font-size: 17px !important;
+    justify-content: center;
   }
   .cheat-meal p {
-    font-size: 14px;
+    color: #a1a1aa !important;
+    font-size: 13px;
+    font-style: normal;
     margin-top: 4px;
+    line-height: 1.6;
   }
-  
-  /* Footer blocks */
+
+  /* ─ Footer ─ */
   .footer {
     grid-template-columns: 1fr;
-    gap: 15px;
+    gap: 12px;
     margin-top: 20px;
   }
   .footer-box {
+    background: #18181b;
+    border: 1px solid rgba(255,255,255,0.04);
+    border-radius: 16px;
+    padding: 16px 18px;
+    color: #a1a1aa;
     font-size: 14px;
-    padding: 16px;
-    border-radius: 12px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.03);
-    border: none;
   }
   .footer-box h3 {
-    font-size: 17px;
+    color: #e4e4e7;
+    font-size: 16px;
+    font-weight: 700;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    padding-bottom: 8px;
     margin-bottom: 10px;
-    border-bottom: 2px solid #e2e8f0;
-    padding-bottom: 6px;
   }
   .footer-box ul li {
-    padding: 4px 0;
-    margin-bottom: 2px;
+    padding: 3px 0;
+    line-height: 1.5;
+    color: #a1a1aa;
   }
   .footer-box ul li::before {
-    font-size: 14px;
+    color: #52525b;
+    font-size: 13px;
+  }
+  .footer-box.cheat-box {
+    background: linear-gradient(145deg, rgba(245,158,11,0.04), #18181b);
+    border-color: rgba(251,191,36,0.15);
   }
   .footer-box.cheat-box h3 {
-    border-bottom-color: #fbbf24;
+    color: #fbbf24;
+    border-bottom-color: rgba(251,191,36,0.15);
+  }
+  .footer-box.cheat-box ul li { color: #d4a017; }
+  .footer-box.cheat-box ul li::before { color: #b8860b; }
+}
+
+/* ─ Bottom Navigation ─ */
+.mobile-nav { display: none; }
+@media screen and (max-width: 800px) {
+  .mobile-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: rgba(9,9,11,0.92);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-top: 1px solid rgba(255,255,255,0.06);
+    justify-content: space-around;
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 12px));
+    z-index: 9999;
+  }
+  .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-decoration: none;
+    color: #52525b;
+    gap: 3px;
+    transition: color 0.2s;
+    position: relative;
+    padding: 4px 16px;
+  }
+  .nav-item.active { color: #c084fc; }
+  .nav-item.active::after {
+    content: '';
+    position: absolute;
+    top: -10px;
+    width: 20px; height: 3px;
+    background: #c084fc;
+    border-radius: 0 0 3px 3px;
+  }
+  .nav-icon { font-size: 22px; line-height: 1; }
+  .nav-text {
+    font-size: 10px;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
   }
 }
 </style>
@@ -896,6 +1053,22 @@ html, body {
     </ul>
   </div>
 </div>
+
+<!-- BOTTOM NAVBAR -->
+<nav class="mobile-nav">
+  <a href="index.html" class="nav-item active">
+    <span class="nav-icon">📅</span>
+    <span class="nav-text">Piano</span>
+  </a>
+  <a href="guida_dieta.html" class="nav-item">
+    <span class="nav-icon">📖</span>
+    <span class="nav-text">Guida</span>
+  </a>
+  <a href="sostituzioni.html" class="nav-item">
+    <span class="nav-icon">🔄</span>
+    <span class="nav-text">Sostituzioni</span>
+  </a>
+</nav>
 
 </body>
 </html>

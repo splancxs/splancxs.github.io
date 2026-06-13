@@ -1,0 +1,1850 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guida Dieta Completa</title>
+<meta name="description" content="Guida completa alla dieta: macro, orari pasti, ricette, lista spesa e FAQ per ricomposizione corporea.">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #0f0f1a;
+  --bg2: #141425;
+  --card: #1a1a2e;
+  --card-hover: #222240;
+  --border: #2a2a45;
+  --text: #e8e8f0;
+  --text-dim: #9090aa;
+  --text-muted: #6a6a85;
+  --accent: #6c5ce7;
+  --accent-light: #a29bfe;
+  --accent-glow: rgba(108,92,231,0.25);
+  --green: #00cec9;
+  --green-bg: rgba(0,206,201,0.08);
+  --green-border: rgba(0,206,201,0.2);
+  --red: #ff6b6b;
+  --red-bg: rgba(255,107,107,0.08);
+  --red-border: rgba(255,107,107,0.2);
+  --orange: #fdcb6e;
+  --orange-bg: rgba(253,203,110,0.08);
+  --orange-border: rgba(253,203,110,0.2);
+  --blue: #74b9ff;
+  --blue-bg: rgba(116,185,255,0.08);
+  --blue-border: rgba(116,185,255,0.2);
+  --radius: 16px;
+  --radius-sm: 10px;
+  --shadow: 0 4px 24px rgba(0,0,0,0.3);
+}
+
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.65;
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── HEADER ─── */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(15,15,26,0.82);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.header h1 {
+  font-size: 1.15rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--accent-light), var(--accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.3px;
+}
+.header-badge {
+  font-size: 0.65rem;
+  background: var(--accent-glow);
+  color: var(--accent-light);
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-weight: 600;
+  border: 1px solid rgba(108,92,231,0.2);
+}
+
+/* ─── MAIN ─── */
+.main { padding: 16px 16px 100px; max-width: 600px; margin: 0 auto; }
+
+/* ─── STATS BAR ─── */
+.stats-bar {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.stat {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 10px;
+  text-align: center;
+}
+.stat-value {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--accent-light);
+}
+.stat-label {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 2px;
+}
+
+/* ─── SECTION ─── */
+.section {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  transition: border-color 0.3s;
+}
+.section:hover { border-color: rgba(108,92,231,0.3); }
+.section-header {
+  padding: 18px 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: background 0.2s;
+}
+.section-header:hover { background: rgba(108,92,231,0.04); }
+.section-header:active { background: rgba(108,92,231,0.08); }
+.section-title {
+  font-size: 1rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.section-title .emoji { font-size: 1.2rem; }
+.section-arrow {
+  width: 20px;
+  height: 20px;
+  transition: transform 0.35s cubic-bezier(0.4,0,0.2,1);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.section.open .section-arrow { transform: rotate(180deg); }
+.section-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.45s cubic-bezier(0.4,0,0.2,1);
+}
+.section.open .section-body { max-height: 15000px; }
+.section-content { padding: 0 20px 20px; }
+
+/* ─── TABS ─── */
+.tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+  background: var(--bg2);
+  padding: 4px;
+  border-radius: var(--radius-sm);
+}
+.tab {
+  flex: 1;
+  padding: 10px 8px;
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.25s;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+}
+.tab.active {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(108,92,231,0.35);
+}
+
+/* ─── TAB CONTENT ─── */
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* ─── TIMELINE ─── */
+.timeline { position: relative; padding-left: 24px; }
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  background: linear-gradient(to bottom, var(--accent), var(--green));
+  border-radius: 2px;
+}
+.timeline-item {
+  position: relative;
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  background: var(--bg2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+.timeline-item::before {
+  content: '';
+  position: absolute;
+  left: -21px;
+  top: 18px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--bg);
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+.timeline-time {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--accent-light);
+  letter-spacing: 0.3px;
+}
+.timeline-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-top: 2px;
+}
+.timeline-detail {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  margin-top: 3px;
+}
+
+/* ─── CARDS / BOXES ─── */
+.info-box {
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 12px;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  border: 1px solid;
+}
+.info-box.green { background: var(--green-bg); border-color: var(--green-border); }
+.info-box.red { background: var(--red-bg); border-color: var(--red-border); }
+.info-box.orange { background: var(--orange-bg); border-color: var(--orange-border); }
+.info-box.blue { background: var(--blue-bg); border-color: var(--blue-border); }
+.info-box .box-title {
+  font-weight: 700;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+}
+.info-box.green .box-title { color: var(--green); }
+.info-box.red .box-title { color: var(--red); }
+.info-box.orange .box-title { color: var(--orange); }
+.info-box.blue .box-title { color: var(--blue); }
+
+.info-box ul { list-style: none; padding: 0; }
+.info-box ul li {
+  padding: 4px 0;
+  padding-left: 16px;
+  position: relative;
+}
+.info-box ul li::before {
+  content: '›';
+  position: absolute;
+  left: 0;
+  font-weight: 700;
+}
+.info-box.green ul li::before { color: var(--green); }
+.info-box.red ul li::before { color: var(--red); }
+.info-box.orange ul li::before { color: var(--orange); }
+.info-box.blue ul li::before { color: var(--blue); }
+
+/* ─── TABLES ─── */
+.table-wrapper {
+  overflow-x: auto;
+  margin: 12px -4px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  -webkit-overflow-scrolling: touch;
+}
+.macro-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+.macro-table thead th {
+  background: var(--bg2);
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 700;
+  color: var(--text-dim);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  position: sticky;
+  top: 0;
+  border-bottom: 2px solid var(--border);
+}
+.macro-table tbody td {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(42,42,69,0.5);
+  vertical-align: middle;
+}
+.macro-table tbody tr:last-child td { border-bottom: none; }
+.macro-table tbody tr:hover { background: rgba(108,92,231,0.04); }
+.macro-table .food-name { font-weight: 600; color: var(--text); }
+.macro-table .portion { color: var(--text-dim); font-weight: 500; }
+.macro-table .macro-p { color: #e17055; font-weight: 700; }
+.macro-table .macro-c { color: #fdcb6e; font-weight: 700; }
+.macro-table .macro-g { color: #00b894; font-weight: 700; }
+.macro-table .macro-k { color: var(--accent-light); font-weight: 700; }
+
+.table-category {
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin-top: 20px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent-light);
+}
+.table-category:first-child { margin-top: 0; }
+
+/* ─── RULES ─── */
+.rule-list { display: flex; flex-direction: column; gap: 10px; }
+.rule-item {
+  display: flex;
+  gap: 12px;
+  padding: 14px;
+  background: var(--bg2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  align-items: flex-start;
+}
+.rule-num {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--accent-glow);
+  color: var(--accent-light);
+  font-weight: 800;
+  font-size: 0.78rem;
+}
+.rule-text { font-size: 0.82rem; line-height: 1.55; }
+.rule-text strong { color: var(--accent-light); }
+
+/* ─── COOKING ─── */
+.cook-block {
+  margin-bottom: 16px;
+  background: var(--bg2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.cook-header {
+  padding: 14px 16px;
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: background 0.2s;
+}
+.cook-header:hover { background: rgba(108,92,231,0.04); }
+.cook-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.35s cubic-bezier(0.4,0,0.2,1);
+}
+.cook-block.open .cook-body { max-height: 2000px; }
+.cook-block.open .cook-arrow { transform: rotate(180deg); }
+.cook-arrow {
+  transition: transform 0.35s cubic-bezier(0.4,0,0.2,1);
+  color: var(--text-muted);
+}
+.cook-content { padding: 0 16px 16px; }
+.cook-method {
+  margin-bottom: 12px;
+}
+.cook-method-title {
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: var(--green);
+  margin-bottom: 4px;
+}
+.cook-method p, .cook-method ul {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+.cook-method ul { list-style: none; padding-left: 0; }
+.cook-method ul li { padding: 2px 0 2px 14px; position: relative; }
+.cook-method ul li::before { content: '•'; position: absolute; left: 0; color: var(--accent-light); }
+
+.cook-tip {
+  background: var(--orange-bg);
+  border: 1px solid var(--orange-border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 0.75rem;
+  color: var(--orange);
+  margin-top: 8px;
+}
+
+/* ─── SHOPPING GRID ─── */
+.shop-category {
+  margin-bottom: 16px;
+}
+.shop-cat-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.shop-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.shop-item {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: border-color 0.2s;
+  cursor: pointer;
+}
+.shop-item:hover { border-color: var(--accent); }
+.shop-check {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border);
+  border-radius: 4px;
+  flex-shrink: 0;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.shop-item.checked .shop-check {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.shop-item.checked .shop-check::after {
+  content: '✓';
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 800;
+}
+.shop-item.checked { opacity: 0.5; text-decoration: line-through; }
+
+/* ─── FAQ ─── */
+.faq-item {
+  margin-bottom: 10px;
+  background: var(--bg2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.faq-q {
+  padding: 14px 16px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  transition: background 0.2s;
+}
+.faq-q:hover { background: rgba(108,92,231,0.04); }
+.faq-a {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.35s cubic-bezier(0.4,0,0.2,1);
+}
+.faq-item.open .faq-a { max-height: 500px; }
+.faq-item.open .faq-arrow { transform: rotate(180deg); }
+.faq-arrow {
+  transition: transform 0.35s cubic-bezier(0.4,0,0.2,1);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.faq-a-inner {
+  padding: 0 16px 14px;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+
+/* ─── MISC ─── */
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+.badge-purple { background: var(--accent-glow); color: var(--accent-light); }
+.badge-green { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+.badge-red { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
+
+.highlight { color: var(--accent-light); font-weight: 700; }
+.highlight-green { color: var(--green); font-weight: 700; }
+.highlight-red { color: var(--red); font-weight: 700; }
+
+.divider {
+  height: 1px;
+  background: var(--border);
+  margin: 16px 0;
+}
+
+.sub-heading {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 10px;
+  margin-top: 18px;
+}
+
+p.desc {
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+
+/* ─── TOC NAV ─── */
+.toc {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 4px 0 14px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.toc::-webkit-scrollbar { display: none; }
+.toc a {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-decoration: none;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.toc a:hover, .toc a:active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+/* ─── MACRO PILL ─── */
+.macro-pills {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.macro-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--bg2);
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  font-size: 0.75rem;
+}
+.macro-pill .val { font-weight: 800; }
+.macro-pill .lbl { color: var(--text-muted); font-weight: 500; }
+.macro-pill.kcal .val { color: var(--accent-light); }
+.macro-pill.prot .val { color: #e17055; }
+.macro-pill.carb .val { color: #fdcb6e; }
+.macro-pill.fat .val { color: #00b894; }
+
+/* scroll margin for anchor links */
+.section[id] { scroll-margin-top: 70px; }
+
+/* ─── ANIMATIONS ─── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.section { animation: fadeUp 0.4s ease both; }
+.section:nth-child(2) { animation-delay: 0.03s; }
+.section:nth-child(3) { animation-delay: 0.06s; }
+.section:nth-child(4) { animation-delay: 0.09s; }
+.section:nth-child(5) { animation-delay: 0.12s; }
+
+/* ─── PROGRESS BAR ─── */
+.progress-wrap {
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.progress-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.progress-label span:last-child { color: var(--accent-light); font-weight: 700; }
+.progress-bar {
+  height: 6px;
+  background: var(--bg);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--accent), var(--green));
+  transition: width 0.6s ease;
+}
+/* ─ Bottom Navigation ─ */
+.mobile-nav { display: none; }
+@media screen and (max-width: 800px) {
+  body { padding-bottom: 80px !important; }
+  .mobile-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: rgba(9,9,11,0.92);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-top: 1px solid rgba(255,255,255,0.06);
+    justify-content: space-around;
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 12px));
+    z-index: 9999;
+  }
+  .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-decoration: none;
+    color: #52525b;
+    gap: 3px;
+    transition: color 0.2s;
+    position: relative;
+    padding: 4px 16px;
+  }
+  .nav-item.active { color: #c084fc; }
+  .nav-item.active::after {
+    content: '';
+    position: absolute;
+    top: -10px;
+    width: 20px; height: 3px;
+    background: #c084fc;
+    border-radius: 0 0 3px 3px;
+  }
+  .nav-icon { font-size: 22px; line-height: 1; }
+  .nav-text {
+    font-size: 10px;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ HEADER ═══ -->
+<header class="header">
+  <h1>🥗 Guida Dieta</h1>
+  <span class="header-badge">~1800 kcal</span>
+</header>
+
+<main class="main">
+
+<!-- ─── STATS ─── -->
+<div class="stats-bar">
+  <div class="stat">
+    <div class="stat-value">64.8</div>
+    <div class="stat-label">Peso (kg)</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value">173</div>
+    <div class="stat-label">Altezza (cm)</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value">17</div>
+    <div class="stat-label">Età</div>
+  </div>
+</div>
+
+<!-- ─── PROGRESS ─── -->
+<div class="progress-wrap">
+  <div class="progress-label">
+    <span>66.65 kg → Obiettivo</span>
+    <span>-1.8 kg persi</span>
+  </div>
+  <div class="progress-bar">
+    <div class="progress-fill" style="width: 36%"></div>
+  </div>
+</div>
+
+<!-- ─── TARGET MACROS ─── -->
+<div class="macro-pills">
+  <div class="macro-pill kcal"><span class="val">~1800</span><span class="lbl">kcal</span></div>
+  <div class="macro-pill prot"><span class="val">150g</span><span class="lbl">proteine</span></div>
+  <div class="macro-pill carb"><span class="val">180g</span><span class="lbl">carbo</span></div>
+  <div class="macro-pill fat"><span class="val">55g</span><span class="lbl">grassi</span></div>
+</div>
+
+<!-- ─── TOC ─── -->
+<nav class="toc">
+  <a href="#come-funziona">⚡ Come funziona</a>
+  <a href="#orari">🕐 Orari</a>
+  <a href="#pesare">⚖️ Pesare</a>
+  <a href="#macro">📊 Macro</a>
+  <a href="#cucinare">👨‍🍳 Cucinare</a>
+  <a href="#sgarri">🆘 Sgarri</a>
+  <a href="#progressi">📊 Progressi</a>
+  <a href="#acqua">💧 Acqua</a>
+  <a href="#spesa">🛒 Spesa</a>
+  <a href="#faq">❓ FAQ</a>
+</nav>
+
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- 1. COME FUNZIONA -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="section open" id="come-funziona">
+  <div class="section-header" onclick="toggleSection(this)">
+    <div class="section-title"><span class="emoji">⚡</span> Come funziona</div>
+    <svg class="section-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+  </div>
+  <div class="section-body">
+    <div class="section-content">
+
+      <div class="info-box blue">
+        <div class="box-title">🎯 Obiettivo</div>
+        Mangiare <strong class="highlight">~1800 kcal</strong> al giorno (sotto il TDEE di ~2200 kcal) con almeno <strong style="color:#e17055">150g di proteine</strong> per perdere grasso e mantenere/costruire muscolo.
+      </div>
+
+      <div class="sub-heading">📅 Struttura settimanale</div>
+
+      <div class="info-box green">
+        <div class="box-title">🏋️ Lun – Mer – Ven (Allenamento)</div>
+        <ul>
+          <li>Colazione <strong>salata</strong> (affettato + formaggio + pane)</li>
+          <li>Whey post-workout</li>
+          <li>Pasti strutturati intorno alla palestra</li>
+        </ul>
+      </div>
+
+      <div class="info-box orange">
+        <div class="box-title">🛋️ Mar – Gio – Sab (Riposo)</div>
+        <ul>
+          <li>Colazione <strong>dolce</strong> (cereali o fette biscottate)</li>
+          <li>Niente whey, spuntini leggeri</li>
+        </ul>
+      </div>
+
+      <div class="info-box blue">
+        <div class="box-title">🍕 Domenica (Riposo + Libero)</div>
+        <ul>
+          <li>Giorno di riposo con <strong>pranzo libero</strong></li>
+          <li>Colazione e cena normali</li>
+        </ul>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="sub-heading">🍳 3 tipi di colazione</div>
+
+      <div class="info-box green">
+        <div class="box-title">🥩 Salata (giorni allenamento)</div>
+        <ul>
+          <li>Affettato (bresaola 40g / speck 30g / prosciutto cotto 30g)</li>
+          <li>Formaggio (Philadelphia light 25g / stracchino light 30g / sottiletta)</li>
+          <li>Pane integrale 50-60g o pancarré 2 fette</li>
+        </ul>
+      </div>
+
+      <div class="info-box orange">
+        <div class="box-title">🥣 Cereali / Avena + latte (giorni riposo)</div>
+        <ul>
+          <li>Special K Protein 40g o avena 55g</li>
+          <li>Latte intero 200ml</li>
+          <li>Frutta + frutta secca opzionale</li>
+        </ul>
+      </div>
+
+      <div class="info-box orange">
+        <div class="box-title">🍞 Fette biscottate (giorni riposo)</div>
+        <ul>
+          <li>4 fette biscottate (~40g)</li>
+          <li>Burro d'arachidi 15g + miele opzionale</li>
+          <li>Latte intero 200ml</li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- 2. ORARI -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="section" id="orari">
+  <div class="section-header" onclick="toggleSection(this)">
+    <div class="section-title"><span class="emoji">🕐</span> Orari dei pasti</div>
+    <svg class="section-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+  </div>
+  <div class="section-body">
+    <div class="section-content">
+
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab(this, 'tab-allenamento')">🏋️ Allenamento</button>
+        <button class="tab" onclick="switchTab(this, 'tab-riposo')">🛋️ Riposo</button>
+      </div>
+
+      <!-- Tab Allenamento -->
+      <div class="tab-content active" id="tab-allenamento">
+        <div class="timeline">
+          <div class="timeline-item">
+            <div class="timeline-time">10:00</div>
+            <div class="timeline-label">Colazione salata</div>
+            <div class="timeline-detail">Affettato + formaggio + pane integrale</div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-time">12:30</div>
+            <div class="timeline-label">Pranzo</div>
+            <div class="timeline-detail">2h prima della palestra — proteina + carbo + verdure</div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-time">14:00</div>
+            <div class="timeline-label">Pre-workout</div>
+            <div class="timeline-detail">🍌 Banana + crackers (~30g)</div>
+          </div>
+          <div class="timeline-item" style="border-color: var(--accent);">
+            <div class="timeline-time">14:30</div>
+            <div class="timeline-label">🏋️ Palestra</div>
+            <div class="timeline-detail">Bevi 500ml acqua durante l'allenamento</div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-time">16:00</div>
+            <div class="timeline-label">Post-workout</div>
+            <div class="timeline-detail">Whey 1 scoop + 300ml acqua</div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-time">19:30</div>
+            <div class="timeline-label">Cena</div>
+            <div class="timeline-detail">Proteina + carbo + verdure + olio</div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-time">21:30</div>
+            <div class="timeline-label">Spuntino sera</div>
+            <div class="timeline-detail">Yogurt greco + frutta o frutta secca</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab Riposo -->
+      <div class="tab-content" id="tab-riposo">
+        <div class="timeline">
+          <div class="timeline-item">
+            <div class="timeline-time">10:00</div>
+            <div class="timeline-label">Colazione</div>
+            <div class="timeline-detail">Cereali/avena + latte oppure fette biscottate + PB + latte</div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-time">12:30</div>
+            <div class="timeline-label">Spuntino</div>
+            <div class="timeline-detail">Frutta + frutta secca o gallette</div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-time">14:00</div>
+            <div class="timeline-label">Pranzo</div>
+            <div class="timeline-detail">Proteina + carbo + verdure</div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-time">17:00</div>
+            <div class="timeline-label">Spuntino</div>
+            <div class="timeline-detail">Yogurt greco o budino proteico</div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-time">19:30</div>
+            <div class="timeline-label">Cena</div>
+            <div class="timeline-detail">Proteina + carbo + verdure + olio</div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-time">21:30</div>
+            <div class="timeline-label">Spuntino sera</div>
+            <div class="timeline-detail">Frutta o yogurt</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- 3. COME PESARE -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="section" id="pesare">
+  <div class="section-header" onclick="toggleSection(this)">
+    <div class="section-title"><span class="emoji">⚖️</span> Come pesare gli alimenti</div>
+    <svg class="section-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+  </div>
+  <div class="section-body">
+    <div class="section-content">
+
+      <div class="rule-list">
+        <div class="rule-item">
+          <div class="rule-num">1</div>
+          <div class="rule-text"><strong>Pesa sempre a crudo</strong> — pasta, riso, carne, patate. Dopo la cottura il peso cambia (la pasta raddoppia, la carne perde 20-30%).</div>
+        </div>
+        <div class="rule-item">
+          <div class="rule-num">2</div>
+          <div class="rule-text"><strong>Usa una bilancia da cucina</strong> — costano ~10€ e fanno tutta la differenza. Se non pesi, stai tirando a indovinare.</div>
+        </div>
+        <div class="rule-item">
+          <div class="rule-num">3</div>
+          <div class="rule-text"><strong>Olio: pesa col cucchiaio</strong> — 1 cucchiaio da tavola = ~10g = ~90 kcal. NON versare a occhio, è l'errore più comune.</div>
+        </div>
+        <div class="rule-item">
+          <div class="rule-num">4</div>
+          <div class="rule-text"><strong>Verdure a occhio</strong> — hanno così poche calorie che non serve pesarle. Abbonda pure.</div>
+        </div>
+        <div class="rule-item">
+          <div class="rule-num">5</div>
+          <div class="rule-text"><strong>Frutta: conta i pezzi</strong> — 1 banana, 1 mela, 2 albicocche. Non serve pesare.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- 4. TABELLA MACRO -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="section" id="macro">
+  <div class="section-header" onclick="toggleSection(this)">
+    <div class="section-title"><span class="emoji">📊</span> Tabella macro completa</div>
+    <svg class="section-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+  </div>
+  <div class="section-body">
+    <div class="section-content">
+
+      <!-- ── PROTEINE ── -->
+      <div class="table-category">🥩 Proteine (carne / pesce)</div>
+      <div class="table-wrapper">
+        <table class="macro-table">
+          <thead>
+            <tr><th>Alimento</th><th>Porzione</th><th>P</th><th>C</th><th>G</th><th>Kcal</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="food-name">Petto di pollo</td><td class="portion">150g</td><td class="macro-p">35g</td><td class="macro-c">0</td><td class="macro-g">2g</td><td class="macro-k">158</td></tr>
+            <tr><td class="food-name">Fesa di tacchino</td><td class="portion">170-180g</td><td class="macro-p">41-43g</td><td class="macro-c">0</td><td class="macro-g">2g</td><td class="macro-k">185-194</td></tr>
+            <tr><td class="food-name">Macinato manzo 5%</td><td class="portion">150-170g</td><td class="macro-p">30-34g</td><td class="macro-c">0</td><td class="macro-g">8-9g</td><td class="macro-k">197-218</td></tr>
+            <tr><td class="food-name">Lonza di maiale</td><td class="portion">180g</td><td class="macro-p">40g</td><td class="macro-c">0</td><td class="macro-g">6g</td><td class="macro-k">215</td></tr>
+            <tr><td class="food-name">Salsiccia pollo</td><td class="portion">160g</td><td class="macro-p">27g</td><td class="macro-c">2g</td><td class="macro-g">13g</td><td class="macro-k">235</td></tr>
+            <tr><td class="food-name">Orata (filetto)</td><td class="portion">200g</td><td class="macro-p">40g</td><td class="macro-c">0</td><td class="macro-g">8g</td><td class="macro-k">228</td></tr>
+            <tr><td class="food-name">Merluzzo</td><td class="portion">220g</td><td class="macro-p">37g</td><td class="macro-c">0</td><td class="macro-g">1g</td><td class="macro-k">159</td></tr>
+            <tr><td class="food-name">Sgombro scatola</td><td class="portion">130g sgocc.</td><td class="macro-p">22g</td><td class="macro-c">0</td><td class="macro-g">18g</td><td class="macro-k">260</td></tr>
+            <tr><td class="food-name">Tonno scatola nat.</td><td class="portion">130g</td><td class="macro-p">33g</td><td class="macro-c">0</td><td class="macro-g">1g</td><td class="macro-k">143</td></tr>
+            <tr><td class="food-name">Uova</td><td class="portion">2 intere</td><td class="macro-p">12g</td><td class="macro-c">1g</td><td class="macro-g">10g</td><td class="macro-k">140</td></tr>
+            <tr><td class="food-name">Albumi</td><td class="portion">100ml</td><td class="macro-p">11g</td><td class="macro-c">0</td><td class="macro-g">0</td><td class="macro-k">45</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ── AFFETTATI ── -->
+      <div class="table-category">🥓 Affettati</div>
+      <div class="table-wrapper">
+        <table class="macro-table">
+          <thead>
+            <tr><th>Alimento</th><th>Porzione</th><th>P</th><th>C</th><th>G</th><th>Kcal</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="food-name">Bresaola</td><td class="portion">40g</td><td class="macro-p">13g</td><td class="macro-c">0</td><td class="macro-g">1g</td><td class="macro-k">60</td></tr>
+            <tr><td class="food-name">Speck</td><td class="portion">30g</td><td class="macro-p">9g</td><td class="macro-c">0</td><td class="macro-g">4g</td><td class="macro-k">72</td></tr>
+            <tr><td class="food-name">Prosciutto cotto</td><td class="portion">30g</td><td class="macro-p">6g</td><td class="macro-c">0</td><td class="macro-g">1g</td><td class="macro-k">35</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ── LATTICINI ── -->
+      <div class="table-category">🧀 Latticini</div>
+      <div class="table-wrapper">
+        <table class="macro-table">
+          <thead>
+            <tr><th>Alimento</th><th>Porzione</th><th>P</th><th>C</th><th>G</th><th>Kcal</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="food-name">Yogurt greco 0%</td><td class="portion">125-170g</td><td class="macro-p">12-17g</td><td class="macro-c">5-7g</td><td class="macro-g">0</td><td class="macro-k">70-95</td></tr>
+            <tr><td class="food-name">Latte intero</td><td class="portion">200ml</td><td class="macro-p">7g</td><td class="macro-c">10g</td><td class="macro-g">7g</td><td class="macro-k">128</td></tr>
+            <tr><td class="food-name">Philadelphia light</td><td class="portion">25-30g</td><td class="macro-p">3g</td><td class="macro-c">1g</td><td class="macro-g">3g</td><td class="macro-k">35-42</td></tr>
+            <tr><td class="food-name">Stracchino light</td><td class="portion">30g</td><td class="macro-p">5g</td><td class="macro-c">0</td><td class="macro-g">4g</td><td class="macro-k">55</td></tr>
+            <tr><td class="food-name">Fiocchi di latte</td><td class="portion">50g</td><td class="macro-p">6g</td><td class="macro-c">2g</td><td class="macro-g">2g</td><td class="macro-k">45</td></tr>
+            <tr><td class="food-name">Parmigiano</td><td class="portion">15g</td><td class="macro-p">5g</td><td class="macro-c">0</td><td class="macro-g">4g</td><td class="macro-k">55</td></tr>
+            <tr><td class="food-name">Feta</td><td class="portion">40g</td><td class="macro-p">6g</td><td class="macro-c">0</td><td class="macro-g">8g</td><td class="macro-k">100</td></tr>
+            <tr><td class="food-name">Sottiletta</td><td class="portion">1 fetta</td><td class="macro-p">5g</td><td class="macro-c">0</td><td class="macro-g">3g</td><td class="macro-k">45</td></tr>
+            <tr><td class="food-name">Whey Prozis</td><td class="portion">1 scoop 30g</td><td class="macro-p">24g</td><td class="macro-c">2g</td><td class="macro-g">1g</td><td class="macro-k">120</td></tr>
+            <tr><td class="food-name">Budino proteico</td><td class="portion">1 vasetto</td><td class="macro-p">20g</td><td class="macro-c">7g</td><td class="macro-g">2g</td><td class="macro-k">120</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ── CARBOIDRATI ── -->
+      <div class="table-category">🍚 Carboidrati</div>
+      <div class="table-wrapper">
+        <table class="macro-table">
+          <thead>
+            <tr><th>Alimento</th><th>Porzione</th><th>P</th><th>C</th><th>G</th><th>Kcal</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="food-name">Riso basmati</td><td class="portion">70g crudo</td><td class="macro-p">5g</td><td class="macro-c">56g</td><td class="macro-g">1g</td><td class="macro-k">252</td></tr>
+            <tr><td class="food-name">Pasta integrale</td><td class="portion">65g crudo</td><td class="macro-p">8g</td><td class="macro-c">43g</td><td class="macro-g">1.5g</td><td class="macro-k">223</td></tr>
+            <tr><td class="food-name">Pasta normale</td><td class="portion">65-75g crudo</td><td class="macro-p">8-9g</td><td class="macro-c">47-54g</td><td class="macro-g">1g</td><td class="macro-k">230-265</td></tr>
+            <tr><td class="food-name">Patate (air fryer)</td><td class="portion">180-200g crude</td><td class="macro-p">4g</td><td class="macro-c">28-31g</td><td class="macro-g">0</td><td class="macro-k">126-140</td></tr>
+            <tr><td class="food-name">Pane integrale</td><td class="portion">50-60g</td><td class="macro-p">4-5g</td><td class="macro-c">23-28g</td><td class="macro-g">1g</td><td class="macro-k">120-145</td></tr>
+            <tr><td class="food-name">Pancarré integrale</td><td class="portion">2 fette ~50g</td><td class="macro-p">4g</td><td class="macro-c">24g</td><td class="macro-g">2g</td><td class="macro-k">130</td></tr>
+            <tr><td class="food-name">Piadina integrale</td><td class="portion">×1 ~80g</td><td class="macro-p">6g</td><td class="macro-c">37g</td><td class="macro-g">7g</td><td class="macro-k">240</td></tr>
+            <tr><td class="food-name">Fette biscottate</td><td class="portion">×4 ~40g</td><td class="macro-p">4g</td><td class="macro-c">30g</td><td class="macro-g">3g</td><td class="macro-k">155</td></tr>
+            <tr><td class="food-name">Avena</td><td class="portion">55g</td><td class="macro-p">7g</td><td class="macro-c">35g</td><td class="macro-g">4g</td><td class="macro-k">210</td></tr>
+            <tr><td class="food-name">Special K Protein</td><td class="portion">40g</td><td class="macro-p">8g</td><td class="macro-c">26g</td><td class="macro-g">4g</td><td class="macro-k">153</td></tr>
+            <tr><td class="food-name">Crackers</td><td class="portion">30-40g</td><td class="macro-p">3-4g</td><td class="macro-c">21-28g</td><td class="macro-g">3-4g</td><td class="macro-k">125-167</td></tr>
+            <tr><td class="food-name">Gallette riso</td><td class="portion">×2</td><td class="macro-p">2g</td><td class="macro-c">16g</td><td class="macro-g">1g</td><td class="macro-k">70</td></tr>
+            <tr><td class="food-name">Grissini</td><td class="portion">25g</td><td class="macro-p">3g</td><td class="macro-c">18g</td><td class="macro-g">2g</td><td class="macro-k">100</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ── GRASSI ── -->
+      <div class="table-category">🫒 Grassi e condimenti</div>
+      <div class="table-wrapper">
+        <table class="macro-table">
+          <thead>
+            <tr><th>Alimento</th><th>Porzione</th><th>P</th><th>C</th><th>G</th><th>Kcal</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="food-name">Olio EVO</td><td class="portion">8-10g</td><td class="macro-p">0</td><td class="macro-c">0</td><td class="macro-g">8-10g</td><td class="macro-k">72-90</td></tr>
+            <tr><td class="food-name">Burro d'arachidi</td><td class="portion">15g</td><td class="macro-p">4g</td><td class="macro-c">2g</td><td class="macro-g">7g</td><td class="macro-k">93</td></tr>
+            <tr><td class="food-name">Pesto</td><td class="portion">15g</td><td class="macro-p">1g</td><td class="macro-c">0</td><td class="macro-g">6g</td><td class="macro-k">58</td></tr>
+            <tr><td class="food-name">Olive</td><td class="portion">20g</td><td class="macro-p">0</td><td class="macro-c">1g</td><td class="macro-g">3g</td><td class="macro-k">30</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ── FRUTTA SECCA ── -->
+      <div class="table-category">🥜 Frutta secca</div>
+      <div class="table-wrapper">
+        <table class="macro-table">
+          <thead>
+            <tr><th>Alimento</th><th>Porzione</th><th>P</th><th>C</th><th>G</th><th>Kcal</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="food-name">Pistacchi</td><td class="portion">10g</td><td class="macro-p">2g</td><td class="macro-c">3g</td><td class="macro-g">5g</td><td class="macro-k">60</td></tr>
+            <tr><td class="food-name">Nocciole</td><td class="portion">10g</td><td class="macro-p">1g</td><td class="macro-c">2g</td><td class="macro-g">6g</td><td class="macro-k">65</td></tr>
+            <tr><td class="food-name">Mandorle</td><td class="portion">10g</td><td class="macro-p">2g</td><td class="macro-c">2g</td><td class="macro-g">5g</td><td class="macro-k">60</td></tr>
+            <tr><td class="food-name">Anacardi</td><td class="portion">10g</td><td class="macro-p">2g</td><td class="macro-c">3g</td><td class="macro-g">4g</td><td class="macro-k">55</td></tr>
+            <tr><td class="food-name">Semi di chia</td><td class="portion">5g</td><td class="macro-p">1g</td><td class="macro-c">0</td><td class="macro-g">2g</td><td class="macro-k">25</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ── FRUTTA ── -->
+      <div class="table-category">🍎 Frutta</div>
+      <div class="table-wrapper">
+        <table class="macro-table">
+          <thead>
+            <tr><th>Alimento</th><th>Porzione</th><th>P</th><th>C</th><th>G</th><th>Kcal</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="food-name">Banana</td><td class="portion">×1</td><td class="macro-p">1g</td><td class="macro-c">27g</td><td class="macro-g">0</td><td class="macro-k">105</td></tr>
+            <tr><td class="food-name">Mela</td><td class="portion">×1</td><td class="macro-p">0</td><td class="macro-c">20g</td><td class="macro-g">0</td><td class="macro-k">80</td></tr>
+            <tr><td class="food-name">Pera</td><td class="portion">×1</td><td class="macro-p">0</td><td class="macro-c">22g</td><td class="macro-g">0</td><td class="macro-k">85</td></tr>
+            <tr><td class="food-name">Pesca</td><td class="portion">×1</td><td class="macro-p">1g</td><td class="macro-c">12g</td><td class="macro-g">0</td><td class="macro-k">50</td></tr>
+            <tr><td class="food-name">Kiwi</td><td class="portion">×1</td><td class="macro-p">1g</td><td class="macro-c">7g</td><td class="macro-g">0</td><td class="macro-k">30</td></tr>
+            <tr><td class="food-name">Fragole</td><td class="portion">80-100g</td><td class="macro-p">1g</td><td class="macro-c">6-7g</td><td class="macro-g">0</td><td class="macro-k">25-30</td></tr>
+            <tr><td class="food-name">Mirtilli</td><td class="portion">60g</td><td class="macro-p">1g</td><td class="macro-c">7g</td><td class="macro-g">0</td><td class="macro-k">30</td></tr>
+            <tr><td class="food-name">Albicocche</td><td class="portion">×2</td><td class="macro-p">1g</td><td class="macro-c">10g</td><td class="macro-g">0</td><td class="macro-k">40</td></tr>
+            <tr><td class="food-name">Anguria</td><td class="portion">200g</td><td class="macro-p">1g</td><td class="macro-c">12g</td><td class="macro-g">0</td><td class="macro-k">50</td></tr>
+            <tr><td class="food-name">Ananas</td><td class="portion">80g</td><td class="macro-p">0</td><td class="macro-c">11g</td><td class="macro-g">0</td><td class="macro-k">45</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ── VERDURE ── -->
+      <div class="table-category">🥬 Verdure <span class="badge badge-green">non serve pesare</span></div>
+      <div class="table-wrapper">
+        <table class="macro-table">
+          <thead>
+            <tr><th>Alimento</th><th>Porzione</th><th>P</th><th>C</th><th>G</th><th>Kcal</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="food-name">Lattuga / insalata</td><td class="portion">200g</td><td class="macro-p">2g</td><td class="macro-c">4g</td><td class="macro-g">0</td><td class="macro-k">25</td></tr>
+            <tr><td class="food-name">Pomodorini</td><td class="portion">150g</td><td class="macro-p">1g</td><td class="macro-c">5g</td><td class="macro-g">0</td><td class="macro-k">25</td></tr>
+            <tr><td class="food-name">Cetrioli</td><td class="portion">100g</td><td class="macro-p">1g</td><td class="macro-c">3g</td><td class="macro-g">0</td><td class="macro-k">15</td></tr>
+            <tr><td class="food-name">Peperoni</td><td class="portion">100g</td><td class="macro-p">1g</td><td class="macro-c">4g</td><td class="macro-g">0</td><td class="macro-k">20</td></tr>
+            <tr><td class="food-name">Carote</td><td class="portion">100g</td><td class="macro-p">1g</td><td class="macro-c">8g</td><td class="macro-g">0</td><td class="macro-k">35</td></tr>
+            <tr><td class="food-name">Mais scatola</td><td class="portion">80g sgocc.</td><td class="macro-p">2g</td><td class="macro-c">15g</td><td class="macro-g">1g</td><td class="macro-k">70</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- 5. COME CUCINARE -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="section" id="cucinare">
+  <div class="section-header" onclick="toggleSection(this)">
+    <div class="section-title"><span class="emoji">👨‍🍳</span> Come cucinare ogni alimento</div>
+    <svg class="section-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+  </div>
+  <div class="section-body">
+    <div class="section-content">
+
+      <!-- Pollo -->
+      <div class="cook-block">
+        <div class="cook-header" onclick="toggleCook(this)">
+          🍗 Pollo (petto)
+          <svg class="cook-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="cook-body"><div class="cook-content">
+          <div class="cook-method">
+            <div class="cook-method-title">🔥 Piastra</div>
+            <p>Padella antiaderente <strong>CALDA</strong>, senza olio. 5-6 min per lato. Olio a crudo dopo.</p>
+          </div>
+          <div class="cook-method">
+            <div class="cook-method-title">♨️ Forno</div>
+            <p>200°C, 20-25 min. Copri con alluminio per non seccarlo.</p>
+          </div>
+          <div class="cook-method">
+            <div class="cook-method-title">🌶️ Condimenti top</div>
+            <ul>
+              <li>Paprika, origano, curry</li>
+              <li>Salsa soia, aglio in polvere</li>
+              <li>Salsa BBQ</li>
+            </ul>
+          </div>
+        </div></div>
+      </div>
+
+      <!-- Tacchino -->
+      <div class="cook-block">
+        <div class="cook-header" onclick="toggleCook(this)">
+          🦃 Tacchino (fesa)
+          <svg class="cook-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="cook-body"><div class="cook-content">
+          <div class="cook-method">
+            <div class="cook-method-title">🔥 Stesse tecniche del pollo</div>
+            <p>Piastra o forno, identico.</p>
+          </div>
+          <div class="cook-tip">⚠️ Più magro del pollo, si secca più facilmente → non cuocere troppo!</div>
+        </div></div>
+      </div>
+
+      <!-- Manzo macinato -->
+      <div class="cook-block">
+        <div class="cook-header" onclick="toggleCook(this)">
+          🥩 Manzo macinato
+          <svg class="cook-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="cook-body"><div class="cook-content">
+          <div class="cook-method">
+            <div class="cook-method-title">🍝 Ragù</div>
+            <p>Rosola in padella, aggiungi passata ~100g, cuoci 10-15 min. Sale, pepe, origano.</p>
+          </div>
+          <div class="cook-method">
+            <div class="cook-method-title">🍔 Burger</div>
+            <p>Forma l'hamburger (sale, pepe, cipolla tritata). Padella <strong>CALDA</strong>, 4-5 min per lato. Pane integrale tostato, sottiletta, insalata, ketchup, senape.</p>
+          </div>
+          <div class="cook-method">
+            <div class="cook-method-title">🧆 Polpette</div>
+            <p>Mescola con pangrattato e parmigiano, forma palline, air fryer 180°C 15 min.</p>
+          </div>
+        </div></div>
+      </div>
+
+      <!-- Lonza -->
+      <div class="cook-block">
+        <div class="cook-header" onclick="toggleCook(this)">
+          🐷 Lonza di maiale
+          <svg class="cook-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="cook-body"><div class="cook-content">
+          <div class="cook-method">
+            <div class="cook-method-title">🔥 Piastra</div>
+            <p>Come il pollo, 5-6 min per lato.</p>
+          </div>
+          <div class="cook-method">
+            <div class="cook-method-title">♨️ Forno</div>
+            <p>200°C, 20 min.</p>
+          </div>
+          <div class="cook-tip">💡 Molto magra, simile al pollo come cottura.</div>
+        </div></div>
+      </div>
+
+      <!-- Salsiccia pollo -->
+      <div class="cook-block">
+        <div class="cook-header" onclick="toggleCook(this)">
+          🌭 Salsiccia pollo
+          <svg class="cook-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="cook-body"><div class="cook-content">
+          <div class="cook-method">
+            <div class="cook-method-title">🔥 Piastra</div>
+            <p>Bucherella con forchetta, cuoci 8-10 min girando.</p>
+          </div>
+          <div class="cook-method">
+            <div class="cook-method-title">♨️ Forno</div>
+            <p>200°C, 20-25 min.</p>
+          </div>
+          <div class="cook-method">
+            <div class="cook-method-title">🌀 Air fryer</div>
+            <p>190°C, 15 min.</p>
+          </div>
+        </div></div>
+      </div>
+
+      <!-- Orata -->
+      <div class="cook-block">
+        <div class="cook-header" onclick="toggleCook(this)">
+          🐟 Orata
+          <svg class="cook-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="cook-body"><div class="cook-content">
+          <div class="cook-method">
+            <div class="cook-method-title">♨️ Forno</div>
+            <p>180°C, 15-20 min con olio e limone.</p>
+          </div>
+          <div class="cook-method">
+            <div class="cook-method-title">🔥 Piastra</div>
+            <p>Filetti, 4-5 min per lato.</p>
+          </div>
+        </div></div>
+      </div>
+
+      <!-- Merluzzo -->
+      <div class="cook-block">
+        <div class="cook-header" onclick="toggleCook(this)">
+          🐟 Merluzzo
+          <svg class="cook-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="cook-body"><div class="cook-content">
+          <div class="cook-method">
+            <div class="cook-method-title">♨️ Forno</div>
+            <p>180°C, 15-20 min. Magrissimo, aggiungere limone.</p>
+          </div>
+          <div class="cook-method">
+            <div class="cook-method-title">💨 Vapore</div>
+            <p>10-12 min.</p>
+          </div>
+        </div></div>
+      </div>
+
+      <!-- Sgombro scatola -->
+      <div class="cook-block">
+        <div class="cook-header" onclick="toggleCook(this)">
+          🥫 Sgombro scatola
+          <svg class="cook-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="cook-body"><div class="cook-content">
+          <div class="cook-method">
+            <p>Sgocciola bene l'olio, metti su patate o pasta. Fine.</p>
+          </div>
+          <div class="cook-tip">⚠️ NON aggiungere altro olio! È già grasso di suo.</div>
+        </div></div>
+      </div>
+
+      <!-- Tonno scatola -->
+      <div class="cook-block">
+        <div class="cook-header" onclick="toggleCook(this)">
+          🥫 Tonno scatola
+          <svg class="cook-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="cook-body"><div class="cook-content">
+          <div class="cook-method">
+            <p>Sgocciola, metti nella pasta con pomodorini e olive. Fine.</p>
+          </div>
+        </div></div>
+      </div>
+
+      <!-- Uova -->
+      <div class="cook-block">
+        <div class="cook-header" onclick="toggleCook(this)">
+          🥚 Uova
+          <svg class="cook-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="cook-body"><div class="cook-content">
+          <div class="cook-method">
+            <div class="cook-method-title">🍳 Strapazzate</div>
+            <p>Padella antiaderente, fuoco basso, mescola. 3-4 min.</p>
+          </div>
+          <div class="cook-method">
+            <div class="cook-method-title">🥚 Sode</div>
+            <p>Acqua bollente, 9-10 min. Acqua fredda per sbucciare facilmente.</p>
+          </div>
+        </div></div>
+      </div>
+
+      <!-- Patate -->
+      <div class="cook-block">
+        <div class="cook-header" onclick="toggleCook(this)">
+          🥔 Patate (air fryer)
+          <svg class="cook-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="cook-body"><div class="cook-content">
+          <div class="cook-method">
+            <div class="cook-method-title">🌀 Air fryer — TUTTE le volte</div>
+            <p>Taglia a cubetti o spicchi, 200°C, 20-25 min, gira a metà cottura.</p>
+          </div>
+          <div class="cook-method">
+            <div class="cook-method-title">🌶️ Varia i condimenti</div>
+            <ul>
+              <li>Paprika, origano, curry</li>
+              <li>Aglio in polvere, rosmarino</li>
+            </ul>
+          </div>
+          <div class="cook-tip">💡 NON serve olio nell'air fryer! Metti l'olio EVO a crudo dopo.</div>
+        </div></div>
+      </div>
+
+      <!-- Riso -->
+      <div class="cook-block">
+        <div class="cook-header" onclick="toggleCook(this)">
+          🍚 Riso basmati
+          <svg class="cook-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="cook-body"><div class="cook-content">
+          <div class="cook-method">
+            <p>Rapporto <strong>1:2</strong> — 70g riso + 140ml acqua. Bollire 12-15 min coperto. Scola se c'è acqua in eccesso.</p>
+          </div>
+        </div></div>
+      </div>
+
+      <!-- Pasta -->
+      <div class="cook-block">
+        <div class="cook-header" onclick="toggleCook(this)">
+          🍝 Pasta
+          <svg class="cook-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="cook-body"><div class="cook-content">
+          <div class="cook-method">
+            <p>Acqua bollente salata, segui il tempo sulla confezione. Scola al dente.</p>
+          </div>
+        </div></div>
+      </div>
+
+      <!-- Avena -->
+      <div class="cook-block">
+        <div class="cook-header" onclick="toggleCook(this)">
+          🥣 Avena (colazione)
+          <svg class="cook-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="cook-body"><div class="cook-content">
+          <div class="cook-method">
+            <p>55g avena + 200ml latte in ciotola. Microonde 2-3 min oppure fuoco basso 5 min. Aggiungi frutta, semi di chia, frutta secca.</p>
+          </div>
+        </div></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- 6. SE SGARRI -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="section" id="sgarri">
+  <div class="section-header" onclick="toggleSection(this)">
+    <div class="section-title"><span class="emoji">🆘</span> Se sgarri</div>
+    <svg class="section-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+  </div>
+  <div class="section-body">
+    <div class="section-content">
+
+      <div class="info-box red">
+        <div class="box-title">❌ NON fare</div>
+        <ul>
+          <li>Saltare pasti il giorno dopo</li>
+          <li>Fare cardio extra per "compensare"</li>
+          <li>Sentirti in colpa</li>
+          <li>Sgarrare tutto il giorno perché "ormai è andata"</li>
+        </ul>
+      </div>
+
+      <div class="info-box green">
+        <div class="box-title">✅ FAI questo</div>
+        <ul>
+          <li><strong>Accettalo</strong> — è successo, va bene</li>
+          <li>Il pasto <strong>dopo</strong>, torna al piano</li>
+          <li>1 sgarro su 35 pasti a settimana = <strong>3%</strong></li>
+          <li>Non rovina nulla se non diventa abitudine</li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- 7. PROGRESSI -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="section" id="progressi">
+  <div class="section-header" onclick="toggleSection(this)">
+    <div class="section-title"><span class="emoji">📊</span> Come monitorare i progressi</div>
+    <svg class="section-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+  </div>
+  <div class="section-body">
+    <div class="section-content">
+
+      <div class="rule-list">
+        <div class="rule-item">
+          <div class="rule-num">⚖️</div>
+          <div class="rule-text"><strong>Peso:</strong> 1 volta/settimana, al mattino, dopo il bagno, prima di colazione. Sempre stesso giorno.</div>
+        </div>
+        <div class="rule-item">
+          <div class="rule-num">📸</div>
+          <div class="rule-text"><strong>Foto:</strong> ogni 2 settimane, stessa luce e stessa posa (fronte, lato, dietro).</div>
+        </div>
+        <div class="rule-item">
+          <div class="rule-num">📏</div>
+          <div class="rule-text"><strong>Misure:</strong> vita (all'ombelico), braccia, petto — ogni 2-4 settimane.</div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="info-box green">
+        <div class="box-title">🎯 Target settimanale</div>
+        <ul>
+          <li>Obiettivo: <strong>-0.3 / -0.5 kg a settimana</strong></li>
+          <li>Se perdi &gt;0.7 kg → mangia di più (+carbo)</li>
+          <li>Se 0 per 3 settimane di fila → riduci carbo di 10-15g</li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- 8. ACQUA E SONNO -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="section" id="acqua">
+  <div class="section-header" onclick="toggleSection(this)">
+    <div class="section-title"><span class="emoji">💧</span> Acqua e sonno</div>
+    <svg class="section-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+  </div>
+  <div class="section-body">
+    <div class="section-content">
+
+      <div class="info-box blue">
+        <div class="box-title">💧 Acqua</div>
+        <ul>
+          <li>Giorni normali: <strong>2 – 2.5L</strong></li>
+          <li>Giorni allenamento: <strong>3L+</strong></li>
+          <li>Porta sempre la borraccia in palestra</li>
+        </ul>
+      </div>
+
+      <div class="info-box blue">
+        <div class="box-title">😴 Sonno</div>
+        <ul>
+          <li>Minimo <strong>7 ore</strong></li>
+          <li>Ideale <strong>8-9 ore</strong></li>
+          <li>Il muscolo cresce dormendo, non in palestra</li>
+          <li>Senza sonno → cortisolo alto → perdi muscolo e tieni grasso</li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- 9. LISTA DELLA SPESA -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="section" id="spesa">
+  <div class="section-header" onclick="toggleSection(this)">
+    <div class="section-title"><span class="emoji">🛒</span> Lista della spesa settimanale</div>
+    <svg class="section-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+  </div>
+  <div class="section-body">
+    <div class="section-content">
+
+      <!-- Proteine -->
+      <div class="shop-category">
+        <div class="shop-cat-title">🥩 Proteine</div>
+        <div class="shop-grid">
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Petto pollo ~500g</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Fesa tacchino ~550g</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Macinato 5% ~320g</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Lonza maiale ~180g</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Salsiccia pollo ~160g</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Orata ~200g</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Merluzzo ~220g</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Sgombro scatola ×1</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Tonno scatola ×1</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Uova ×4</div>
+        </div>
+      </div>
+
+      <!-- Affettati -->
+      <div class="shop-category">
+        <div class="shop-cat-title">🥓 Affettati</div>
+        <div class="shop-grid">
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Bresaola ~40g</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Speck ~30g</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Prosciutto cotto ~30g</div>
+        </div>
+      </div>
+
+      <!-- Latticini -->
+      <div class="shop-category">
+        <div class="shop-cat-title">🧀 Latticini</div>
+        <div class="shop-grid">
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Latte intero 1L</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Yogurt greco 0% ×4</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Philadelphia light ×1</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Stracchino light ×1</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Fiocchi latte ×1</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Parmigiano ~50g</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Sottilette ×1</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Whey Prozis</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Budino proteico ×1</div>
+        </div>
+      </div>
+
+      <!-- Carboidrati -->
+      <div class="shop-category">
+        <div class="shop-cat-title">🍚 Carboidrati</div>
+        <div class="shop-grid">
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Riso basmati 500g</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Pasta integrale 500g</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Pasta normale 500g</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Pane integrale</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Pancarré integrale</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Piadine integrali ×3</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Fette biscottate</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Crackers integrali</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Gallette riso</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Grissini</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Patate ~1.5kg</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Fiocchi d'avena</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Special K Protein</div>
+        </div>
+      </div>
+
+      <!-- Verdure -->
+      <div class="shop-category">
+        <div class="shop-cat-title">🥬 Verdure</div>
+        <div class="shop-grid">
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Insalata busta ×2</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Pomodorini 500g</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Pomodori ×2</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Cetrioli ×3</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Peperoni ×3</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Carote 500g</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Mais scatola ×2</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Cipolla ×1</div>
+        </div>
+      </div>
+
+      <!-- Frutta -->
+      <div class="shop-category">
+        <div class="shop-cat-title">🍎 Frutta</div>
+        <div class="shop-grid">
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Banane ×4</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Mela ×1</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Pera ×1</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Pesca ×1</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Kiwi ×2</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Albicocche ×2</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Fragole 200g</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Mirtilli 80g</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Anguria (fetta)</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Ananas (fetta)</div>
+        </div>
+      </div>
+
+      <!-- Frutta secca -->
+      <div class="shop-category">
+        <div class="shop-cat-title">🥜 Frutta secca</div>
+        <div class="shop-grid">
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Pistacchi</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Nocciole</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Mandorle</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Anacardi</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Semi di chia</div>
+        </div>
+      </div>
+
+      <!-- Condimenti -->
+      <div class="shop-category">
+        <div class="shop-cat-title">🫒 Condimenti</div>
+        <div class="shop-grid">
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Olio EVO</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Burro d'arachidi (Lidl)</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Pesto</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Passata pomodoro</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Miele</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Ketchup</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Senape</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Salsa BBQ</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Salsa soia</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Aceto balsamico</div>
+        </div>
+      </div>
+
+      <!-- Extra -->
+      <div class="shop-category">
+        <div class="shop-cat-title">📦 Extra</div>
+        <div class="shop-grid">
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Olive</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Sottaceti</div>
+          <div class="shop-item" onclick="toggleShop(this)"><div class="shop-check"></div>Beef jerky</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- 10. FAQ -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="section" id="faq">
+  <div class="section-header" onclick="toggleSection(this)">
+    <div class="section-title"><span class="emoji">❓</span> FAQ</div>
+    <svg class="section-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+  </div>
+  <div class="section-body">
+    <div class="section-content">
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          Posso scambiare pranzo e cena?
+          <svg class="faq-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="faq-a"><div class="faq-a-inner">
+          <strong>Sì!</strong> Pranzo e cena sono interscambiabili. L'importante è che a fine giornata i macro tornino.
+        </div></div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          Posso scambiare i giorni della settimana?
+          <svg class="faq-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="faq-a"><div class="faq-a-inner">
+          <strong>Sì</strong>, ma mantieni sempre i pasti da allenamento nei giorni in cui ti alleni e quelli da riposo nei giorni off.
+        </div></div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          Se non ho un ingrediente?
+          <svg class="faq-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="faq-a"><div class="faq-a-inner">
+          Apri <strong>sostituzioni.html</strong> per trovare alternative con macro simili.
+        </div></div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          Cosa posso bere?
+          <svg class="faq-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="faq-a"><div class="faq-a-inner">
+          ✅ <strong>OK:</strong> Acqua, tè, caffè, bibite zero<br>
+          ❌ <strong>NO:</strong> Succhi di frutta, bibite zuccherate, energy drink normali
+        </div></div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          Quanto tempo per vedere i risultati?
+          <svg class="faq-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="faq-a"><div class="faq-a-inner">
+          📅 <strong>2-3 settimane</strong> → ti senti diverso<br>
+          📅 <strong>4-6 settimane</strong> → lo vedi allo specchio<br>
+          📅 <strong>8-12 settimane</strong> → gli altri iniziano a farti i complimenti
+        </div></div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          Se ho fame?
+          <svg class="faq-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="faq-a"><div class="faq-a-inner">
+          Aggiungi <strong>verdure</strong> (zero calorie, riempiono). Se la fame persiste per 1 settimana di fila, aggiungi <strong>+10-15g di carboidrati</strong> al giorno.
+        </div></div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          Il pasto libero è obbligatorio?
+          <svg class="faq-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="faq-a"><div class="faq-a-inner">
+          <strong>No</strong>, ma è fortemente consigliato per la sostenibilità mentale. Ti aiuta a non impazzire e a mantenere la dieta nel lungo periodo.
+        </div></div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          La whey con acqua mi fa schifo, alternative?
+          <svg class="faq-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="faq-a"><div class="faq-a-inner">
+          Prova a metterla <strong>molto fredda con ghiaccio</strong> — cambia tutto il sapore. Se proprio non riesci, sostituisci con <strong>yogurt greco 170g</strong> (~17g di proteine).
+        </div></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+</main>
+
+<script>
+// ─── Section accordion ───
+function toggleSection(header) {
+  const section = header.closest('.section');
+  section.classList.toggle('open');
+}
+
+// ─── Tab switching ───
+function switchTab(btn, tabId) {
+  const parent = btn.closest('.section-content');
+  parent.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  parent.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(tabId).classList.add('active');
+}
+
+// ─── Cook block accordion ───
+function toggleCook(header) {
+  header.closest('.cook-block').classList.toggle('open');
+}
+
+// ─── FAQ accordion ───
+function toggleFaq(q) {
+  q.closest('.faq-item').classList.toggle('open');
+}
+
+// ─── Shopping list checkboxes ───
+function toggleShop(item) {
+  item.classList.toggle('checked');
+  saveShopState();
+}
+
+// ─── Persist shopping state ───
+function saveShopState() {
+  const items = document.querySelectorAll('.shop-item');
+  const state = [];
+  items.forEach((item, i) => {
+    if (item.classList.contains('checked')) state.push(i);
+  });
+  try { localStorage.setItem('guida_spesa', JSON.stringify(state)); } catch(e) {}
+}
+
+function loadShopState() {
+  try {
+    const state = JSON.parse(localStorage.getItem('guida_spesa') || '[]');
+    const items = document.querySelectorAll('.shop-item');
+    state.forEach(i => {
+      if (items[i]) items[i].classList.add('checked');
+    });
+  } catch(e) {}
+}
+
+// ─── Init ───
+document.addEventListener('DOMContentLoaded', () => {
+  loadShopState();
+});
+</script>
+
+<!-- BOTTOM NAVBAR -->
+<nav class="mobile-nav">
+  <a href="index.html" class="nav-item">
+    <span class="nav-icon">📅</span>
+    <span class="nav-text">Piano</span>
+  </a>
+  <a href="guida_dieta.html" class="nav-item active">
+    <span class="nav-icon">📖</span>
+    <span class="nav-text">Guida</span>
+  </a>
+  <a href="sostituzioni.html" class="nav-item">
+    <span class="nav-icon">🔄</span>
+    <span class="nav-text">Sostituzioni</span>
+  </a>
+</nav>
+
+</body>
+</html>

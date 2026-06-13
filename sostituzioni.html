@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Guida Sostituzioni Alimentari</title>
+<meta name="description" content="Guida alle sostituzioni alimentari per ricomposizione corporea — categorie, macro, porzioni e combinazioni verdure.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f0f1a;--bg2:#12122a;--card:#1a1a2e;--card-hover:#222240;
+  --accent:#6c5ce7;--accent-glow:rgba(108,92,231,.25);
+  --text:#e8e8f0;--text2:#a0a0b8;--text3:#6a6a80;
+  --border:#2a2a45;--border2:#35355a;
+  --p:#a855f7;--c:#3b82f6;--g:#eab308;--kcal:#9ca3af;--fibre:#22c55e;
+  --radius:14px;--radius-sm:10px;
+}
+html{font-size:15px;-webkit-tap-highlight-color:transparent}
+body{
+  font-family:'Inter',system-ui,-apple-system,sans-serif;
+  background:var(--bg);color:var(--text);
+  min-height:100dvh;overflow-x:hidden;
+  padding-bottom:env(safe-area-inset-bottom,20px);
+}
+::-webkit-scrollbar{width:0;height:0}
+h1{font-size:1.5rem;font-weight:800;letter-spacing:-.03em}
+
+/* ── Header ── */
+.header{
+  position:sticky;top:0;z-index:100;
+  background:rgba(15,15,26,.82);
+  backdrop-filter:blur(18px) saturate(1.6);
+  -webkit-backdrop-filter:blur(18px) saturate(1.6);
+  border-bottom:1px solid var(--border);
+  padding:16px 16px 14px;
+}
+.header-top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.header-top h1{flex:1}
+.header-top .badge{
+  font-size:.65rem;font-weight:700;
+  background:linear-gradient(135deg,var(--accent),#8b5cf6);
+  color:#fff;padding:4px 10px;border-radius:20px;
+  letter-spacing:.04em;white-space:nowrap;
+}
+.search-wrap{position:relative}
+.search-wrap svg{
+  position:absolute;left:12px;top:50%;transform:translateY(-50%);
+  width:18px;height:18px;color:var(--text3);pointer-events:none;
+}
+.search-wrap input{
+  width:100%;padding:11px 14px 11px 38px;
+  background:var(--card);border:1px solid var(--border);
+  border-radius:var(--radius-sm);color:var(--text);font-size:.9rem;
+  font-family:inherit;outline:none;transition:border .2s,box-shadow .2s;
+}
+.search-wrap input::placeholder{color:var(--text3)}
+.search-wrap input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow)}
+.search-clear{
+  position:absolute;right:10px;top:50%;transform:translateY(-50%);
+  background:var(--border);border:none;color:var(--text2);
+  width:22px;height:22px;border-radius:50%;font-size:.75rem;
+  cursor:pointer;display:none;align-items:center;justify-content:center;
+  line-height:1;
+}
+
+/* ── Sections ── */
+.container{padding:16px 16px 40px}
+.section{margin-bottom:22px}
+.section-title{
+  font-size:.7rem;font-weight:700;text-transform:uppercase;
+  letter-spacing:.1em;color:var(--accent);margin-bottom:10px;
+}
+
+/* ── Rules ── */
+.rules{
+  display:grid;gap:10px;margin-bottom:22px;
+}
+.rule{
+  display:flex;align-items:flex-start;gap:10px;
+  background:var(--card);border:1px solid var(--border);
+  border-radius:var(--radius-sm);padding:12px 14px;
+}
+.rule-num{
+  flex-shrink:0;width:26px;height:26px;border-radius:8px;
+  background:linear-gradient(135deg,var(--accent),#8b5cf6);
+  color:#fff;font-size:.72rem;font-weight:800;
+  display:flex;align-items:center;justify-content:center;
+}
+.rule p{font-size:.82rem;line-height:1.45;color:var(--text2)}
+.rule strong{color:var(--text);font-weight:600}
+
+/* ── Veggie Combos ── */
+.veggie-grid{display:grid;gap:10px}
+.veggie-card{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:var(--radius-sm);padding:12px 14px;
+  transition:border .2s;
+}
+.veggie-card:active{border-color:var(--accent)}
+.veggie-name{font-size:.85rem;font-weight:600;margin-bottom:4px}
+.veggie-desc{font-size:.75rem;color:var(--text3);line-height:1.4}
+.veggie-tag{
+  display:inline-block;font-size:.65rem;font-weight:600;
+  background:rgba(34,197,94,.12);color:var(--fibre);
+  padding:2px 8px;border-radius:6px;margin-top:6px;
+}
+
+/* ── Category Toggle ── */
+.cat-header{
+  display:flex;align-items:center;gap:10px;
+  background:var(--card);border:1px solid var(--border);
+  border-radius:var(--radius);padding:14px 16px;
+  cursor:pointer;user-select:none;
+  transition:background .2s,border .2s;
+  margin-bottom:2px;
+}
+.cat-header:active{background:var(--card-hover)}
+.cat-header.open{
+  border-bottom-left-radius:0;border-bottom-right-radius:0;
+  border-bottom-color:transparent;margin-bottom:0;
+}
+.cat-emoji{font-size:1.3rem;flex-shrink:0;line-height:1}
+.cat-label{flex:1}
+.cat-label .name{font-size:.92rem;font-weight:700}
+.cat-label .count{font-size:.7rem;color:var(--text3);margin-left:6px}
+.cat-chevron{
+  width:20px;height:20px;color:var(--text3);
+  transition:transform .25s ease;flex-shrink:0;
+}
+.cat-header.open .cat-chevron{transform:rotate(180deg)}
+.cat-body{
+  background:var(--card);border:1px solid var(--border);
+  border-top:none;border-radius:0 0 var(--radius) var(--radius);
+  overflow:hidden;max-height:0;
+  transition:max-height .35s cubic-bezier(.4,0,.2,1);
+  margin-bottom:12px;
+}
+.cat-body.open{max-height:9999px}
+.cat-body .items{padding:6px 10px 10px}
+
+/* ── Item Card ── */
+.item{
+  padding:11px 12px;border-radius:var(--radius-sm);
+  transition:background .15s;margin-bottom:4px;
+}
+.item:active{background:var(--card-hover)}
+.item-top{display:flex;align-items:flex-start;gap:8px}
+.item-emoji{font-size:1.15rem;flex-shrink:0;line-height:1.2}
+.item-info{flex:1;min-width:0}
+.item-name{font-size:.84rem;font-weight:600;line-height:1.3}
+.item-detail{font-size:.72rem;color:var(--text3);line-height:1.4;margin-top:3px}
+.macros{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+.pill{
+  font-size:.62rem;font-weight:700;
+  padding:3px 8px;border-radius:6px;
+  letter-spacing:.02em;white-space:nowrap;
+}
+.pill-p{background:rgba(168,85,247,.14);color:var(--p)}
+.pill-c{background:rgba(59,130,246,.14);color:var(--c)}
+.pill-g{background:rgba(234,179,8,.14);color:var(--g)}
+.pill-kcal{background:rgba(156,163,175,.12);color:var(--kcal)}
+.pill-fibre{background:rgba(34,197,94,.12);color:var(--fibre)}
+
+/* ── No Results ── */
+.no-results{
+  text-align:center;padding:40px 20px;color:var(--text3);
+  font-size:.9rem;display:none;
+}
+.no-results span{font-size:2rem;display:block;margin-bottom:8px}
+
+/* ── Animations ── */
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.section,.cat-wrap{animation:fadeUp .4s ease both}
+.cat-wrap:nth-child(2){animation-delay:.05s}
+.cat-wrap:nth-child(3){animation-delay:.1s}
+.cat-wrap:nth-child(4){animation-delay:.15s}
+.cat-wrap:nth-child(5){animation-delay:.2s}
+/* ─ Bottom Navigation ─ */
+.mobile-nav { display: none; }
+@media screen and (max-width: 800px) {
+  body { padding-bottom: 80px !important; }
+  .mobile-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: rgba(9,9,11,0.92);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-top: 1px solid rgba(255,255,255,0.06);
+    justify-content: space-around;
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 12px));
+    z-index: 9999;
+  }
+  .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-decoration: none;
+    color: #52525b;
+    gap: 3px;
+    transition: color 0.2s;
+    position: relative;
+    padding: 4px 16px;
+  }
+  .nav-item.active { color: #c084fc; }
+  .nav-item.active::after {
+    content: '';
+    position: absolute;
+    top: -10px;
+    width: 20px; height: 3px;
+    background: #c084fc;
+    border-radius: 0 0 3px 3px;
+  }
+  .nav-icon { font-size: 22px; line-height: 1; }
+  .nav-text {
+    font-size: 10px;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ HEADER ═══ -->
+<header class="header" id="header">
+  <div class="header-top">
+    <h1>🔄 Sostituzioni</h1>
+    <span class="badge">RICOMP.</span>
+  </div>
+  <div class="search-wrap">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35" stroke-linecap="round"/></svg>
+    <input type="text" id="searchInput" placeholder="Cerca alimento..." autocomplete="off">
+    <button class="search-clear" id="searchClear" aria-label="Pulisci">&times;</button>
+  </div>
+</header>
+
+<div class="container" id="mainContent">
+
+<!-- ═══ REGOLE ═══ -->
+<section class="section" id="rulesSection">
+  <div class="section-title">📋 Regole di sostituzione</div>
+  <div class="rules">
+    <div class="rule"><div class="rule-num">1</div><p>Sostituisci <strong>solo nella stessa categoria</strong> — carne↔carne, carbo↔carbo</p></div>
+    <div class="rule"><div class="rule-num">2</div><p>Usa <strong>la porzione indicata</strong> — i grammi sono calibrati sui tuoi macro</p></div>
+    <div class="rule"><div class="rule-num">3</div><p><strong>Max 2-3 sostituzioni</strong> al giorno — il resto segui il piano</p></div>
+  </div>
+</section>
+
+<!-- ═══ MIX VERDURE ═══ -->
+<section class="section" id="veggieSection">
+  <div class="section-title">🥗 Mix verdure (crude, 200-250g)</div>
+  <div class="veggie-grid" id="veggieGrid"></div>
+</section>
+
+<!-- ═══ CATEGORIE ═══ -->
+<div id="categories"></div>
+
+<!-- No results -->
+<div class="no-results" id="noResults"><span>🔍</span>Nessun risultato trovato</div>
+
+</div>
+
+<script>
+/* ──────────────────────────────────────
+   DATA
+   ────────────────────────────────────── */
+
+const VEGGIES = [
+  {name:"Peperoni + Pomodorini",desc:"Con pollo, riso",emoji:"🫑"},
+  {name:"Carote + Cetrioli",desc:"Con pesce, patate",emoji:"🥕"},
+  {name:"Insalata + Mais + Pomodorini",desc:"Classica",emoji:"🥬"},
+  {name:"Insalata + Cetrioli + Carote",desc:"Leggera",emoji:"🥒"},
+  {name:"Peperoni + Mais",desc:"Con pollo, polenta",emoji:"🌽"},
+  {name:"Pomodori + Cetrioli + Cipolla",desc:"Burger, piadina",emoji:"🍅"},
+  {name:"Insalata + Pomodorini + Carote",desc:"Con tacchino",emoji:"🥗"},
+  {name:"Cetrioli + Pomodorini + Mais",desc:"Fresca estate",emoji:"☀️"},
+  {name:"Peperoni + Carote + Cetrioli",desc:"A bastoncini",emoji:"🥢"},
+  {name:"Insalatona Completa",desc:"Lattuga + pomodorini + cetrioli + mais + carote + cipolla",emoji:"🏆"},
+];
+
+const CATEGORIES = [
+  {
+    id:"carne",emoji:"🥩",name:"Carne",
+    items:[
+      {emoji:"🍗",name:"Petto di pollo",detail:"150g — Piastra, forno, paprika, salsa soia, curry",p:"35g P",g:"2g G",kcal:"158 kcal"},
+      {emoji:"🦃",name:"Tacchino (fesa/petto)",detail:"170-180g — Piastra, forno, saltato",p:"41-43g P",g:"2g G",kcal:"185-194 kcal"},
+      {emoji:"🥩",name:"Macinato manzo magro 5%",detail:"150-170g — Ragù, burger, polpette",p:"30-34g P",g:"8-9g G",kcal:"197-218 kcal"},
+      {emoji:"🐖",name:"Lonza di maiale",detail:"170-180g — Piastra, forno — magra come il pollo!",p:"38-40g P",g:"5-6g G",kcal:"200-215 kcal"},
+      {emoji:"🥩",name:"Fesa di vitello",detail:"170g — Piastra, scaloppine senza burro",p:"37g P",g:"4g G",kcal:"185 kcal"},
+      {emoji:"🌭",name:"Salsiccia pollo/tacchino",detail:"150-160g — Piastra, forno, con patate",p:"25-27g P",g:"12-13g G",kcal:"215-235 kcal"},
+      {emoji:"🌭",name:"Würstel pollo/tacchino",detail:"150g — Veloci, padella 2 min, con riso o pane",p:"20g P",g:"12g G",kcal:"200 kcal"},
+    ]
+  },
+  {
+    id:"pesce",emoji:"🐟",name:"Pesce fresco",
+    items:[
+      {emoji:"🍣",name:"Salmone fresco",detail:"180g — Forno, piastra — omega-3 top!",p:"36g P",g:"22g G",kcal:"350 kcal"},
+      {emoji:"🐟",name:"Tonno fresco",detail:"180g — Piastra al sangue, forno",p:"41g P",g:"2g G",kcal:"185 kcal"},
+      {emoji:"🐠",name:"Orata",detail:"200g — Forno con patate, piastra",p:"40g P",g:"8g G",kcal:"228 kcal"},
+      {emoji:"🐟",name:"Merluzzo",detail:"220g — Forno, vapore — magrissimo",p:"37g P",g:"1g G",kcal:"159 kcal"},
+      {emoji:"🐠",name:"Trota",detail:"200-220g — Forno, piastra — simile al salmone",p:"40g P",g:"7g G",kcal:"230 kcal"},
+    ]
+  },
+  {
+    id:"conserve",emoji:"🥫",name:"Conserve proteiche",
+    items:[
+      {emoji:"🥫",name:"Tonno al naturale scatola",detail:"130g sgocciolato",p:"33g P",g:"1g G",kcal:"143 kcal"},
+      {emoji:"🐟",name:"Sgombro in scatola",detail:"120-130g — Sgocciola bene l'olio!",p:"22g P",g:"18g G",kcal:"260 kcal"},
+      {emoji:"🥓",name:"Beef jerky / Carne secca",detail:"40-50g",p:"20g P",g:"2g G",kcal:"100 kcal"},
+    ]
+  },
+  {
+    id:"affettati",emoji:"🥓",name:"Affettati",
+    items:[
+      {emoji:"🥩",name:"Bresaola",detail:"40g",p:"13g P",g:"1g G",kcal:"60 kcal"},
+      {emoji:"🥓",name:"Speck",detail:"30g",p:"9g P",g:"4g G",kcal:"72 kcal"},
+      {emoji:"🍖",name:"Prosciutto cotto magro",detail:"30g",p:"6g P",g:"1g G",kcal:"35 kcal"},
+      {emoji:"🦃",name:"Fesa tacchino affettato",detail:"30-40g",p:"10g P",g:"1g G",kcal:"45 kcal"},
+      {emoji:"🥩",name:"Roast beef",detail:"40g",p:"12g P",g:"2g G",kcal:"65 kcal"},
+      {emoji:"🌭",name:"Mortadella",detail:"30g — Più grassa, ogni tanto",p:"5g P",g:"7g G",kcal:"85 kcal"},
+      {emoji:"🍔",name:"Hamburger pollo preformati",detail:"1 pezzo ~100g",p:"18g P",g:"6g G",kcal:"140 kcal"},
+    ]
+  },
+  {
+    id:"uova",emoji:"🥚",name:"Uova",
+    items:[
+      {emoji:"🥚",name:"Uova intere",detail:"2 uova",p:"12g P",g:"10g G",kcal:"140 kcal"},
+      {emoji:"🍳",name:"Albumi (cartone)",detail:"100ml",p:"11g P",g:"0g G",kcal:"45 kcal"},
+    ]
+  },
+  {
+    id:"latticini",emoji:"🧀",name:"Latticini",
+    items:[
+      {emoji:"🥛",name:"Yogurt greco 0%",detail:"125-170g",p:"12-17g P",g:"0g G",kcal:"70-95 kcal"},
+      {emoji:"🥛",name:"Latte intero",detail:"200ml",p:"7g P",g:"7g G",kcal:"128 kcal"},
+      {emoji:"🧀",name:"Fiocchi di latte",detail:"50g",p:"6g P",g:"2g G",kcal:"45 kcal"},
+      {emoji:"🧀",name:"Mozzarella light",detail:"50g",p:"10g P",g:"5g G",kcal:"85 kcal"},
+      {emoji:"🧀",name:"Philadelphia light",detail:"25-30g",p:"3g P",g:"3g G",kcal:"35-42 kcal"},
+      {emoji:"🧀",name:"Parmigiano/Grana",detail:"15-20g",p:"5-7g P",g:"4-5g G",kcal:"55-75 kcal"},
+      {emoji:"🧀",name:"Stracchino light",detail:"30g",p:"5g P",g:"4g G",kcal:"55 kcal"},
+      {emoji:"🧀",name:"Feta",detail:"40g",p:"6g P",g:"8g G",kcal:"100 kcal"},
+      {emoji:"🧈",name:"Sottilette light",detail:"1 fetta",p:"5g P",g:"3g G",kcal:"45 kcal"},
+      {emoji:"🥤",name:"Whey Prozis Brownie",detail:"1 scoop 30g — Solo con acqua (Lun-Mer-Ven)",p:"24g P",g:"1g G",kcal:"120 kcal"},
+      {emoji:"🍮",name:"Budino proteico / YoPRO",detail:"1 vasetto",p:"20g P",g:"2g G",kcal:"120 kcal"},
+      {emoji:"🥤",name:"Bevanda proteica pronta",detail:"1 bottiglia",p:"25g P",g:"1g G",kcal:"130 kcal"},
+    ]
+  },
+  {
+    id:"carbo",emoji:"🍚",name:"Carboidrati",
+    items:[
+      {emoji:"🍚",name:"Riso basmati",detail:"60-70g crudo",p:"5g P",c:"55g C",kcal:"250 kcal"},
+      {emoji:"🍚",name:"Riso integrale",detail:"60-65g crudo",p:"5g P",c:"50g C",kcal:"230 kcal",fibre:"3g fibre"},
+      {emoji:"🍝",name:"Pasta integrale",detail:"65-70g crudo",p:"8g P",c:"47g C",kcal:"235 kcal",fibre:"5g fibre"},
+      {emoji:"🍝",name:"Pasta normale",detail:"65-75g crudo",p:"8-9g P",c:"50-54g C",kcal:"230-265 kcal"},
+      {emoji:"🥔",name:"Patate (air fryer!)",detail:"180-200g crude",p:"4g P",c:"31g C",kcal:"140 kcal"},
+      {emoji:"🍞",name:"Pane integrale / segale",detail:"40-60g",p:"4-5g P",c:"25g C",kcal:"120 kcal"},
+      {emoji:"🫓",name:"Piadina / Wrap / Pita",detail:"×1",p:"6g P",c:"37g C",kcal:"240 kcal"},
+      {emoji:"🥣",name:"Avena",detail:"50-60g",p:"7g P",c:"35g C",kcal:"210 kcal",fibre:"5g fibre"},
+      {emoji:"🥣",name:"Special K Protein",detail:"40g — 21% proteine!",p:"8g P",c:"26g C",kcal:"153 kcal"},
+      {emoji:"🍞",name:"Fette biscottate",detail:"×4",p:"4g P",c:"30g C",kcal:"155 kcal"},
+      {emoji:"🍘",name:"Gallette / Crackers / Grissini",detail:"25-40g",p:"3-4g P",c:"20-28g C",kcal:"100-167 kcal"},
+      {emoji:"🍞",name:"Pancarré integrale",detail:"2 fette",p:"4g P",c:"24g C",kcal:"130 kcal"},
+      {emoji:"🫓",name:"Focaccia sottile",detail:"60-70g — ogni tanto",p:"5g P",c:"32g C",kcal:"185 kcal"},
+      {emoji:"🌽",name:"Pannocchia mais",detail:"×1 — alla griglia estate",p:"3g P",c:"25g C",kcal:"120 kcal"},
+    ]
+  },
+  {
+    id:"nuts",emoji:"🥜",name:"Frutta secca & semi",
+    items:[
+      {emoji:"🌰",name:"Mandorle",detail:"10g (6-8 pezzi)",p:"2g P",g:"5g G",kcal:"60 kcal"},
+      {emoji:"🌰",name:"Noci",detail:"10g (2-3 noci) — omega-3",p:"2g P",g:"7g G",kcal:"70 kcal"},
+      {emoji:"🟢",name:"Pistacchi",detail:"10g",p:"2g P",g:"5g G",kcal:"60 kcal"},
+      {emoji:"🥜",name:"Anacardi",detail:"10g",p:"2g P",g:"4g G",kcal:"55 kcal"},
+      {emoji:"🌰",name:"Nocciole",detail:"10g",p:"1g P",g:"6g G",kcal:"65 kcal"},
+      {emoji:"🥜",name:"Arachidi",detail:"10g",p:"3g P",g:"5g G",kcal:"60 kcal"},
+      {emoji:"🫘",name:"Semi di chia",detail:"5g",p:"1g P",g:"2g G",kcal:"25 kcal",fibre:"fibre!"},
+    ]
+  },
+  {
+    id:"frutta",emoji:"🍎",name:"Frutta",
+    items:[
+      {emoji:"🍌",name:"Banana",detail:"½ o ×1 — pre-workout",p:"1g P",c:"27g C",kcal:"105 kcal"},
+      {emoji:"🍓",name:"Fragole",detail:"80-100g",p:"1g P",c:"7g C",kcal:"30 kcal"},
+      {emoji:"🫐",name:"Mirtilli",detail:"60-80g",p:"1g P",c:"10g C",kcal:"40 kcal"},
+      {emoji:"🫐",name:"Lamponi",detail:"60-80g — tante fibre",p:"1g P",c:"6g C",kcal:"30 kcal",fibre:"fibre"},
+      {emoji:"🥝",name:"Kiwi",detail:"×1-2",p:"1g P",c:"7-14g C",kcal:"30-60 kcal"},
+      {emoji:"🍏",name:"Mela",detail:"×1",p:"0g P",c:"20g C",kcal:"80 kcal"},
+      {emoji:"🍐",name:"Pera",detail:"×1",p:"0g P",c:"22g C",kcal:"85 kcal"},
+      {emoji:"🍑",name:"Pesca",detail:"×1",p:"1g P",c:"12g C",kcal:"50 kcal"},
+      {emoji:"🍑",name:"Albicocca",detail:"×2",p:"1g P",c:"10g C",kcal:"40 kcal"},
+      {emoji:"🍊",name:"Arancia",detail:"×1",p:"1g P",c:"15g C",kcal:"60 kcal"},
+      {emoji:"🍉",name:"Anguria",detail:"150-200g — pochissime kcal",p:"1g P",c:"12g C",kcal:"50 kcal"},
+      {emoji:"🍍",name:"Ananas",detail:"80-100g",p:"0g P",c:"11g C",kcal:"45 kcal"},
+      {emoji:"🍇",name:"Uva",detail:"80g",p:"0g P",c:"14g C",kcal:"55 kcal"},
+      {emoji:"🍑",name:"Prugna",detail:"×1-2",p:"0g P",c:"10g C",kcal:"40 kcal"},
+    ]
+  },
+  {
+    id:"condimenti",emoji:"🫒",name:"Condimenti & salse",
+    items:[
+      {emoji:"🫒",name:"Olio EVO",detail:"8-10g (1 cucchiaio)",g:"10g G",kcal:"90 kcal"},
+      {emoji:"🫒",name:"Olive",detail:"15-20g",g:"3g G",kcal:"30 kcal"},
+      {emoji:"🥜",name:"Burro d'arachidi",detail:"10-15g",p:"4g P",g:"7-8g G",kcal:"62-93 kcal"},
+      {emoji:"🌿",name:"Pesto genovese",detail:"15g — conta come grasso!",g:"6g G",kcal:"60 kcal"},
+      {emoji:"🍅",name:"Passata pomodoro",detail:"80-100g",p:"1g P",c:"5g C",kcal:"25 kcal"},
+      {emoji:"🍫",name:"Crema nocciole proteica",detail:"15g",p:"3g P",g:"4g G",kcal:"55 kcal"},
+      {emoji:"🍓",name:"Marmellata s.z. aggiunti",detail:"15-20g",c:"5g C",kcal:"25 kcal"},
+      {emoji:"🍯",name:"Miele",detail:"5-10g",c:"8g C",kcal:"30 kcal"},
+      {emoji:"🥫",name:"Ketchup / Senape / Salsa BBQ",detail:"Liberi in piccole dosi",kcal:"10-20 kcal"},
+      {emoji:"🫙",name:"Aceto balsamico",detail:"Libero",kcal:"~5 kcal"},
+      {emoji:"🥢",name:"Salsa di soia light",detail:"Libera",kcal:"~5 kcal"},
+      {emoji:"🥛",name:"Salsa yogurt / Tzatziki",detail:"30g",p:"2g P",kcal:"20 kcal"},
+      {emoji:"🧃",name:"Spremuta / Succo ACE",detail:"200ml — ogni tanto",c:"20g C",kcal:"90 kcal"},
+    ]
+  },
+  {
+    id:"snack",emoji:"🍫",name:"Snack extra",
+    items:[
+      {emoji:"🍫",name:"Cioccolato fondente 85%+",detail:"15-20g (2-3 quadratini)",g:"8g G",kcal:"100 kcal"},
+      {emoji:"🍿",name:"Popcorn senza burro",detail:"30g",c:"18g C",kcal:"110 kcal",fibre:"4g fibre"},
+      {emoji:"🥥",name:"Cocco fresco",detail:"30-40g",g:"11g G",kcal:"115 kcal"},
+    ]
+  },
+];
+
+/* ──────────────────────────────────────
+   RENDER
+   ────────────────────────────────────── */
+
+// Veggie combos
+const veggieGrid = document.getElementById('veggieGrid');
+VEGGIES.forEach(v => {
+  const d = document.createElement('div');
+  d.className = 'veggie-card';
+  d.setAttribute('data-search', v.name.toLowerCase() + ' ' + v.desc.toLowerCase());
+  d.innerHTML = `
+    <div class="veggie-name">${v.emoji} ${v.name}</div>
+    <div class="veggie-desc">${v.desc}</div>
+    <span class="veggie-tag">200-250g crude</span>
+  `;
+  veggieGrid.appendChild(d);
+});
+
+// Categories
+const catContainer = document.getElementById('categories');
+CATEGORIES.forEach((cat, i) => {
+  const wrap = document.createElement('div');
+  wrap.className = 'cat-wrap section';
+  wrap.id = 'cat-' + cat.id;
+
+  const isOpen = i === 0;
+
+  // Header
+  const header = document.createElement('div');
+  header.className = 'cat-header' + (isOpen ? ' open' : '');
+  header.innerHTML = `
+    <span class="cat-emoji">${cat.emoji}</span>
+    <div class="cat-label">
+      <span class="name">${cat.name}</span>
+      <span class="count">${cat.items.length}</span>
+    </div>
+    <svg class="cat-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  `;
+
+  // Body
+  const body = document.createElement('div');
+  body.className = 'cat-body' + (isOpen ? ' open' : '');
+  const itemsDiv = document.createElement('div');
+  itemsDiv.className = 'items';
+
+  cat.items.forEach(it => {
+    const el = document.createElement('div');
+    el.className = 'item';
+    el.setAttribute('data-search', it.name.toLowerCase() + ' ' + (it.detail||'').toLowerCase());
+
+    let pills = '';
+    if (it.p) pills += `<span class="pill pill-p">${it.p}</span>`;
+    if (it.c) pills += `<span class="pill pill-c">${it.c}</span>`;
+    if (it.g) pills += `<span class="pill pill-g">${it.g}</span>`;
+    if (it.kcal) pills += `<span class="pill pill-kcal">${it.kcal}</span>`;
+    if (it.fibre) pills += `<span class="pill pill-fibre">${it.fibre}</span>`;
+
+    el.innerHTML = `
+      <div class="item-top">
+        <span class="item-emoji">${it.emoji}</span>
+        <div class="item-info">
+          <div class="item-name">${it.name}</div>
+          ${it.detail ? `<div class="item-detail">${it.detail}</div>` : ''}
+          <div class="macros">${pills}</div>
+        </div>
+      </div>
+    `;
+    itemsDiv.appendChild(el);
+  });
+
+  body.appendChild(itemsDiv);
+  wrap.appendChild(header);
+  wrap.appendChild(body);
+  catContainer.appendChild(wrap);
+
+  // Toggle
+  header.addEventListener('click', () => {
+    const isNowOpen = header.classList.toggle('open');
+    body.classList.toggle('open', isNowOpen);
+  });
+});
+
+/* ──────────────────────────────────────
+   SEARCH
+   ────────────────────────────────────── */
+const searchInput = document.getElementById('searchInput');
+const searchClear = document.getElementById('searchClear');
+const noResults = document.getElementById('noResults');
+const rulesSection = document.getElementById('rulesSection');
+const veggieSection = document.getElementById('veggieSection');
+
+searchInput.addEventListener('input', () => {
+  const q = searchInput.value.toLowerCase().trim();
+  searchClear.style.display = q ? 'flex' : 'none';
+
+  if (!q) {
+    // Reset
+    rulesSection.style.display = '';
+    veggieSection.style.display = '';
+    noResults.style.display = 'none';
+    document.querySelectorAll('.veggie-card').forEach(c => c.style.display = '');
+    document.querySelectorAll('.cat-wrap').forEach(w => w.style.display = '');
+    document.querySelectorAll('.item').forEach(i => i.style.display = '');
+    return;
+  }
+
+  rulesSection.style.display = 'none';
+
+  // Veggie
+  let veggieMatches = 0;
+  document.querySelectorAll('.veggie-card').forEach(c => {
+    const match = c.getAttribute('data-search').includes(q);
+    c.style.display = match ? '' : 'none';
+    if (match) veggieMatches++;
+  });
+  veggieSection.style.display = veggieMatches ? '' : 'none';
+
+  // Categories
+  let totalMatches = veggieMatches;
+  document.querySelectorAll('.cat-wrap').forEach(wrap => {
+    const items = wrap.querySelectorAll('.item');
+    let catMatches = 0;
+    items.forEach(item => {
+      const match = item.getAttribute('data-search').includes(q);
+      item.style.display = match ? '' : 'none';
+      if (match) catMatches++;
+    });
+    wrap.style.display = catMatches ? '' : 'none';
+    if (catMatches) {
+      wrap.querySelector('.cat-header').classList.add('open');
+      wrap.querySelector('.cat-body').classList.add('open');
+    }
+    totalMatches += catMatches;
+  });
+
+  noResults.style.display = totalMatches ? 'none' : 'block';
+});
+
+searchClear.addEventListener('click', () => {
+  searchInput.value = '';
+  searchInput.dispatchEvent(new Event('input'));
+  searchInput.focus();
+});
+</script>
+<!-- BOTTOM NAVBAR -->
+<nav class="mobile-nav">
+  <a href="index.html" class="nav-item">
+    <span class="nav-icon">📅</span>
+    <span class="nav-text">Piano</span>
+  </a>
+  <a href="guida_dieta.html" class="nav-item">
+    <span class="nav-icon">📖</span>
+    <span class="nav-text">Guida</span>
+  </a>
+  <a href="sostituzioni.html" class="nav-item active">
+    <span class="nav-icon">🔄</span>
+    <span class="nav-text">Sostituzioni</span>
+  </a>
+</nav>
+
+</body>
+</html>
