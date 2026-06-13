@@ -313,6 +313,110 @@ html, body {
     border: 1px solid #eee;
   }
 }
+
+/* ── MOBILE RESPONSIVE ── */
+@media screen and (max-width: 800px) {
+  body {
+    max-width: 100%;
+    margin: 0;
+    padding: 10px;
+    box-shadow: none;
+    border: none;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .header {
+    padding: 15px 10px;
+    margin-bottom: 15px;
+  }
+  .header h1 {
+    font-size: 20px;
+    margin-bottom: 5px;
+  }
+  .header .subtitle {
+    font-size: 12px;
+    margin-bottom: 10px;
+  }
+  .macro-bar {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .macro-item {
+    font-size: 12px;
+    padding: 6px 12px;
+  }
+  .week-grid {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+  .day-card {
+    border-width: 2px;
+  }
+  .day-header {
+    padding: 10px;
+    font-size: 14px;
+  }
+  .day-header .day-name {
+    font-size: 18px;
+  }
+  .day-header .day-sub {
+    font-size: 12px;
+    margin-top: 3px;
+  }
+  .day-body {
+    padding: 12px;
+  }
+  .meal {
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+  }
+  .meal-label {
+    font-size: 15px;
+    margin-bottom: 5px;
+  }
+  .meal-items {
+    font-size: 14px;
+  }
+  .meal-items li {
+    padding-left: 12px;
+    margin-bottom: 4px;
+  }
+  .savory-tag, .whey-tag {
+    font-size: 10px;
+    padding: 2px 5px;
+  }
+  .note {
+    font-size: 12px;
+  }
+  .cheat-meal {
+    padding: 10px;
+  }
+  .cheat-meal .meal-label {
+    font-size: 16px;
+  }
+  .cheat-meal p {
+    font-size: 13px;
+  }
+  .footer {
+    grid-template-columns: 1fr;
+    gap: 15px;
+    margin-top: 15px;
+  }
+  .footer-box {
+    font-size: 13px;
+    padding: 15px;
+  }
+  .footer-box h3 {
+    font-size: 16px;
+    margin-bottom: 8px;
+  }
+  .footer-box ul li {
+    padding: 3px 0;
+  }
+  .footer-box ul li::before {
+    font-size: 12px;
+  }
+}
 </style>
 </head>
 <body>
