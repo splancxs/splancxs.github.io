@@ -615,19 +615,132 @@ html, body {
     text-transform: uppercase;
   }
 }
+
+/* ── PRE/POST WORKOUT TABLE (Desktop/Print - Light Mode) ── */
+.wo-section {
+  max-width: 100%;
+  margin-top: 10px;
+}
+.wo-title {
+  font-size: 8pt;
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.wo-badge {
+  font-size: 5pt;
+  font-weight: 700;
+  background: #f3e8ff;
+  color: #7c3aed;
+  border: 1px solid #d8b4fe;
+  padding: 2px 6px;
+  border-radius: 10px;
+  letter-spacing: 0.2px;
+}
+.wo-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border: 1.2px solid #ddd;
+  border-radius: 4px;
+  overflow: hidden;
+  font-size: 6.5pt;
+  margin-bottom: 10px;
+}
+.wo-table thead tr {
+  background: #f8fafc;
+}
+.wo-table th {
+  padding: 4px 6px;
+  text-align: left;
+  font-size: 6pt;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  border-bottom: 1.2px solid #ddd;
+}
+.wo-table td {
+  padding: 6px 6px;
+  color: #334155;
+  vertical-align: top;
+  border-top: 0.8px dashed #d1d5db;
+  line-height: 1.35;
+}
+.pre-row td:first-child { color: #d97706; font-weight: 700; }
+.post-row td:first-child { color: #2563eb; font-weight: 700; }
+.pre-row { background: #fffbeb; }
+.post-row { background: #eff6ff; }
+.wo-table td strong { color: #0f172a; }
+.wo-note { color: #64748b; font-size: 6pt; }
+
+/* Mobile: stack table as cards & Dark App Mode */
+@media screen and (max-width: 800px) {
+  .wo-section { margin-top: 24px; padding: 0; }
+  .wo-title { font-size: 18px; color: #e4e4e7; margin-bottom: 14px; }
+  .wo-badge { font-size: 11px; padding: 3px 10px; border-radius: 20px; background: rgba(168,85,247,0.18); color: #c084fc; border-color: rgba(168,85,247,0.3); }
+  .wo-table { font-size: 14px; background: transparent; border: none; margin-bottom: 30px; }
+  
+  .wo-table, .wo-table thead, .wo-table tbody,
+  .wo-table th, .wo-table td, .wo-table tr { display: block; }
+  .wo-table thead { display: none; }
+  
+  .wo-table tr {
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    margin-bottom: 12px;
+    padding: 6px 0;
+    overflow: hidden;
+  }
+  .pre-row { background: rgba(251,191,36,0.04); }
+  .post-row { background: rgba(96,165,250,0.04); }
+  
+  .wo-table td {
+    padding: 10px 14px;
+    border-top: 1px solid rgba(255,255,255,0.04);
+    display: flex;
+    gap: 8px;
+    color: #d4d4d8;
+  }
+  .wo-table td:first-child { border-top: none; }
+  
+  .wo-table td::before {
+    font-size: 11px;
+    font-weight: 700;
+    color: #a1a1aa;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    min-width: 70px;
+    padding-top: 2px;
+    flex-shrink: 0;
+  }
+  .pre-row td:first-child { color: #fbbf24; }
+  .post-row td:first-child { color: #60a5fa; }
+  .wo-table td strong { color: #f4f4f5; }
+  .wo-note { color: #a1a1aa; font-size: 13px; }
+
+  .wo-table td:nth-child(1)::before { content: 'Fase'; }
+  .wo-table td:nth-child(2)::before { content: 'Quando'; }
+  .wo-table td:nth-child(3)::before { content: 'Cosa'; }
+  .wo-table td:nth-child(4)::before { content: 'Macros'; }
+  .wo-table td:nth-child(5)::before { content: 'Perché'; }
+}
 </style>
+
 </head>
 <body>
 
 <!-- ═══════════════ HEADER ═══════════════ -->
 <div class="header">
   <h1>🍽️ Piano Alimentare Settimanale</h1>
-  <div class="subtitle">~1800 kcal media · Whey + acqua post-workout (Lun-Mer-Ven) · Libero domenica pranzo · Pesi a CRUDO</div>
+  <div class="subtitle">~2000 kcal media · Bowl yogurt greco post-workout (Lun-Mer-Ven) · Libero domenica pranzo · Pesi a CRUDO</div>
   <div class="macro-bar">
-    <span class="macro-item"><span class="dot dot-kcal"></span> ~1800 Kcal media</span>
+    <span class="macro-item"><span class="dot dot-kcal"></span> ~2000 Kcal media</span>
     <span class="macro-item"><span class="dot dot-prot"></span> ~150g Proteine</span>
-    <span class="macro-item"><span class="dot dot-carb"></span> ~185g Carboidrati</span>
-    <span class="macro-item"><span class="dot dot-fat"></span> ~50g Grassi</span>
+    <span class="macro-item"><span class="dot dot-carb"></span> ~215g Carboidrati</span>
+    <span class="macro-item"><span class="dot dot-fat"></span> ~58g Grassi</span>
   </div>
 </div>
 
@@ -638,7 +751,7 @@ html, body {
   <div class="day-card training">
     <div class="day-header">
       <div class="day-name">Lunedì</div>
-      <div class="day-sub">Allenamento A 🏋️ · ~1770 kcal</div>
+      <div class="day-sub">Allenamento A 🏋️ · ~1900 kcal</div>
     </div>
     <div class="day-body">
       <div class="meal">
@@ -651,32 +764,34 @@ html, body {
         </ul>
       </div>
       <div class="meal">
-        <div class="meal-label">🥪 Spuntino <span class="whey-tag">WHEY</span></div>
-        <ul class="meal-items">
-          <li>🥤 Whey + acqua <span class="weight">300ml</span></li>
-        </ul>
-      </div>
-      <div class="meal">
         <div class="meal-label">🍽️ Pranzo</div>
         <ul class="meal-items">
           <li>Pollo alla paprika <span class="weight">150g</span></li>
-          <li>Riso basmati <span class="weight">70g</span></li>
+          <li>Riso basmati <span class="weight">90g</span></li>
           <li>Peperoni + pomodorini <span class="weight">200g</span></li>
           <li>Olio EVO <span class="weight">10g</span></li>
         </ul>
       </div>
       <div class="meal">
-        <div class="meal-label">🍌 Pre-Workout</div>
+        <div class="meal-label">🍌 Pre-Workout <span class="note">~30 min prima della palestra</span></div>
         <ul class="meal-items">
-          <li>Banana ×1 + crackers <span class="weight">40g</span></li>
+          <li>Banana ×1 + crackers <span class="weight">50g</span></li>
+        </ul>
+      </div>
+      <div class="meal">
+        <div class="meal-label">🥣 Post-Workout <span class="note">entro 30 min dopo</span></div>
+        <ul class="meal-items">
+          <li>Yogurt greco 0% <span class="weight">200g</span></li>
+          <li>Frutta a scelta <span class="note">(mirtilli, fragole, kiwi...)</span></li>
+          <li>Avena <span class="weight">20g</span></li>
         </ul>
       </div>
       <div class="meal">
         <div class="meal-label">🌙 Cena</div>
         <ul class="meal-items">
           <li>Orata al forno <span class="weight">200g</span></li>
-          <li>Patate air fryer <span class="weight">180g</span></li>
-          <li>Insalata + cetrioli + carote <span class="weight">200g</span></li>
+          <li>Patate air fryer <span class="weight">200g</span></li>
+          <li>Verdure a scelta <span class="note">(insalata, cetrioli, carote, peperoni...)</span></li>
           <li>Olio EVO <span class="weight">8g</span></li>
         </ul>
       </div>
@@ -684,7 +799,7 @@ html, body {
         <div class="meal-label">🫐 Sera</div>
         <ul class="meal-items">
           <li>Yogurt greco 0% <span class="weight">125g</span></li>
-          <li>Kiwi ×1</li>
+          <li>Kiwi ×1 + mandorle <span class="weight">10g</span></li>
         </ul>
       </div>
     </div>
@@ -694,13 +809,14 @@ html, body {
   <div class="day-card rest">
     <div class="day-header">
       <div class="day-name">Martedì</div>
-      <div class="day-sub">Riposo 😴 · ~1810 kcal</div>
+      <div class="day-sub">Riposo 😴 · ~1900 kcal</div>
     </div>
     <div class="day-body">
       <div class="meal">
         <div class="meal-label">☀️ Colazione</div>
         <ul class="meal-items">
-          <li>Special K Protein <span class="weight">40g</span> + latte <span class="weight">200ml</span></li>
+          <li>2 uova strapazzate <span class="note">(padella antiaderente)</span></li>
+          <li>Special K Protein <span class="weight">40g</span> + latte p. scremato <span class="weight">150ml</span></li>
           <li>Pesca ×1 + pistacchi <span class="weight">10g</span></li>
         </ul>
       </div>
@@ -717,7 +833,7 @@ html, body {
           <li>Pasta integrale <span class="weight">65g</span></li>
           <li><span class="note">al ragù</span> (manzo <span class="weight">170g</span> + passata)</li>
           <li>Parmigiano <span class="weight">15g</span></li>
-          <li>Insalata + mais <span class="weight">200g</span></li>
+          <li>Verdure a scelta <span class="note">(insalata, mais, carote...)</span></li>
         </ul>
       </div>
       <div class="meal">
@@ -731,14 +847,14 @@ html, body {
         <ul class="meal-items">
           <li>Tacchino piastra <span class="weight">180g</span></li>
           <li>Patate air fryer <span class="weight">200g</span></li>
-          <li>Cetrioli + pomodorini + carote <span class="weight">200g</span></li>
+          <li>Verdure a scelta <span class="note">(cetrioli, pomodorini, carote...)</span></li>
           <li>Olio EVO <span class="weight">8g</span></li>
         </ul>
       </div>
       <div class="meal">
         <div class="meal-label">🫐 Sera</div>
         <ul class="meal-items">
-          <li>Yogurt greco 0% <span class="weight">170g</span></li>
+          <li>Budino proteico ×1</li>
           <li>Mirtilli <span class="weight">60g</span></li>
         </ul>
       </div>
@@ -749,7 +865,7 @@ html, body {
   <div class="day-card training">
     <div class="day-header">
       <div class="day-name">Mercoledì</div>
-      <div class="day-sub">Allenamento B 🏋️ · ~1810 kcal</div>
+      <div class="day-sub">Allenamento B 🏋️ · ~2050 kcal</div>
     </div>
     <div class="day-body">
       <div class="meal">
@@ -762,32 +878,35 @@ html, body {
         </ul>
       </div>
       <div class="meal">
-        <div class="meal-label">🥪 Spuntino <span class="whey-tag">WHEY</span></div>
-        <ul class="meal-items">
-          <li>🥤 Whey + acqua <span class="weight">300ml</span></li>
-        </ul>
-      </div>
-      <div class="meal">
         <div class="meal-label">🍽️ Pranzo</div>
         <ul class="meal-items">
           <li>Merluzzo al forno <span class="weight">220g</span></li>
-          <li>Patate air fryer <span class="weight">180g</span></li>
+          <li>Patate air fryer <span class="weight">210g</span></li>
           <li>Pomodorini + mais + carote <span class="weight">250g</span></li>
           <li>Olio EVO <span class="weight">10g</span></li>
         </ul>
       </div>
       <div class="meal">
-        <div class="meal-label">🍌 Pre-Workout</div>
+        <div class="meal-label">🍌 Pre-Workout <span class="note">~30 min prima della palestra</span></div>
         <ul class="meal-items">
-          <li>Banana ×1 + crackers <span class="weight">40g</span></li>
+          <li>Banana ×1 + crackers <span class="weight">50g</span></li>
+        </ul>
+      </div>
+      <div class="meal">
+        <div class="meal-label">🥣 Post-Workout <span class="note">entro 30 min dopo</span></div>
+        <ul class="meal-items">
+          <li>Yogurt greco 0% <span class="weight">200g</span></li>
+          <li>Frutta a scelta <span class="note">(mirtilli, fragole, kiwi...)</span></li>
+          <li>Avena <span class="weight">20g</span></li>
         </ul>
       </div>
       <div class="meal">
         <div class="meal-label">🌙 Cena</div>
         <ul class="meal-items">
-          <li>Burger manzo <span class="weight">150g</span> + sottiletta</li>
+          <li>Burger manzo <span class="weight">150g</span></li>
           <li>Pane integrale <span class="weight">60g</span></li>
-          <li>Insalata + pomodori + cipolla <span class="weight">200g</span></li>
+          <li>Parmigiano <span class="weight">15g</span></li>
+          <li>Verdure a scelta <span class="note">(insalata, pomodori, cipolla...)</span></li>
           <li><span class="note">ketchup + senape</span></li>
         </ul>
       </div>
@@ -795,7 +914,7 @@ html, body {
         <div class="meal-label">🫐 Sera</div>
         <ul class="meal-items">
           <li>Yogurt greco 0% <span class="weight">150g</span></li>
-          <li>Fragole <span class="weight">100g</span> + nocciole <span class="weight">10g</span></li>
+          <li>Fragole <span class="weight">100g</span> + pistacchi <span class="weight">10g</span></li>
         </ul>
       </div>
     </div>
@@ -805,13 +924,14 @@ html, body {
   <div class="day-card rest">
     <div class="day-header">
       <div class="day-name">Giovedì</div>
-      <div class="day-sub">Riposo 😴 · ~1710 kcal</div>
+      <div class="day-sub">Riposo 😴 · ~1860 kcal</div>
     </div>
     <div class="day-body">
       <div class="meal">
         <div class="meal-label">☀️ Colazione</div>
         <ul class="meal-items">
           <li>Fette biscottate ×4</li>
+          <li>Banana ½</li>
           <li>Burro d'arachidi <span class="weight">15g</span></li>
           <li>Latte intero <span class="weight">200ml</span></li>
         </ul>
@@ -826,16 +946,17 @@ html, body {
       <div class="meal">
         <div class="meal-label">🍽️ Pranzo</div>
         <ul class="meal-items">
-          <li>Pasta <span class="weight">65g</span> + tonno scatola <span class="weight">130g</span></li>
+          <li>Pasta <span class="weight">80g</span> + tonno scatola <span class="weight">130g</span></li>
           <li><span class="note">pomodorini + olive</span> <span class="weight">20g</span></li>
           <li>Parmigiano <span class="weight">15g</span></li>
-          <li>Insalata + cetrioli <span class="weight">200g</span></li>
+          <li>Verdure a scelta <span class="note">(insalata, cetrioli, pomodorini...)</span></li>
         </ul>
       </div>
       <div class="meal">
         <div class="meal-label">🍎 Spuntino</div>
         <ul class="meal-items">
-          <li>Beef jerky <span class="weight">40g</span></li>
+          <li>1 uovo sodo + albumi <span class="weight">100ml</span> sodi</li>
+          <li><span class="note">sale, pepe, paprika</span></li>
         </ul>
       </div>
       <div class="meal">
@@ -843,7 +964,7 @@ html, body {
         <ul class="meal-items">
           <li>Salsiccia pollo <span class="weight">160g</span></li>
           <li>Patate air fryer <span class="weight">200g</span></li>
-          <li>Pomodorini + cetrioli + carote <span class="weight">200g</span></li>
+          <li>Verdure a scelta <span class="note">(pomodorini, cetrioli, carote...)</span></li>
           <li>Olio EVO <span class="weight">8g</span></li>
         </ul>
       </div>
@@ -851,6 +972,7 @@ html, body {
         <div class="meal-label">🫐 Sera</div>
         <ul class="meal-items">
           <li>Budino proteico ×1</li>
+          <li>Mela ×1</li>
         </ul>
       </div>
     </div>
@@ -860,7 +982,7 @@ html, body {
   <div class="day-card training">
     <div class="day-header">
       <div class="day-name">Venerdì</div>
-      <div class="day-sub">Allenamento A 🏋️ · ~1770 kcal</div>
+      <div class="day-sub">Allenamento A 🏋️ · ~2050 kcal</div>
     </div>
     <div class="day-body">
       <div class="meal">
@@ -873,24 +995,26 @@ html, body {
         </ul>
       </div>
       <div class="meal">
-        <div class="meal-label">🥪 Spuntino <span class="whey-tag">WHEY</span></div>
-        <ul class="meal-items">
-          <li>🥤 Whey + acqua <span class="weight">300ml</span></li>
-        </ul>
-      </div>
-      <div class="meal">
         <div class="meal-label">🍽️ Pranzo</div>
         <ul class="meal-items">
           <li>Tacchino <span class="weight">170g</span></li>
-          <li>Pasta al pesto <span class="weight">75g</span> <span class="note">(pesto 15g)</span></li>
+          <li>Pasta al pesto <span class="weight">65g</span> <span class="note">(pesto 15g)</span></li>
           <li>Parmigiano <span class="weight">15g</span></li>
-          <li>Pomodorini + cetrioli <span class="weight">180g</span></li>
+          <li>Verdure a scelta <span class="note">(pomodorini, cetrioli...)</span></li>
         </ul>
       </div>
       <div class="meal">
-        <div class="meal-label">🍌 Pre-Workout</div>
+        <div class="meal-label">🍌 Pre-Workout <span class="note">~30 min prima della palestra</span></div>
         <ul class="meal-items">
-          <li>Banana ×1 + yogurt greco <span class="weight">100g</span></li>
+          <li>Banana ×1 + crackers <span class="weight">50g</span></li>
+        </ul>
+      </div>
+      <div class="meal">
+        <div class="meal-label">🥣 Post-Workout <span class="note">entro 30 min dopo</span></div>
+        <ul class="meal-items">
+          <li>Yogurt greco 0% <span class="weight">200g</span></li>
+          <li>Frutta a scelta <span class="note">(mirtilli, fragole, kiwi...)</span></li>
+          <li>Avena <span class="weight">20g</span></li>
         </ul>
       </div>
       <div class="meal">
@@ -898,14 +1022,14 @@ html, body {
         <ul class="meal-items">
           <li>Sgombro scatola <span class="weight">130g</span> <span class="note">(sgocciolato)</span></li>
           <li>Patate air fryer <span class="weight">180g</span></li>
-          <li>Insalata + carote + peperoni <span class="weight">200g</span></li>
+          <li>Verdure a scelta <span class="note">(insalata, carote, peperoni...)</span></li>
           <li>Olio EVO <span class="weight">8g</span> + <span class="note">aceto bals.</span></li>
         </ul>
       </div>
       <div class="meal">
         <div class="meal-label">🫐 Sera</div>
         <ul class="meal-items">
-          <li>Albicocche ×2</li>
+          <li>Fiocchi di latte <span class="weight">150g</span> + fragole <span class="weight">80g</span></li>
         </ul>
       </div>
     </div>
@@ -921,17 +1045,17 @@ html, body {
       <div class="meal">
         <div class="meal-label">☀️ Colazione</div>
         <ul class="meal-items">
-          <li>Fette biscottate ×4</li>
+          <li>1 uovo + albumi <span class="weight">100ml</span> strapazzati</li>
+          <li>Fette biscottate ×3</li>
           <li>Burro d'arachidi <span class="weight">15g</span></li>
-          <li>Latte intero <span class="weight">200ml</span></li>
-          <li>Uovo sodo ×1</li>
+          <li>Latte p. scremato <span class="weight">150ml</span></li>
         </ul>
       </div>
       <div class="meal">
         <div class="meal-label">🥪 Spuntino</div>
         <ul class="meal-items">
           <li>Crackers <span class="weight">30g</span></li>
-          <li>Fiocchi di latte <span class="weight">50g</span></li>
+          <li>Fiocchi di latte <span class="weight">100g</span></li>
         </ul>
       </div>
       <div class="meal">
@@ -953,15 +1077,15 @@ html, body {
         <div class="meal-label">🌙 Cena</div>
         <ul class="meal-items">
           <li>Lonza di maiale <span class="weight">180g</span></li>
-          <li>Piadina integrale ×1</li>
-          <li>Cetrioli + mais + pomodorini <span class="weight">200g</span></li>
+          <li>Riso basmati <span class="weight">65g</span></li>
+          <li>Verdure a scelta <span class="note">(cetrioli, mais, pomodorini...)</span></li>
           <li>Olio EVO <span class="weight">8g</span></li>
         </ul>
       </div>
       <div class="meal">
         <div class="meal-label">🫐 Sera</div>
         <ul class="meal-items">
-          <li>Yogurt greco 0% <span class="weight">170g</span></li>
+          <li>Fiocchi di latte <span class="weight">150g</span></li>
           <li>Ananas <span class="weight">80g</span></li>
         </ul>
       </div>
@@ -978,9 +1102,9 @@ html, body {
       <div class="meal">
         <div class="meal-label">☀️ Colazione</div>
         <ul class="meal-items">
-          <li>Avena <span class="weight">55g</span> + latte <span class="weight">200ml</span></li>
-          <li>Banana ½ + semi chia <span class="weight">5g</span></li>
-          <li>Mandorle <span class="weight">10g</span></li>
+          <li>Yogurt greco 0% <span class="weight">200g</span></li>
+          <li>Avena <span class="weight">40g</span> <span class="note">(mescolata nello yogurt)</span></li>
+          <li>Banana ½ + pistacchi <span class="weight">10g</span></li>
         </ul>
       </div>
       <div class="meal">
@@ -1021,7 +1145,47 @@ html, body {
 
 </div>
 
+<!-- ═══════════════ PRE/POST WORKOUT TABLE ═══════════════ -->
+<div class="wo-section">
+  <div class="wo-title">⚡ Nutrizione Pre &amp; Post Workout <span class="wo-badge">Lun · Mer · Ven</span></div>
+  <table class="wo-table">
+    <thead>
+      <tr>
+        <th>Fase</th>
+        <th>Quando</th>
+        <th>Cosa mangiare</th>
+        <th>Macros</th>
+        <th>Perché</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="pre-row">
+        <td><strong>🍌 Pre-Workout</strong></td>
+        <td>~30 min prima</td>
+        <td>
+          Banana ×1<br>
+          + Crackers <strong>50g</strong>
+        </td>
+        <td>~46g C · ~5g P · ~5g G<br><strong>~248 kcal</strong></td>
+        <td>Carboidrati veloci per avere energia e spingere forte. Niente proteine pesanti prima — rallentano la digestione e lo stomaco è pieno durante l'allenamento.</td>
+      </tr>
+      <tr class="post-row">
+        <td><strong>🥣 Post-Workout</strong></td>
+        <td>Entro 30 min dopo</td>
+        <td>
+          Yogurt greco 0% <strong>200g</strong><br>
+          Frutta a scelta <strong>80g</strong><br>
+          Avena <strong>20g</strong>
+        </td>
+        <td>~23g P · ~36g C · ~1g G<br><strong>~245 kcal</strong></td>
+        <td>Proteine rapide per riparare le fibre muscolari. Avena + frutta reintegrano il glicogeno esaurito. Questa finestra è critica per la crescita muscolare — non saltarla.</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
 <!-- ═══════════════ FOOTER ═══════════════ -->
+
 <div class="footer">
   <div class="footer-box">
     <h3>📏 Regole base</h3>
@@ -1035,12 +1199,12 @@ html, body {
     </ul>
   </div>
   <div class="footer-box">
-    <h3>🥤 Whey Prozis (Lun-Mer-Ven)</h3>
+    <h3>🥣 Bowl Post-Workout (Lun-Mer-Ven)</h3>
     <ul>
-      <li>1 scoop = 30g → ~24g proteine</li>
-      <li>Shake: 1 scoop + acqua 300ml</li>
-      <li>Prendi <strong>post-workout</strong></li>
-      <li>Se finisce → yogurt greco + uova</li>
+      <li>Yogurt greco 0% <strong>200g</strong></li>
+      <li>Frutta a scelta (mirtilli, fragole, kiwi...)</li>
+      <li>Avena <strong>20g</strong> (mescolata nella bowl)</li>
+      <li>Mangia entro <strong>30 min</strong> dalla palestra</li>
     </ul>
   </div>
   <div class="footer-box cheat-box">
