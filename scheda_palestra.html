@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Scheda Allenamento - Full Body</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+  
+  :root {
+    --bg: #09090b;
+    --card: #18181b;
+    --border: rgba(255, 255, 255, 0.08);
+    --text: #fafafa;
+    --text-muted: #a1a1aa;
+    --accent: #7c3aed;
+    --accent-light: rgba(124, 58, 237, 0.2);
+    --warning: #f59e0b;
+    --success: #10b981;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  
+  body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg);
+    color: var(--text);
+    padding: 20px 16px 100px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 24px;
+    padding: 20px;
+    background: linear-gradient(145deg, rgba(124,58,237,0.15), rgba(59,130,246,0.1));
+    border-radius: 20px;
+    border: 1px solid var(--border);
+  }
+
+  .header h1 {
+    font-size: 24px;
+    font-weight: 800;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, #c084fc, #60a5fa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .header p {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  .tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+
+  .tab {
+    flex: 1;
+    padding: 12px;
+    text-align: center;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+
+  .tab.active {
+    background: var(--accent-light);
+    color: #c084fc;
+    border-color: rgba(168,85,247,0.4);
+  }
+
+  .workout-card {
+    background: var(--card);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+
+  .workout-header {
+    padding: 16px;
+    background: rgba(255,255,255,0.03);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .workout-title {
+    font-size: 16px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .rep-badge {
+    background: rgba(255,255,255,0.1);
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #60a5fa;
+  }
+
+  .rep-badge.heavy {
+    color: var(--warning);
+    background: rgba(245, 158, 11, 0.15);
+  }
+
+  .exercise-details {
+    padding: 16px;
+  }
+
+  .detail-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    font-size: 14px;
+  }
+  .detail-row:last-child { margin-bottom: 0; }
+
+  .label { color: var(--text-muted); }
+  
+  .weight-box {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-weight: 700;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+  }
+
+  .rules {
+    background: rgba(245, 158, 11, 0.05);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    padding: 16px;
+    border-radius: 16px;
+    margin-top: 32px;
+  }
+
+  .rules h3 {
+    font-size: 15px;
+    color: var(--warning);
+    margin-bottom: 12px;
+  }
+
+  .rules ul {
+    list-style: none;
+  }
+
+  .rules li {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    padding-left: 20px;
+    position: relative;
+  }
+
+  .rules li::before {
+    content: '⚡';
+    position: absolute;
+    left: 0;
+    font-size: 12px;
+  }
+
+  /* Navbar */
+  .mobile-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(24, 24, 27, 0.95);
+    backdrop-filter: blur(10px);
+    display: flex;
+    justify-content: space-around;
+    padding: 12px 0;
+    border-top: 1px solid var(--border);
+    z-index: 100;
+  }
+  .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .nav-item.active { color: #c084fc; }
+  .nav-icon { font-size: 20px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🏋️ Scheda Full Body</h1>
+  <p>Alterna A e B: (Lun: A, Mer: B, Ven: A) → Settimana dopo: (B, A, B)</p>
+</div>
+
+<div class="tabs">
+  <div class="tab active" id="tab-a" onclick="showA()">Sessione A</div>
+  <div class="tab" id="tab-b" onclick="showB()">Sessione B</div>
+</div>
+
+<!-- SESSIONE A -->
+<div id="session-a">
+  
+  <div class="workout-card">
+    <div class="workout-header">
+      <div class="workout-title">🦵 Leg Press</div>
+      <div class="rep-badge heavy">3 x 8</div>
+    </div>
+    <div class="exercise-details">
+      <div class="detail-row"><span class="label">Recupero</span> <span>2:00 min</span></div>
+      <div class="detail-row"><span class="label">Carico Attuale</span> <span class="weight-box">104 kg</span></div>
+      <div class="detail-row"><span class="label" style="width:100%; color:#71717a; font-size:12px; margin-top:4px;">*Scendi lento (2-3s). Schiena incollata. Non stendere le ginocchia di scatto in cima.*</span></div>
+    </div>
+  </div>
+
+  <div class="workout-card">
+    <div class="workout-header">
+      <div class="workout-title">🛡️ Panca Piana Manubri</div>
+      <div class="rep-badge heavy">3 x 8</div>
+    </div>
+    <div class="exercise-details">
+      <div class="detail-row"><span class="label">Recupero</span> <span>1:30 min</span></div>
+      <div class="detail-row"><span class="label">Carico Attuale</span> <span class="weight-box">10 kg / lato</span></div>
+      <div class="detail-row"><span class="label" style="width:100%; color:#71717a; font-size:12px; margin-top:4px;">*Stringi le scapole prima di spingere. Petto in fuori. Tieni il controllo in discesa.*</span></div>
+    </div>
+  </div>
+
+  <div class="workout-card">
+    <div class="workout-header">
+      <div class="workout-title">🛶 Low Row (Macchina)</div>
+      <div class="rep-badge heavy">3 x 8</div>
+    </div>
+    <div class="exercise-details">
+      <div class="detail-row"><span class="label">Recupero</span> <span>1:30 min</span></div>
+      <div class="detail-row"><span class="label">Carico Attuale</span> <span class="weight-box">23 kg</span></div>
+      <div class="detail-row"><span class="label" style="width:100%; color:#71717a; font-size:12px; margin-top:4px;">*Porta i gomiti indietro, immagina le mani come ganci. Stringi bene la schiena.*</span></div>
+    </div>
+  </div>
+
+  <div class="workout-card">
+    <div class="workout-header">
+      <div class="workout-title">🦵 Leg Curl (Femorali)</div>
+      <div class="rep-badge">3 x 12</div>
+    </div>
+    <div class="exercise-details">
+      <div class="detail-row"><span class="label">Recupero</span> <span>1:15 min</span></div>
+      <div class="detail-row"><span class="label">Carico Attuale</span> <span class="weight-box">45 kg</span></div>
+      <div class="detail-row"><span class="label" style="width:100%; color:#71717a; font-size:12px; margin-top:4px;">*Isolamento. Movimento lento e controllato in discesa. Non alzare il sedere.*</span></div>
+    </div>
+  </div>
+
+  <div class="workout-card">
+    <div class="workout-header">
+      <div class="workout-title">🦅 Alzate Laterali (Macchina)</div>
+      <div class="rep-badge">3 x 12</div>
+    </div>
+    <div class="exercise-details">
+      <div class="detail-row"><span class="label">Recupero</span> <span>1:15 min</span></div>
+      <div class="detail-row"><span class="label">Carico Attuale</span> <span class="weight-box">13 kg</span></div>
+      <div class="detail-row"><span class="label" style="width:100%; color:#71717a; font-size:12px; margin-top:4px;">*Movimento lento. Non tirare con il trapezio (non alzare le spalle vicino alle orecchie).*</span></div>
+    </div>
+  </div>
+
+  <div class="workout-card">
+    <div class="workout-header">
+      <div class="workout-title">💪 Bicep Curl (Manubri o Cavi)</div>
+      <div class="rep-badge">3 x 12</div>
+    </div>
+    <div class="exercise-details">
+      <div class="detail-row"><span class="label">Recupero</span> <span>1:00 min</span></div>
+      <div class="detail-row"><span class="label">Carico Attuale</span> <span class="weight-box">13 kg</span></div>
+      <div class="detail-row"><span class="label" style="width:100%; color:#71717a; font-size:12px; margin-top:4px;">*Gomiti incollati ai fianchi, non dondolare la schiena. Solo l'avambraccio si muove.*</span></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- SESSIONE B -->
+<div id="session-b" style="display: none;">
+  
+  <div class="workout-card">
+    <div class="workout-header">
+      <div class="workout-title">🚀 Lat Pulldown</div>
+      <div class="rep-badge heavy">3 x 8</div>
+    </div>
+    <div class="exercise-details">
+      <div class="detail-row"><span class="label">Recupero</span> <span>1:30 min</span></div>
+      <div class="detail-row"><span class="label">Carico Attuale</span> <span class="weight-box">36 kg</span></div>
+      <div class="detail-row"><span class="label" style="width:100%; color:#71717a; font-size:12px; margin-top:4px;">*Tira verso la parte alta del petto, non dietro la testa. Punta i gomiti verso il basso.*</span></div>
+    </div>
+  </div>
+
+  <div class="workout-card">
+    <div class="workout-header">
+      <div class="workout-title">🛡️ Panca Inclinata Manubri</div>
+      <div class="rep-badge heavy">3 x 8</div>
+    </div>
+    <div class="exercise-details">
+      <div class="detail-row"><span class="label">Recupero</span> <span>1:30 min</span></div>
+      <div class="detail-row"><span class="label">Carico Attuale</span> <span class="weight-box">8 kg / lato</span></div>
+      <div class="detail-row"><span class="label" style="width:100%; color:#71717a; font-size:12px; margin-top:4px;">*Panca a 30°. Ottimo per il petto alto. (In alternativa usa la Chest Press a 22kg).*</span></div>
+    </div>
+  </div>
+
+  <div class="workout-card">
+    <div class="workout-header">
+      <div class="workout-title">🦵 Leg Extension</div>
+      <div class="rep-badge">3 x 12</div>
+    </div>
+    <div class="exercise-details">
+      <div class="detail-row"><span class="label">Recupero</span> <span>1:15 min</span></div>
+      <div class="detail-row"><span class="label">Carico Attuale</span> <span class="weight-box">18 kg</span></div>
+      <div class="detail-row"><span class="label" style="width:100%; color:#71717a; font-size:12px; margin-top:4px;">*Fermati un secondo in alto e stringi il quadricipite. Scendi in 3 secondi.*</span></div>
+    </div>
+  </div>
+
+  <div class="workout-card">
+    <div class="workout-header">
+      <div class="workout-title">👑 Shoulder Press (Macchina)</div>
+      <div class="rep-badge heavy">3 x 8</div>
+    </div>
+    <div class="exercise-details">
+      <div class="detail-row"><span class="label">Recupero</span> <span>1:30 min</span></div>
+      <div class="detail-row"><span class="label">Carico Attuale</span> <span class="weight-box">18 kg</span></div>
+      <div class="detail-row"><span class="label" style="width:100%; color:#71717a; font-size:12px; margin-top:4px;">*Schiena ben appoggiata, addome contratto. Non bloccare i gomiti in alto.*</span></div>
+    </div>
+  </div>
+
+  <div class="workout-card">
+    <div class="workout-header">
+      <div class="workout-title">🔥 Tricipiti Pushdown (Cavi)</div>
+      <div class="rep-badge">3 x 12</div>
+    </div>
+    <div class="exercise-details">
+      <div class="detail-row"><span class="label">Recupero</span> <span>1:00 min</span></div>
+      <div class="detail-row"><span class="label">Carico Attuale</span> <span class="weight-box">15 kg (stima)</span></div>
+      <div class="detail-row"><span class="label" style="width:100%; color:#71717a; font-size:12px; margin-top:4px;">*Gomiti incollati ai fianchi, muovi solo l'avambraccio. Stringi in basso.*</span></div>
+    </div>
+  </div>
+
+  <div class="workout-card">
+    <div class="workout-header">
+      <div class="workout-title">🧱 Crunch Addominali</div>
+      <div class="rep-badge">3 x 15</div>
+    </div>
+    <div class="exercise-details">
+      <div class="detail-row"><span class="label">Recupero</span> <span>1:00 min</span></div>
+      <div class="detail-row"><span class="label">Carico Attuale</span> <span class="weight-box">Corpo libero</span></div>
+      <div class="detail-row"><span class="label" style="width:100%; color:#71717a; font-size:12px; margin-top:4px;">*Movimento lento, concentrati a chiudere le costole verso il bacino. Non tirare dal collo.*</span></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="rules">
+  <h3>⚡ Come funziona la progressione?</h3>
+  <ul>
+    <li>Cerca di fare sempre le 8 o 12 ripetizioni previste.</li>
+    <li>Se in tutte e 3 le serie riesci a chiudere perfettamente il numero di ripetizioni prescritto, la volta successiva <strong>aumenta il peso</strong> (di 1 o 2.5 kg).</li>
+    <li>Se aumenti il peso e fai meno ripetizioni (es. 7-6-5), mantieni quel peso finché non riesci a farne 8-8-8 di nuovo.</li>
+    <li>Il <strong>3x8</strong> sui fondamentali costruisce la forza; il <strong>3x12</strong> plasma e isola il muscolo proteggendo i tendini.</li>
+  </ul>
+</div>
+
+<nav class="mobile-nav">
+  <a href="index.html" class="nav-item">
+    <span class="nav-icon">📅</span>
+    <span class="nav-text">Dieta</span>
+  </a>
+  <a href="scheda_palestra.html" class="nav-item active">
+    <span class="nav-icon">🏋️</span>
+    <span class="nav-text">Scheda</span>
+  </a>
+</nav>
+
+<script>
+  function showA() {
+    document.getElementById('session-a').style.display = 'block';
+    document.getElementById('session-b').style.display = 'none';
+    document.getElementById('tab-a').classList.add('active');
+    document.getElementById('tab-b').classList.remove('active');
+  }
+  function showB() {
+    document.getElementById('session-a').style.display = 'none';
+    document.getElementById('session-b').style.display = 'block';
+    document.getElementById('tab-a').classList.remove('active');
+    document.getElementById('tab-b').classList.add('active');
+  }
+</script>
+
+</body>
+</html>
