@@ -22,6 +22,25 @@ Sito statico (GitHub Pages) con piano alimentare calcolato al grammo, scheda Tor
 
 I dati dell'app installata sono separati da quelli di Safari: per spostarli usa Progressi → Esporta / Importa backup. Il timer di recupero suona solo se l'iPhone non è in modalità silenziosa; in ogni caso la barra del timer diventa lime allo scadere.
 
+## Sincronizzazione PC ↔ telefono (Firebase)
+
+`assets/js/sync.js` salva tutti i dati dell'app in Firestore (documento `users/{uid}`) e li tiene allineati tra i dispositivi. Si attiva quando `assets/js/firebase-config.js` contiene la configurazione del progetto.
+
+Regole di Firestore (console Firebase → Firestore Database → Regole):
+
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}
+```
+
+Dopo aver creato il proprio account dall'app, conviene disattivare la creazione di nuovi account: Authentication → Impostazioni → Azioni utente → togliere "Abilita creazione (registrazione)".
+
 ## Modificare il piano
 
 1. Cambia valori, ricette o target in `tools/genera_piano.py`.

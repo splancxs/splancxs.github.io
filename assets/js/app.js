@@ -18,10 +18,21 @@
   const f2 = (x) => NF2.format(x);
   const sign = (x, fmt = f1) => (x > 0 ? '+' : x < 0 ? '−' : '±') + fmt(Math.abs(x));
 
+  // Ogni chiave salvata riceve l'ora di modifica in rc._meta: serve alla sincronizzazione (sync.js)
+  // per capire quale versione è più recente tra telefono e PC.
   const store = {
     get(k, d) { try { const v = localStorage.getItem('rc.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
-    set(k, v) { try { localStorage.setItem('rc.' + k, JSON.stringify(v)); } catch (e) { /* storage non disponibile */ } },
+    set(k, v) {
+      try {
+        localStorage.setItem('rc.' + k, JSON.stringify(v));
+        const meta = JSON.parse(localStorage.getItem('rc._meta') || '{}');
+        meta['rc.' + k] = Date.now();
+        localStorage.setItem('rc._meta', JSON.stringify(meta));
+      } catch (e) { /* storage non disponibile */ }
+      window.dispatchEvent(new CustomEvent('rc-change', { detail: 'rc.' + k }));
+    },
   };
+  const hasSetData = (rec) => rec && (rec.sets || []).some((s) => s && (s[0] != null || s[1] != null));
 
   const pad = (n) => String(n).padStart(2, '0');
   const dkey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -461,7 +472,7 @@
 
   function logFor(id) {
     const log = store.get('log', {});
-    return (log[id] || []).slice().sort((a, b) => (a.d < b.d ? 1 : -1));
+    return (log[id] || []).filter(hasSetData).sort((a, b) => (a.d < b.d ? 1 : -1));
   }
   const setsTxt = (e, rec) => rec.sets.map((s) => (!s ? '–' : e.unit === 'sec' ? `${s[1] ?? '–'}″` : `${s[0] != null ? fmtKg(s[0]) : '–'}×${s[1] ?? '–'}`)).join(' · ');
 
@@ -603,7 +614,9 @@
 
   /* ================= PROGRESSI ================= */
   const START = { d: '2026-09-28', kg: 64.7, bf: 17.7 };
-  function weights() { return store.get('weights', []).slice().sort((a, b) => (a.d < b.d ? -1 : 1)); }
+  // le misure eliminate restano come {d, del: 1, t} così l'eliminazione si propaga anche all'altro dispositivo
+  const rawWeights = () => store.get('weights', []);
+  function weights() { return rawWeights().filter((w) => !w.del).sort((a, b) => (a.d < b.d ? -1 : 1)); }
   function mondayOf(k) { const d = fromKey(k); d.setDate(d.getDate() - dayIdx(d)); return dkey(d); }
   function weekly(ws) {
     const m = {};
@@ -701,6 +714,7 @@
           ${ws.length ? `<ul class="entries">${ws.slice().reverse().slice(0, 30).map((w) => `<li><span class="muted">${shortDate(w.d)}</span><strong>${f2(w.kg)} kg</strong>${w.w != null ? `<span class="muted">· vita ${f1(w.w)} cm</span>` : ''}<button type="button" class="x-btn" data-act="wdel" data-d="${w.d}" aria-label="Elimina la misura del ${shortDate(w.d)}">${I.trash}</button></li>`).join('')}</ul>` : '<p class="small muted">Le misure che salvi compaiono qui.</p>'}
         </section>
       </div>
+      ${syncCard()}
       <section class="card stack">
         <h2>Backup dei dati</h2>
         <p class="small muted">Pesi, carichi della scheda, scambi dei pasti e lista della spesa sono salvati in questo browser. Esporta un file per sicurezza o per spostarli dal PC al telefono.</p>
@@ -709,6 +723,40 @@
         <p class="err" id="impMsg" role="status"></p>
       </section>
     </div>`;
+  }
+
+  /* ---------------- sincronizzazione (stato fornito da sync.js) ---------------- */
+  function syncCard() {
+    const S = window.RCSync;
+    const st = S ? S.state : { status: 'loading' };
+    const head = '<div class="row"><h2>Sincronizzazione PC ↔ telefono</h2></div>';
+    const msg = st.msg ? `<p class="err" role="alert">${esc(st.msg)}</p>` : '';
+    if (st.status === 'nocfg') {
+      return `<section class="card stack">${head}<p class="small muted">Non ancora attiva: manca la configurazione di Firebase (<code>assets/js/firebase-config.js</code>). Quando è pronta, qui compare l'accesso.</p></section>`;
+    }
+    if (st.status === 'loading') {
+      return `<section class="card stack">${head}<p class="small muted">Connessione in corso…</p>${msg}</section>`;
+    }
+    if (st.status === 'offline') {
+      return `<section class="card stack">${head}<p class="small muted">Sei offline: i dati restano salvati qui e si sincronizzano appena torna la connessione.</p></section>`;
+    }
+    if (st.status === 'in') {
+      const when = st.last ? new Date(st.last).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : '—';
+      return `<section class="card stack">${head}
+        <p class="small">Collegato come <strong>${esc(st.email || '')}</strong>. Pesi, carichi, spunte, scambi e lista della spesa si sincronizzano da soli tra i dispositivi.</p>
+        <p class="small muted">Ultima sincronizzazione: ${when}${st.busy ? ' · in corso…' : ''}</p>${msg}
+        <div class="row"><button type="button" class="btn ghost" data-act="sync-now">${I.reset} Sincronizza ora</button><button type="button" class="chip" data-act="sync-logout">Esci</button></div>
+      </section>`;
+    }
+    return `<section class="card stack">${head}
+      <p class="small muted">Accedi con lo stesso account sul telefono e sul PC: i dati si uniranno e resteranno allineati in automatico. La prima volta scegli "Crea account".</p>
+      <form id="syncForm" class="stack" novalidate>
+        <div class="field"><label for="syncEmail">Email</label><input id="syncEmail" type="email" autocomplete="username" inputmode="email" autocapitalize="off" value="${esc(st.emailDraft || '')}"></div>
+        <div class="field"><label for="syncPw">Password (almeno 6 caratteri)</label><input id="syncPw" type="password" autocomplete="current-password"></div>
+        ${msg}
+        <div class="row"><button type="submit" class="btn">Accedi</button><button type="button" class="btn ghost" data-act="sync-signup">Crea account</button></div>
+      </form>
+    </section>`;
   }
 
   /* ================= GUIDA ================= */
@@ -858,7 +906,7 @@
       const el = document.getElementById(t.dataset.t);
       if (el) { el.classList.toggle('hidden'); t.setAttribute('aria-expanded', String(!el.classList.contains('hidden'))); }
     } else if (act === 'wdel') {
-      store.set('weights', weights().filter((w) => w.d !== t.dataset.d)); render();
+      store.set('weights', rawWeights().filter((w) => w.d !== t.dataset.d).concat([{ d: t.dataset.d, del: 1, t: Date.now() }])); render();
     } else if (act === 'export') {
       const out = {};
       try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k.startsWith('rc.')) out[k] = localStorage.getItem(k); } } catch (e) { /* ignora */ }
@@ -874,7 +922,11 @@
       if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
         navigator.share({ files: [file], title: 'Backup Recomp' }).catch((e) => { if (e && e.name !== 'AbortError') download(); });
       } else download();
-    } else if (act === 'installhide') { store.set('installHidden', true); render(); }
+    } else if (act === 'sync-signup' && window.RCSync) {
+      window.RCSync.signup($('#syncEmail').value.trim(), $('#syncPw').value);
+    } else if (act === 'sync-logout' && window.RCSync) { window.RCSync.logout(); }
+    else if (act === 'sync-now' && window.RCSync) { window.RCSync.now(); }
+    else if (act === 'installhide') { store.set('installHidden', true); render(); }
     else if (act === 'install' && installEvt) {
       installEvt.prompt(); installEvt.userChoice.finally(() => { installEvt = null; render(); });
     } else if (act === 'wake') {
@@ -904,7 +956,12 @@
         try {
           const j = JSON.parse(rd.result);
           if (!j || j.app !== 'recomp' || typeof j.data !== 'object') throw new Error('formato');
-          Object.keys(j.data).forEach((k) => { if (k.startsWith('rc.') && typeof j.data[k] === 'string') localStorage.setItem(k, j.data[k]); });
+          const meta = JSON.parse(localStorage.getItem('rc._meta') || '{}');
+          Object.keys(j.data).forEach((k) => {
+            if (k.startsWith('rc.') && k !== 'rc._meta' && typeof j.data[k] === 'string') { localStorage.setItem(k, j.data[k]); meta[k] = Date.now(); }
+          });
+          localStorage.setItem('rc._meta', JSON.stringify(meta));
+          window.dispatchEvent(new CustomEvent('rc-change', { detail: 'import' }));
           render(); const m2 = $('#impMsg'); if (m2) { m2.style.color = 'var(--ok)'; m2.textContent = 'Backup importato.'; }
         } catch (e) { msg.textContent = 'File non valido: scegli un backup esportato da questo sito.'; }
       };
@@ -923,8 +980,7 @@
       if (!rec) { rec = { d: today, sets: [] }; arr.push(rec); }
       for (let j = 0; j <= i; j++) if (!rec.sets[j]) rec.sets[j] = [null, null];
       rec.sets[i][k] = num(t.value);
-      if (rec.sets.every((s) => !s || (s[0] == null && s[1] == null))) arr.splice(arr.indexOf(rec), 1);
-      if (!arr.length) delete log[id];
+      rec.t = Date.now(); // una sessione svuotata resta come record vuoto, così lo svuotamento si sincronizza
       store.set('log', log);
     } else if (t.id === 'foodSearch') {
       const q = t.value.trim().toLowerCase();
@@ -933,6 +989,11 @@
   });
 
   main.addEventListener('submit', (ev) => {
+    if (ev.target.id === 'syncForm') {
+      ev.preventDefault();
+      if (window.RCSync) window.RCSync.login($('#syncEmail').value.trim(), $('#syncPw').value);
+      return;
+    }
     if (ev.target.id !== 'wForm') return;
     ev.preventDefault();
     const err = $('#wErr');
@@ -943,8 +1004,8 @@
     if (!d) { err.textContent = 'Scegli la data.'; return; }
     if (kg == null || kg < 35 || kg > 150) { err.textContent = 'Scrivi un peso valido in kg (es. 64,7).'; $('#wKg').focus(); return; }
     if (wRaw.trim() && (w == null || w < 40 || w > 150)) { err.textContent = 'La vita va in centimetri (es. 78,5) oppure lasciala vuota.'; $('#wWaist').focus(); return; }
-    const ws = weights().filter((x) => x.d !== d);
-    const e = { d, kg: Math.round(kg * 100) / 100 };
+    const ws = rawWeights().filter((x) => x.d !== d);
+    const e = { d, kg: Math.round(kg * 100) / 100, t: Date.now() };
     if (w != null) e.w = r1(w);
     ws.push(e);
     store.set('weights', ws);
@@ -963,6 +1024,15 @@
   });
   if (mq.addEventListener) mq.addEventListener('change', paintThemeBtn);
   paintThemeBtn();
+
+  /* ---------------- ponte con sync.js ---------------- */
+  // I dati arrivati dall'altro dispositivo ridisegnano la pagina, ma non mentre stai scrivendo in un campo.
+  let pendingRefresh = false;
+  const typing = () => { const a = document.activeElement; return !!(a && main.contains(a) && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName)); };
+  window.RC = {
+    refresh(force) { if (!force && typing()) { pendingRefresh = true; return; } pendingRefresh = false; render(); },
+  };
+  main.addEventListener('focusout', () => { if (pendingRefresh) setTimeout(() => { if (!typing()) { pendingRefresh = false; render(); } }, 0); });
 
   /* ---------------- avvio ---------------- */
   render(true);
