@@ -818,7 +818,9 @@
     const name = (location.hash.replace(/^#\/?/, '').split('/')[0]) || 'oggi';
     const r = routes[name] ? name : 'oggi';
     if (r !== 'scheda' && wake.want) wakeOff();
-    $$('.nav a').forEach((a) => { if (a.dataset.route === r) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+    $$('.nav a').forEach((a, i) => {
+      if (a.dataset.route === r) { a.setAttribute('aria-current', 'page'); a.parentElement.style.setProperty('--i', i); } else a.removeAttribute('aria-current');
+    });
     const y = window.scrollY;
     main.innerHTML = routes[r]();
     document.title = `${titles[r]} · Recomp`;
