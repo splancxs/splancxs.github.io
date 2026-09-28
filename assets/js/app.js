@@ -1,0 +1,972 @@
+'use strict';
+(function () {
+  const D = window.PIANO;
+  const main = document.getElementById('main');
+
+  /* ---------------- utilità ---------------- */
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  // Stesso arrotondamento di tools/genera_piano.py
+  const r0 = (x) => Math.round(x);
+  const r1 = (x) => Math.round(x * 10) / 10;
+  const NF1 = new Intl.NumberFormat('it-IT', { maximumFractionDigits: 1 });
+  const NF2 = new Intl.NumberFormat('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const NF0 = new Intl.NumberFormat('it-IT', { maximumFractionDigits: 0 });
+  const f1 = (x) => NF1.format(x);
+  const f0 = (x) => NF0.format(x);
+  const f2 = (x) => NF2.format(x);
+  const sign = (x, fmt = f1) => (x > 0 ? '+' : x < 0 ? '−' : '±') + fmt(Math.abs(x));
+
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem('rc.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem('rc.' + k, JSON.stringify(v)); } catch (e) { /* storage non disponibile */ } },
+  };
+
+  const pad = (n) => String(n).padStart(2, '0');
+  const dkey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const fromKey = (k) => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
+  const dayIdx = (d) => (d.getDay() + 6) % 7; // 0 = lunedì
+  const DAYS3 = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
+  const longDate = (d) => d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' });
+  const shortDate = (k) => fromKey(k).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' });
+  const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+  const mmss = (s) => `${Math.floor(s / 60)}:${pad(s % 60)}`;
+  const restTxt = (s) => (s >= 60 ? `${Math.floor(s / 60)}′${s % 60 ? pad(s % 60) + '″' : ''}` : `${s}″`);
+  const fmtKg = (x) => f1(x);
+  const num = (v) => { const n = Number(String(v).trim().replace(',', '.')); return String(v).trim() === '' || !Number.isFinite(n) ? null : n; };
+
+  const I = {
+    check: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>',
+    timer: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/></svg>',
+    swap: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 16V4M3 8l4-4 4 4M17 8v12M21 16l-4 4-4-4"/></svg>',
+    reset: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>',
+    trash: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>',
+    down: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>',
+    up: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21V9M7 14l5-5 5 5M5 3h14"/></svg>',
+    sun: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+    moon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/></svg>',
+    arrow: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+  };
+
+  /* ---------------- piattaforma (iPhone / app installata) ---------------- */
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  let installEvt = null; // Android/Chrome: prompt di installazione nativo
+  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvt = e; if (current === 'oggi') render(); });
+  window.addEventListener('appinstalled', () => { installEvt = null; });
+  const SHARE_SVG = '<svg class="share-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"/></svg>';
+
+  function installCard() {
+    if (isStandalone() || store.get('installHidden', false)) return '';
+    if (isIOS) {
+      return `<section class="card install">
+        <img class="ic" src="assets/icons/apple-touch-icon.png" alt="">
+        <div class="stack" style="flex:1">
+          <div><h3>Installa Recomp sull'iPhone</h3>
+          <ol><li>Tocca <strong>Condividi</strong> ${SHARE_SVG} nella barra di Safari</li><li>Scegli <strong>Aggiungi alla schermata Home</strong></li><li>Apri Recomp dall'icona: a schermo intero e anche offline</li></ol></div>
+          <p class="tiny muted">I dati salvati qui in Safari non passano all'app installata: se hai già registrato qualcosa, prima fai Progressi → Esporta backup.</p>
+          <div><button type="button" class="chip" data-act="installhide">Ho capito</button></div>
+        </div></section>`;
+    }
+    if (installEvt) {
+      return `<section class="card install">
+        <img class="ic" src="assets/icons/icon-192.png" alt="">
+        <div class="stack" style="flex:1"><div><h3>Installa Recomp come app</h3><p class="small muted">Icona sulla schermata Home, schermo intero, funziona anche offline.</p></div>
+        <div class="row"><button type="button" class="btn" data-act="install">Installa</button><button type="button" class="chip" data-act="installhide">Non ora</button></div></div></section>`;
+    }
+    return '';
+  }
+
+  /* Schermo sempre acceso durante l'allenamento (Screen Wake Lock) */
+  const wake = { want: false, lock: null };
+  async function wakeOn() {
+    try { wake.lock = await navigator.wakeLock.request('screen'); wake.lock.addEventListener('release', () => { wake.lock = null; }); } catch (e) { wake.want = false; }
+  }
+  function wakeOff() { wake.want = false; if (wake.lock) { wake.lock.release().catch(() => {}); wake.lock = null; } }
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && wake.want && !wake.lock) wakeOn(); });
+
+  /* ---------------- calcolo ---------------- */
+  function line(fid, g) {
+    const f = D.foods[fid];
+    return { f: fid, g, k: r0(f.k * g / 100), p: r1(f.p * g / 100), c: r1(f.c * g / 100), fa: r1(f.f * g / 100) };
+  }
+  function sumLines(ls) {
+    let k = 0, p = 0, c = 0, fa = 0;
+    for (const l of ls) { k += l.k; p += l.p; c += l.c; fa += l.fa; }
+    return { k, p: r1(p), c: r1(c), fa: r1(fa) };
+  }
+  const mealLines = (slot, code) => D.variants[slot][code].map(([f, g]) => line(f, g));
+  const slotOf = (di, si) => D.daytypes[D.week[di].type].slots[si][2];
+
+  function pickFor(di, si) {
+    const sw = store.get('swaps', {});
+    const v = sw[di + ':' + si];
+    const slot = slotOf(di, si);
+    return v && D.variants[slot] && D.variants[slot][v] ? v : D.week[di].pick[si];
+  }
+  function dayPlan(di) {
+    const day = D.week[di];
+    const dt = D.daytypes[day.type];
+    const meals = dt.slots.map(([time, label, slot], si) => {
+      if (slot === 'free') return { si, time, label, slot, free: true };
+      const code = pickFor(di, si);
+      const lines = mealLines(slot, code);
+      return { si, time, label, slot, code, def: day.pick[si], lines, tot: sumLines(lines) };
+    });
+    let k = 0, p = 0, c = 0, fa = 0;
+    for (const m of meals) if (!m.free) { k += m.tot.k; p += m.tot.p; c += m.tot.c; fa += m.tot.fa; }
+    return { di, day, dt, meals, tot: { k, p: r1(p), c: r1(c), fa: r1(fa) }, hasFree: meals.some((m) => m.free) };
+  }
+  const FREE_EST = 850; // stima usata solo per la media settimanale
+
+  function statusOf(kind, v, t) {
+    const d = r1(v - t);
+    const diff = kind === 'k' ? `${sign(d, f0)} kcal` : `${sign(d)} g`;
+    if (kind === 'k') return Math.abs(d) <= 50 ? ['ok', `In target (${diff})`] : ['warn', `Fuori target (${diff})`];
+    if (kind === 'p') return v >= t - 10 ? ['ok', `OK (${diff})`] : v >= t - 25 ? ['warn', `Un po' basse (${diff})`] : ['bad', `Basse (${diff})`];
+    if (kind === 'c') return Math.abs(d) <= 30 ? ['ok', `OK (${diff})`] : ['warn', `Da sistemare (${diff})`];
+    return Math.abs(d) <= 15 ? ['ok', `OK (${diff})`] : ['warn', `Da sistemare (${diff})`];
+  }
+
+  const UNITS = {
+    uovo: ['uovo', 'uova'], sottiletta: ['fetta', 'fette'], kiwi: ['kiwi', 'kiwi'], crackers: ['pacchetto', 'pacchetti'],
+    fette_bisc: ['fetta', 'fette'], pancarre: ['fetta', 'fette'], barretta: ['barretta', 'barrette'], gallette: ['galletta', 'gallette'],
+  };
+  function unitHint(fid, g) {
+    if (fid === 'whey') {
+      const s = g / 30;
+      const t = Math.abs(s - Math.round(s)) < 0.05 ? f0(Math.round(s)) : '≈ ' + f1(s);
+      return `${t} scoop`;
+    }
+    if (fid === 'olio') return g <= 7 ? '≈ 1 cucchiaino' : `≈ ${f1(g / 10)} cucchiai`;
+    const f = D.foods[fid];
+    if (!f.u || !UNITS[fid]) return '';
+    const n = g / f.u;
+    const rn = Math.max(1, Math.round(n));
+    const exact = Math.abs(n - rn) < 0.08;
+    return `${exact ? '' : '≈ '}${rn} ${rn === 1 ? UNITS[fid][0] : UNITS[fid][1]}`;
+  }
+
+  /* ---------------- componenti ---------------- */
+  function macroBars(v, t, labels = true) {
+    const bar = (cls, name, val, tar, unit) => {
+      const pct = Math.max(0, Math.min(100, (val / tar) * 100));
+      return `<div class="macro"><div class="lbl"><span>${name}</span><span class="val">${unit === 'kcal' ? f0(val) : f1(val)}<span class="muted"> / ${f0(tar)}${unit === 'kcal' ? '' : ' g'}</span></span></div><div class="bar ${cls}"><i style="width:${pct}%"></i></div></div>`;
+    };
+    return `<div class="macros">${bar('p', 'Proteine', v.p, t[1])}${bar('c', 'Carboidrati', v.c, t[2])}${bar('g', 'Grassi', v.fa, t[3])}</div>`;
+  }
+
+  function itemsHtml(lines) {
+    return lines.map((l) => {
+      const f = D.foods[l.f];
+      const h = unitHint(l.f, l.g);
+      const unit = l.f === 'latte_ps' || l.f === 'spremuta' ? 'ml' : 'g';
+      return `<li class="it"><div class="it-n">${esc(f.n)}<small>P ${f1(l.p)} · C ${f1(l.c)} · G ${f1(l.fa)}${h ? ' · ' + h : ''}</small></div><div class="it-g">${l.g} ${unit}</div><div class="it-k">${l.k}</div></li>`;
+    }).join('');
+  }
+
+  function optionsFor(slot, current) {
+    return Object.keys(D.variants[slot]).map((code) => {
+      const t = sumLines(mealLines(slot, code));
+      return `<option value="${code}"${code === current ? ' selected' : ''}>${code} · ${esc(D.recipes[code].name)} — ${t.k} kcal, P ${f1(t.p)}</option>`;
+    }).join('');
+  }
+
+  function mealCard(plan, m, opt = {}) {
+    if (m.free) {
+      return `<article class="card free-card stack">
+        <div class="row"><span class="badge free">Pasto libero</span><span class="muted small">${m.time}</span></div>
+        <h3>Una porzione normale di quello che vuoi</h3>
+        <p class="small muted">Pizza, hamburger con patatine piccole, sushi (12–16 pezzi)… Niente antipasto + primo + dolce e niente bis: è <strong>un pasto</strong>, non una giornata libera. Stima 800–1000 kcal, fuori dai totali: il resto della giornata è già più leggero per lasciargli spazio.</p>
+      </article>`;
+    }
+    const r = D.recipes[m.code];
+    const swapped = m.code !== m.def;
+    const chk = opt.check ? `<button type="button" class="check" data-act="eat" data-si="${m.si}" aria-pressed="${opt.checked ? 'true' : 'false'}" aria-label="Segna ${esc(m.label)} come mangiato">${I.check}</button>` : '';
+    return `<article class="card meal${opt.checked ? ' done' : ''}">
+      <div class="meal-h">${chk}
+        <div class="t"><div class="lbl">${m.time} · ${esc(m.label)}${swapped ? ' · scambiato' : ''}</div>
+        <h3><span class="code">${m.code}</span>${esc(r.name)}</h3></div>
+        <div class="meal-k"><b>${m.tot.k}</b><span>kcal</span></div>
+      </div>
+      <ul class="items">${itemsHtml(m.lines)}</ul>
+      <div class="meal-tot"><div class="m"><span>P <b>${f1(m.tot.p)}</b></span><span>C <b>${f1(m.tot.c)}</b></span><span>G <b>${f1(m.tot.fa)}</b></span></div><div><b>${m.tot.k}</b> kcal</div></div>
+      ${r.how ? `<p class="how" style="padding-top:12px">${esc(r.how)}</p>` : ''}
+      ${opt.swap ? `<div class="meal-f"><label class="sr" for="sw-${plan.di}-${m.si}">Scambia ${esc(m.label)}</label>
+        <select id="sw-${plan.di}-${m.si}" data-act="swap" data-di="${plan.di}" data-si="${m.si}">${optionsFor(m.slot, m.code)}</select></div>` : ''}
+    </article>`;
+  }
+
+  function typeBadge(day) {
+    if (day.type === 'ON') {
+      const w = D.workouts.find((x) => x.id === day.wo);
+      return `<span class="badge on">ON · ${esc(w.name)}</span>`;
+    }
+    if (day.type === 'FREE') return '<span class="badge free">OFF · pasto libero</span>';
+    return `<span class="badge off">OFF${day.type === 'OFF_S' ? ' · scuola' : ''}</span>`;
+  }
+
+  /* ---------------- stato UI ---------------- */
+  const ui = {
+    pianoTab: 'settimana',
+    pianoDay: dayIdx(new Date()),
+    wo: null,
+    guidaTab: 'target',
+  };
+
+  /* ================= OGGI ================= */
+  function viewOggi() {
+    const now = new Date();
+    const di = dayIdx(now);
+    const key = dkey(now);
+    const plan = dayPlan(di);
+    const eatenAll = store.get('eaten', {});
+    const eaten = eatenAll[key] || [];
+    const T = plan.dt.target;
+    const e = { k: 0, p: 0, c: 0, fa: 0 };
+    plan.meals.forEach((m) => { if (!m.free && eaten.includes(m.si)) { e.k += m.tot.k; e.p += m.tot.p; e.c += m.tot.c; e.fa += m.tot.fa; } });
+    e.p = r1(e.p); e.c = r1(e.c); e.fa = r1(e.fa);
+
+    const events = [];
+    if (di <= 4) {
+      events.push({ time: '06:30', html: '<strong>Sveglia</strong> · niente colazione a casa: il primo pasto è la merenda delle 9:30.' });
+      events.push({ time: '07:40', html: '<strong>Scuola</strong> fino alle 14:05 · merende 1 e 2 già nello zaino.' });
+    }
+    const w = plan.day.wo ? D.workouts.find((x) => x.id === plan.day.wo) : null;
+    if (w) events.push({ time: '16:30', gym: true, html: `<strong>Palestra · ${esc(w.name)}</strong> — ${esc(w.focus)}. Pesi ~60′ + tapis 15–20′ al 14%. <a href="#/scheda" data-act="openwo" data-wo="${w.id}">Apri la scheda →</a>` });
+
+    const rows = [
+      ...events.map((ev) => ({ time: ev.time, html: `<li class="tl event${ev.gym ? ' gym' : ''}"><div class="tl-time"><span>${ev.time}</span></div><div class="tl-body"><b class="tl-t">${ev.time}</b>${ev.html}</div></li>` })),
+      ...plan.meals.map((m) => ({ time: m.time, html: `<li class="tl"><div class="tl-time"><span>${m.time}</span></div><div>${mealCard(plan, m, { check: !m.free, checked: eaten.includes(m.si), swap: true })}</div></li>` })),
+    ].sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0));
+
+    const planned = plan.tot.k;
+    const left = planned - e.k;
+    const tomorrow = (di + 1) % 7;
+    const prep = tomorrow <= 4 ? prepCard(tomorrow) : '';
+
+    return `
+      <div class="grid-main">
+        <div class="stack">
+          ${installCard()}
+          <section class="card hero">
+            <div class="hero-top">
+              <div><p class="eyebrow">${esc(cap(longDate(now)))}</p><h1>${esc(plan.day.name)}</h1></div>
+              ${typeBadge(plan.day)}
+            </div>
+            <div class="kcal-line"><span class="kcal-big">${f0(e.k)}</span><span class="kcal-of">/ ${f0(planned)} kcal mangiate</span></div>
+            <div class="bar k" style="margin-bottom:16px"><i style="width:${Math.min(100, (e.k / planned) * 100)}%"></i></div>
+            ${macroBars(e, [planned, T[1], T[2], T[3]])}
+            <p class="small muted" style="margin-top:14px">${eaten.length ? `Mancano <strong>${f0(Math.max(0, left))} kcal</strong> ai pasti di oggi.` : 'Spunta i pasti man mano che li mangi.'}${plan.hasFree ? ' Il pasto libero non è conteggiato.' : ''}</p>
+          </section>
+          <h2 class="sec-title">La tua giornata</h2>
+          <ol class="timeline">${rows.map((r) => r.html).join('')}</ol>
+        </div>
+        <aside class="stack sticky-col">
+          ${dayTotalsCard(plan)}
+          ${w ? workoutMini(w) : restCard(plan.day)}
+          ${prep}
+        </aside>
+      </div>`;
+  }
+
+  function prepCard(di) {
+    const p = dayPlan(di);
+    const snacks = p.meals.filter((m) => m.slot === 'm1' || m.slot === 'm2');
+    return `<section class="card stack">
+      <p class="eyebrow">Stasera prepara per ${esc(p.day.name.toLowerCase())}</p>
+      ${snacks.map((m) => `<div><h3 style="font-size:15px"><span class="muted">${m.time}</span> · ${esc(D.recipes[m.code].name)}</h3>
+        <p class="small muted" style="margin-top:4px">${m.lines.map((l) => `${esc(D.foods[l.f].n.split(' (')[0])} ${l.g} g`).join(' · ')}</p></div>`).join('')}
+      <p class="tiny muted">Carta stagnola o sacchetto, frutta intera. Niente tonno, uova o sgombro a scuola.</p>
+    </section>`;
+  }
+
+  function workoutMini(w) {
+    const wk = blockWeek();
+    return `<section class="card stack">
+      <div class="row"><p class="eyebrow">Allenamento di oggi · 16:30</p></div>
+      <h2>${esc(w.name)} <span class="muted" style="font-weight:600">· ${esc(w.focus)}</span></h2>
+      <p class="small"><strong>Settimana ${wk.n} del blocco</strong> · ${esc(wk.phase)}</p>
+      <ol class="small" style="margin:0;padding-left:20px">${w.ex.map((e) => `<li>${esc(e.n)} <span class="muted">${e.s}×${e.lo}–${e.hi}${e.unit === 'sec' ? '″' : ''}</span></li>`).join('')}</ol>
+      <a class="btn" href="#/scheda" data-act="openwo" data-wo="${w.id}">Apri la scheda ${I.arrow}</a>
+    </section>`;
+  }
+
+  function restCard(day) {
+    const next = (() => { for (let i = 1; i <= 7; i++) { const d = D.week[(dayIdx(new Date()) + i) % 7]; if (d.wo) return d; } return null; })();
+    const w = next && D.workouts.find((x) => x.id === next.wo);
+    return `<section class="card stack">
+      <p class="eyebrow">Giorno di riposo</p>
+      <p class="small">Recupero attivo: punta a <strong>8–10 mila passi</strong>. ${day.type === 'FREE' ? 'Oggi c\'è il pasto libero: goditelo senza sensi di colpa.' : ''}</p>
+      ${w ? `<p class="small muted">Prossimo allenamento: <strong>${esc(next.name)} · ${esc(w.name)}</strong></p>` : ''}
+    </section>`;
+  }
+
+  function dayTotalsCard(plan) {
+    const T = plan.dt.target;
+    const t = plan.tot;
+    const box = (kind, lbl, dot, v, tv, unit) => {
+      const [cls, txt] = statusOf(kind, v, tv);
+      const barCls = { k: 'k', p: 'p', c: 'c', f: 'g' }[kind];
+      return `<div class="tot"><div class="lbl">${dot ? `<i class="dot ${dot}"></i>` : ''}${lbl}</div>
+        <div class="v">${kind === 'k' ? f0(v) : f1(v)}<small> / ${f0(tv)}${unit}</small></div>
+        <div class="bar ${barCls}"><i style="width:${Math.min(100, (v / tv) * 100)}%"></i></div>
+        ${plan.hasFree ? '' : `<div class="status ${cls}">${txt}</div>`}</div>`;
+    };
+    return `<section class="card stack">
+      <div class="row"><h2>Totale ${esc(plan.day.name.toLowerCase())}</h2><span class="spacer"></span>${typeBadge(plan.day)}</div>
+      <div class="tot-grid">
+        ${box('k', 'Calorie', '', t.k, T[0], ' kcal')}
+        ${box('p', 'Proteine', 'p', t.p, T[1], ' g')}
+        ${box('c', 'Carboidrati', 'c', t.c, T[2], ' g')}
+        ${box('f', 'Grassi', 'g', t.fa, T[3], ' g')}
+      </div>
+      <p class="tiny muted">${plan.hasFree ? `Pianificate ${t.k} kcal + pasto libero (stima 800–1000): la giornata chiude intorno a ${f0(t.k + 800)}–${f0(t.k + 1000)} kcal.` : 'Ogni totale è la somma esatta delle righe dei pasti (valori arrotondati riga per riga).'}</p>
+    </section>`;
+  }
+
+  /* ================= PIANO ================= */
+  function viewPiano() {
+    const tabs = [['settimana', 'Settimana'], ['spesa', 'Lista spesa'], ['sostituzioni', 'Sostituzioni']];
+    const seg = `<div class="seg" role="tablist" aria-label="Sezioni del piano">${tabs.map(([k, l]) => `<button type="button" role="tab" data-act="ptab" data-tab="${k}" aria-selected="${ui.pianoTab === k}">${l}</button>`).join('')}</div>`;
+    let body = '';
+    if (ui.pianoTab === 'spesa') body = viewSpesa();
+    else if (ui.pianoTab === 'sostituzioni') body = viewSostituzioni();
+    else body = viewSettimana();
+    return `<div class="stack"><div><p class="eyebrow">Alimentazione</p><h1>Piano settimanale</h1></div>${seg}${body}</div>`;
+  }
+
+  function viewSettimana() {
+    const today = dayIdx(new Date());
+    const di = ui.pianoDay;
+    const plan = dayPlan(di);
+    const chips = D.week.map((d, i) => {
+      const p = dayPlan(i);
+      return `<button type="button" class="day${i === today ? ' today' : ''}" role="tab" data-act="pday" data-di="${i}" aria-selected="${i === di}" aria-label="${d.name}, ${p.tot.k} kcal">
+        ${DAYS3[i]}<i class="tp${d.type === 'ON' ? ' on' : ''}"></i><small>${p.tot.k}</small></button>`;
+    }).join('');
+    const swaps = store.get('swaps', {});
+    const hasSw = plan.meals.some((m) => swaps[di + ':' + m.si]);
+    const meals = plan.meals.map((m) => mealCard(plan, m, { swap: true })).join('');
+    const w = plan.day.wo ? D.workouts.find((x) => x.id === plan.day.wo) : null;
+
+    return `
+      <div class="days" role="tablist" aria-label="Giorni">${chips}</div>
+      <div class="grid-main">
+        <div class="stack">
+          <div class="row"><h2>${esc(plan.day.name)}</h2>${typeBadge(plan.day)}<span class="spacer"></span>
+          ${hasSw ? `<button type="button" class="chip" data-act="resetday" data-di="${di}">${I.reset} Ripristina</button>` : ''}</div>
+          <p class="small muted">${esc(plan.dt.label)}${w ? ` · palestra 16:30 (${esc(w.name)})` : ''}. Usa il menu sotto ogni pasto per scambiarlo: tutte le opzioni della stessa fascia hanno quasi le stesse kcal.</p>
+          ${meals}
+        </div>
+        <aside class="stack sticky-col">
+          ${dayTotalsCard(plan)}
+          ${weekTable()}
+        </aside>
+      </div>`;
+  }
+
+  function weekTable() {
+    let sk = 0;
+    const rows = D.week.map((d, i) => {
+      const p = dayPlan(i);
+      sk += p.tot.k + (p.hasFree ? FREE_EST : 0);
+      return `<tr${i === ui.pianoDay ? ' class="tbl-hl"' : ''}><td>${DAYS3[i]}</td><td>${d.type === 'ON' ? 'ON' : 'OFF'}</td><td class="r">${p.tot.k}${p.hasFree ? '*' : ''}</td><td class="r">${f1(p.tot.p)}</td><td class="r">${f1(p.tot.c)}</td><td class="r">${f1(p.tot.fa)}</td></tr>`;
+    }).join('');
+    return `<section class="card stack">
+      <h2>La settimana in numeri</h2>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Giorno</th><th>Tipo</th><th class="r">kcal</th><th class="r">P</th><th class="r">C</th><th class="r">G</th></tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr><td colspan="2">Media</td><td class="r">${f0(sk / 7)}</td><td colspan="3" class="muted small">con pasto libero stimato ${FREE_EST} kcal</td></tr></tfoot>
+      </table></div>
+      <p class="tiny muted">* Domenica: solo i pasti pianificati, senza il pasto libero. Target: ON 2200 · OFF 1900 · media 2071.</p>
+    </section>`;
+  }
+
+  function shoppingList() {
+    const tot = {};
+    D.week.forEach((d, di) => dayPlan(di).meals.forEach((m) => { if (!m.free) m.lines.forEach((l) => { tot[l.f] = (tot[l.f] || 0) + l.g; }); }));
+    return tot;
+  }
+
+  function viewSpesa() {
+    const tot = shoppingList();
+    const got = store.get('shop', {});
+    const cats = ['Carne e pesce', 'Affettati', 'Latticini e uova', 'Pane, pasta e cereali', 'Frutta', 'Verdura cruda', 'Condimenti e dispensa', 'Integratori e snack'];
+    const byCat = cats.map((cat) => {
+      const ids = Object.keys(tot).filter((id) => D.foods[id].cat === cat).sort((a, b) => D.foods[a].n.localeCompare(D.foods[b].n, 'it'));
+      if (!ids.length) return '';
+      return `<div class="shop-cat"><p class="eyebrow">${esc(cat)}</p><ul class="shop">${ids.map((id) => {
+        const g = tot[id];
+        const unit = id === 'latte_ps' || id === 'spremuta' ? 'ml' : 'g';
+        const h = unitHint(id, g);
+        return `<li class="${got[id] ? 'got' : ''}"><label><input type="checkbox" data-act="shop" data-id="${id}"${got[id] ? ' checked' : ''}><span class="n">${esc(D.foods[id].n)}</span></label>
+          <span class="q">${f0(g)} ${unit}${h ? `<small>${h}</small>` : ''}</span></li>`;
+      }).join('')}</ul></div>`;
+    }).join('');
+    const n = Object.keys(tot).length;
+    const done = Object.keys(tot).filter((id) => got[id]).length;
+    return `<section class="card stack">
+      <div class="row"><h2>Lista della spesa</h2><span class="spacer"></span><span class="badge off">${done}/${n}</span>
+      <button type="button" class="chip" data-act="shopreset">${I.reset} Azzera</button></div>
+      <p class="small muted">Quantità esatte per 7 giorni: sono le somme dei grammi del piano, compresi i tuoi scambi. Pesi da crudo per carne, pesce, pasta, riso e patate. Il pasto libero è escluso.</p>
+      ${byCat}
+    </section>`;
+  }
+
+  function viewSostituzioni() {
+    const eq = D.equivalents.map((g) => {
+      const ref = D.foods[g.ref];
+      const refK = r0(ref.k * g.g / 100);
+      return `<section class="card stack"><h3>${esc(g.title)}</h3>
+        <div class="tbl-wrap"><table><thead><tr><th>Alimento</th><th class="r">Grammi</th><th class="r">kcal</th></tr></thead><tbody>
+        <tr class="tbl-hl"><td>${esc(ref.n)}</td><td class="r">${g.g} g</td><td class="r">${refK}</td></tr>
+        ${g.rows.map((r) => `<tr><td>${esc(D.foods[r.f].n)}</td><td class="r">${r.g} g</td><td class="r">${r0(D.foods[r.f].k * r.g / 100)}</td></tr>`).join('')}
+        </tbody></table></div></section>`;
+    }).join('');
+    return `<div class="stack">
+      <section class="card prose">
+        <h2>Come sostituire senza sbagliare</h2>
+        <ul>
+          <li><strong>Un pasto intero:</strong> usa il menu "scambia" sotto ogni pasto. Le opzioni della stessa fascia sono già calcolate sulle stesse kcal (±10), quindi il totale del giorno resta giusto.</li>
+          <li><strong>Un singolo alimento:</strong> usa le tabelle qui sotto. Le fonti proteiche sono equivalenti per proteine e i carboidrati per carboidrati. Guarda la colonna kcal: se l'alimento nuovo ha più calorie, togline un po' dal condimento.</li>
+          <li><strong>Verdura cruda:</strong> libera. Lattuga, pomodori, cetrioli, peperoni, carote e cipolla si scambiano tra loro senza pesarli.</li>
+          <li><strong>Frutta:</strong> circa 80 kcal equivalgono a una mela (150 g), una pera (140 g), 2 kiwi (130 g), un'arancia (170 g) o 250 g di fragole.</li>
+        </ul>
+      </section>
+      <div class="grid2">${eq}</div>
+    </div>`;
+  }
+
+  /* ================= SCHEDA ================= */
+  function blockWeek() {
+    const start = store.get('blockStart', '2026-09-28');
+    const days = Math.floor((fromKey(dkey(new Date())) - fromKey(start)) / 86400000);
+    const weeks = Math.max(0, Math.floor(days / 7));
+    const n = (weeks % 7) + 1;
+    const cycle = Math.floor(weeks / 7) + 1;
+    const phase = n <= 2 ? 'Adattamento · 2–3 ripetizioni in riserva (RIR 2–3)'
+      : n <= 6 ? 'Progressione · RIR 1–2 (ultima serie di isolamento a RIR 0–1)'
+        : 'Scarico · metà delle serie, stessi carichi, RIR 3–4';
+    return { n, cycle, phase, start, deload: n === 7, future: days < 0 };
+  }
+
+  function defaultWo() {
+    const di = dayIdx(new Date());
+    for (let i = 0; i < 7; i++) { const d = D.week[(di + i) % 7]; if (d.wo) return d.wo; }
+    return 'TA';
+  }
+
+  function logFor(id) {
+    const log = store.get('log', {});
+    return (log[id] || []).slice().sort((a, b) => (a.d < b.d ? 1 : -1));
+  }
+  const setsTxt = (e, rec) => rec.sets.map((s) => (!s ? '–' : e.unit === 'sec' ? `${s[1] ?? '–'}″` : `${s[0] != null ? fmtKg(s[0]) : '–'}×${s[1] ?? '–'}`)).join(' · ');
+
+  function suggestion(e, last) {
+    const u = e.unit === 'sec' ? '″' : '';
+    if (!last) {
+      if (e.unit === 'sec') return { cls: '', txt: `Tieni ${e.lo}${u} su ogni serie, poi aumenta fino a ${e.hi}${u}.` };
+      return { cls: '', txt: e.kg != null ? `Parti da ${fmtKg(e.kg)} kg: cerca ${e.lo}–${e.hi} ripetizioni lasciandone 1–2 in riserva.` : `Carico da testare: trova il peso con cui chiudi ${e.lo}–${e.hi} ripetizioni lasciandone 1–2 in riserva.` };
+    }
+    const sets = (last.sets || []).filter((s) => s && s[1] != null);
+    if (!sets.length) return { cls: '', txt: 'Ultima sessione senza ripetizioni registrate.' };
+    if (e.unit === 'sec') {
+      const all = sets.length >= e.s && sets.every((s) => s[1] >= e.hi);
+      const best = Math.max(...sets.map((s) => s[1]));
+      return all ? { cls: 'up', txt: `Hai tenuto ${e.hi}″ su tutte le serie: oggi prova ${e.hi + e.inc}″.` } : { cls: '', txt: `Punta a ${Math.min(e.hi, best + 5)}″ su ogni serie.` };
+    }
+    const kg = Math.max(...sets.map((s) => s[0] || 0));
+    const allTop = sets.length >= e.s && sets.every((s) => s[1] >= e.hi);
+    const anyLow = sets.some((s) => s[1] < e.lo);
+    if (!kg) return { cls: '', txt: 'Registra anche il carico per avere il consiglio.' };
+    if (allTop) return { cls: 'up', txt: `Tutte le serie a ${e.hi}: oggi sali a ${fmtKg(r1(kg + e.inc))} kg.` };
+    if (anyLow) return { cls: '', txt: `Qualche serie sotto le ${e.lo}: resta a ${fmtKg(kg)} kg. Se ricapita, scendi del 5–10%.` };
+    return { cls: '', txt: `Resta a ${fmtKg(kg)} kg e aggiungi 1 ripetizione dove riesci.` };
+  }
+
+  function exCard(w, e, idx) {
+    const today = dkey(new Date());
+    const hist = logFor(e.id);
+    const todayRec = hist.find((h) => h.d === today);
+    const last = hist.find((h) => h.d !== today);
+    const sg = suggestion(e, last);
+    const isSup = !!e.sup;
+    const label = e.sup || String(idx + 1);
+    const isTime = e.unit === 'sec';
+    const sets = Array.from({ length: e.s }, (_, i) => {
+      const cur = (todayRec && todayRec.sets[i]) || [];
+      const ls = (last && last.sets[i]) || [];
+      const kgPh = ls[0] != null ? fmtKg(ls[0]) : e.kg != null ? fmtKg(e.kg) : '';
+      const kgIn = isTime ? '' : `<label><input inputmode="decimal" autocomplete="off" data-ex="${e.id}" data-i="${i}" data-k="0" value="${cur[0] != null ? fmtKg(cur[0]) : ''}" placeholder="${kgPh}" aria-label="${esc(e.n)}, serie ${i + 1}, chili"><i>kg</i></label>`;
+      const rIn = `<label><input inputmode="numeric" autocomplete="off" data-ex="${e.id}" data-i="${i}" data-k="1" value="${cur[1] != null ? cur[1] : ''}" placeholder="${ls[1] != null ? ls[1] : ''}" aria-label="${esc(e.n)}, serie ${i + 1}, ${isTime ? 'secondi' : 'ripetizioni'}"><i>${isTime ? 'sec' : 'rip'}</i></label>`;
+      return `<div class="set"${isTime ? ' style="grid-template-columns:58px 1fr"' : ''}><span>Serie ${i + 1}</span>${kgIn}${rIn}</div>`;
+    }).join('');
+    const next = isSup && e.sup.endsWith('a') ? w.ex.find((x) => x.sup === e.sup.replace('a', 'b')) : null;
+    const restBtn = e.rest > 0 ? `<button type="button" class="chip solid" data-act="rest" data-s="${e.rest}">${I.timer} Recupero ${restTxt(e.rest)}</button>` : '';
+    return `<article class="card ex${isSup ? ' sup' : ''}" id="ex-${e.id}">
+      <div class="ex-h"><span class="ex-n">${label}</span>
+        <div><h3>${esc(e.n)}</h3>
+        <div class="ex-meta"><span><b>${e.s} × ${e.lo}–${e.hi}</b>${isTime ? '″' : ''}</span><span>Rec. <b>${e.rest > 0 ? restTxt(e.rest) : 'nessuno'}</b></span><span>Partenza <b>${esc(e.start)}</b></span></div></div>
+      </div>
+      ${next ? `<p class="sup-note">Superserie: finita la serie passa subito a ${esc(next.n)} (${next.sup}).</p>` : ''}
+      <div class="ex-info">
+        ${last ? `<p class="last">Ultima volta (${shortDate(last.d)}): <strong>${setsTxt(e, last)}</strong></p>` : ''}
+        <p class="sugg ${sg.cls}">${esc(sg.txt)}</p>
+      </div>
+      <div class="sets">${sets}</div>
+      <div class="ex-f">${restBtn}
+        <button type="button" class="chip" data-act="toggle" data-t="cue-${e.id}" aria-expanded="false">Tecnica</button>
+        ${hist.length ? `<button type="button" class="chip" data-act="toggle" data-t="hist-${e.id}" aria-expanded="false">Storico (${hist.length})</button>` : ''}
+      </div>
+      <p class="cue hidden" id="cue-${e.id}">${esc(e.cue)}</p>
+      ${hist.length ? `<div class="hist hidden" id="hist-${e.id}"><ul>${hist.slice(0, 8).map((h) => `<li><span class="muted">${shortDate(h.d)}</span> · ${setsTxt(e, h)}</li>`).join('')}</ul></div>` : ''}
+    </article>`;
+  }
+
+  function viewScheda() {
+    if (!ui.wo) ui.wo = defaultWo();
+    const w = D.workouts.find((x) => x.id === ui.wo);
+    const wk = blockWeek();
+    const tabs = D.workouts.map((x) => `<button type="button" class="wo-tab" role="tab" data-act="wo" data-wo="${x.id}" aria-selected="${x.id === w.id}">${esc(x.name)}<small>${esc(x.day.slice(0, 3))}</small></button>`).join('');
+    const sets = w.ex.reduce((a, e) => a + e.s, 0);
+    return `<div class="stack">
+      <div><p class="eyebrow">Allenamento · Torso/Limbs 4x</p><h1>${esc(w.name)}</h1><p class="muted">${esc(w.day)} 16:30 · ${esc(w.focus)} · ${sets} serie</p></div>
+      <div class="wo-tabs" role="tablist" aria-label="Allenamenti">${tabs}</div>
+      <div class="grid-main">
+        <div class="stack">
+          ${'wakeLock' in navigator ? `<div class="row"><button type="button" class="chip${wake.want ? ' accent' : ''}" data-act="wake" aria-pressed="${wake.want}">${wake.want ? 'Schermo sempre acceso: attivo' : 'Tieni lo schermo acceso'}</button><span class="tiny muted">utile in palestra, si spegne quando esci dalla scheda</span></div>` : ''}
+          <section class="card flat small"><strong>Riscaldamento (5′):</strong> 5 minuti leggeri, poi 2 serie di avvicinamento sul primo esercizio di ogni muscolo (10 ripetizioni al 50% del carico, 5 al 75%). I dati si salvano da soli mentre scrivi.</section>
+          ${w.ex.map((e, i) => exCard(w, e, i)).join('')}
+          <section class="card stack">
+            <h3>Cardio finale · tapis roulant</h3>
+            <p class="small"><strong>15–20′ al 14% di pendenza, 4,0–4,5 km/h</strong> (≈ 115–170 kcal). Non tenerti ai corrimano: consumeresti il 20–30% in meno. Nei giorni Limbs, se hai le gambe distrutte, bastano 15′ al 12%.</p>
+          </section>
+        </div>
+        <aside class="stack sticky-col">
+          <section class="card stack">
+            <p class="eyebrow">Blocco ${wk.cycle} · settimana ${wk.n} di 7</p>
+            <h2>${wk.deload ? 'Settimana di scarico' : wk.n <= 2 ? 'Adattamento' : 'Progressione'}</h2>
+            <p class="small">${esc(wk.phase)}</p>
+            <div class="field"><label for="blockStart">Inizio del blocco (un lunedì)</label><input type="date" id="blockStart" data-act="blockstart" value="${wk.start}"></div>
+          </section>
+          <details class="card">
+            <summary>Regole di progressione</summary>
+            <div class="prose small">
+              <p><strong>Doppia progressione.</strong> Ogni esercizio ha un range di ripetizioni. Quando chiudi <strong>tutte le serie al massimo del range</strong> con tecnica pulita, la volta dopo aumenti il carico:</p>
+              <ul><li>+5 kg su Leg Press e Leg Curl</li><li>+2,5 kg su macchine e cavi della parte alta (+1,25 kg sulle alzate al cavo)</li><li>manubri: arrivi a 3×12, poi +2 kg</li></ul>
+              <p>Se una serie finisce sotto il minimo del range resti allo stesso carico. Se ti succede due volte di fila, scendi del 5–10%.</p>
+              <p><strong>Settimane 1–2:</strong> RIR 2–3 · <strong>3–6:</strong> RIR 1–2 · <strong>7:</strong> scarico. Poi riparte il blocco.</p>
+              <p><strong>Obiettivi a fine blocco 1:</strong> Leg Press 128–133 kg · Chest Press 32–34 kg · Lat Pulldown 39–41 kg · Shoulder Press 18 kg · Pushdown 15–17 kg · Panca inclinata 10 kg per manubrio.</p>
+            </div>
+          </details>
+          <section class="card stack">
+            <h3>Volume settimanale (serie dirette)</h3>
+            <p class="small muted">Petto 11 · Schiena 12 (+5 Reverse Pec Deck) · Deltoidi laterali 7 · Posteriori 5 · Quadricipiti 12 · Femorali 7 · Bicipiti 10 · Tricipiti 10 · Addome 6 + plank</p>
+          </section>
+        </aside>
+      </div>
+    </div>`;
+  }
+
+  /* ---------------- timer recupero ---------------- */
+  const timer = { end: 0, id: 0, ctx: null };
+  const tEl = document.getElementById('timer');
+  function beep() {
+    try {
+      const ctx = timer.ctx; if (!ctx) return;
+      [0, 0.25, 0.5].forEach((t) => {
+        const o = ctx.createOscillator(); const g = ctx.createGain();
+        o.frequency.value = 880; o.connect(g); g.connect(ctx.destination);
+        g.gain.setValueAtTime(0.18, ctx.currentTime + t); g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.18);
+        o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + 0.2);
+      });
+    } catch (e) { /* audio non disponibile */ }
+  }
+  function tick() {
+    const left = Math.max(0, Math.round((timer.end - Date.now()) / 1000));
+    $('#timerTime').textContent = left > 0 ? mmss(left) : 'Via!';
+    if (left <= 0) {
+      clearInterval(timer.id); tEl.classList.add('done'); beep();
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+    }
+  }
+  function startTimer(sec) {
+    try { if (!timer.ctx) { const AC = window.AudioContext || window.webkitAudioContext; if (AC) timer.ctx = new AC(); } if (timer.ctx && timer.ctx.state === 'suspended') timer.ctx.resume(); } catch (e) { /* ignora */ }
+    timer.end = Date.now() + sec * 1000; tEl.hidden = false; tEl.classList.remove('done');
+    clearInterval(timer.id); tick(); timer.id = setInterval(tick, 250);
+  }
+  $('#timerPlus').addEventListener('click', () => { if (tEl.classList.contains('done')) startTimer(15); else { timer.end += 15000; tick(); } });
+  $('#timerStop').addEventListener('click', () => { clearInterval(timer.id); tEl.hidden = true; });
+
+  /* ================= PROGRESSI ================= */
+  const START = { d: '2026-09-28', kg: 64.7, bf: 17.7 };
+  function weights() { return store.get('weights', []).slice().sort((a, b) => (a.d < b.d ? -1 : 1)); }
+  function mondayOf(k) { const d = fromKey(k); d.setDate(d.getDate() - dayIdx(d)); return dkey(d); }
+  function weekly(ws) {
+    const m = {};
+    ws.forEach((w) => { const k = mondayOf(w.d); (m[k] = m[k] || []).push(w); });
+    return Object.keys(m).sort().map((k) => {
+      const arr = m[k];
+      const kg = arr.reduce((a, w) => a + w.kg, 0) / arr.length;
+      const wa = arr.filter((w) => w.w != null);
+      return { wk: k, n: arr.length, kg, waist: wa.length ? wa.reduce((a, w) => a + w.w, 0) / wa.length : null };
+    });
+  }
+  function advice(wk) {
+    const full = wk.filter((w) => w.n >= 3);
+    if (full.length < 2) {
+      return 'Pesati almeno 4 mattine a settimana, a digiuno e dopo il bagno. Dopo 2 settimane complete ti dico se il ritmo è giusto. Nelle prime 1–2 settimane un +0,3/+0,8 kg è normale: sono glicogeno e acqua dei carboidrati in più, non grasso.';
+    }
+    const a = full[full.length - 1], b = full[full.length - 2];
+    const d = a.kg - b.kg;
+    const c = full.length >= 3 ? full[full.length - 3] : null;
+    const d2 = c ? b.kg - c.kg : null;
+    const waistDown = a.waist != null && b.waist != null && a.waist < b.waist;
+    if (d <= -0.4 && d2 != null && d2 <= -0.4) return `Stai scendendo troppo in fretta (${sign(r1(d * 10) / 10, f2)} kg e ${sign(r1(d2 * 10) / 10, f2)} kg nelle ultime due settimane). Aggiungi circa 150 kcal: +40 g di pasta o riso al pranzo dei giorni ON.`;
+    if (d <= -0.4) return `Calo di ${f2(Math.abs(d))} kg in una settimana: un po' veloce. Se si ripete la prossima settimana, aggiungi 150 kcal.`;
+    if (d <= -0.1) return `Perfetto: ${sign(Math.round(d * 100) / 100, f2)} kg rispetto alla settimana prima. È il ritmo giusto per una ricomposizione: non cambiare niente.`;
+    if (d < 0.2) {
+      if (d2 != null && Math.abs(d2) < 0.1 && !waistDown) return 'Peso fermo da 3 settimane e girovita che non scende: togli 100–150 kcal (es. −30 g di pasta o riso a cena) oppure aggiungi 2000 passi al giorno.';
+      return `Peso stabile (${sign(r1(d * 100) / 100, f2)} kg). Se il girovita scende e i carichi salgono, stai facendo ricomposizione: va benissimo.`;
+    }
+    return `Peso in salita (${sign(r1(d * 100) / 100, f2)} kg). Se sei nelle prime 2 settimane è glicogeno. Altrimenti controlla le porzioni del pasto libero e i condimenti "a occhio".`;
+  }
+  function chart(ws) {
+    if (ws.length < 2) return '<p class="small muted">Il grafico compare dal secondo peso registrato.</p>';
+    const data = ws.slice(-90);
+    const W = 640, H = 220, L = 40, R = 12, Tp = 12, B = 26;
+    const t0 = fromKey(data[0].d).getTime(), t1 = fromKey(data[data.length - 1].d).getTime();
+    const span = Math.max(1, t1 - t0);
+    const vals = data.map((w) => w.kg).concat([START.kg]);
+    let lo = Math.min(...vals) - 0.4, hi = Math.max(...vals) + 0.4;
+    const x = (k) => L + ((fromKey(k).getTime() - t0) / span) * (W - L - R);
+    const y = (v) => Tp + (1 - (v - lo) / (hi - lo)) * (H - Tp - B);
+    const avg = data.map((w) => {
+      const from = fromKey(w.d).getTime() - 6 * 86400000;
+      const win = ws.filter((z) => { const t = fromKey(z.d).getTime(); return t >= from && t <= fromKey(w.d).getTime(); });
+      return [w.d, win.reduce((a, z) => a + z.kg, 0) / win.length];
+    });
+    const ticks = [lo + 0.4, (lo + hi) / 2, hi - 0.4];
+    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Andamento del peso con media mobile a 7 giorni">
+      ${ticks.map((v) => `<line class="ax" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${f1(v)}</text>`).join('')}
+      <line class="base" x1="${L}" x2="${W - R}" y1="${y(START.kg)}" y2="${y(START.kg)}"/>
+      ${data.map((w) => `<circle class="pt" cx="${x(w.d)}" cy="${y(w.kg)}" r="3"/>`).join('')}
+      <polyline class="ln" points="${avg.map(([d, v]) => `${x(d).toFixed(1)},${y(v).toFixed(1)}`).join(' ')}"/>
+      <text x="${L}" y="${H - 6}">${shortDate(data[0].d)}</text><text x="${W - R}" y="${H - 6}" text-anchor="end">${shortDate(data[data.length - 1].d)}</text>
+    </svg>`;
+  }
+  function viewProgressi() {
+    const ws = weights();
+    const wk = weekly(ws);
+    const last = ws[ws.length - 1];
+    const lastD = last ? fromKey(last.d).getTime() : 0;
+    const last7 = ws.filter((w) => fromKey(w.d).getTime() > lastD - 7 * 86400000);
+    const avg7 = last7.length ? last7.reduce((a, w) => a + w.kg, 0) / last7.length : null;
+    const full = wk.filter((w) => w.n >= 3);
+    const dWeek = full.length >= 2 ? full[full.length - 1].kg - full[full.length - 2].kg : null;
+    const waists = ws.filter((w) => w.w != null);
+    const stat = (lbl, v, cls = '') => `<div class="stat"><div class="lbl">${lbl}</div><div class="v ${cls}">${v}</div></div>`;
+    return `<div class="stack">
+      <div><p class="eyebrow">Monitoraggio</p><h1>Progressi</h1><p class="muted">Punto di partenza: ${f2(START.kg)} kg · ${f1(START.bf)}% di grasso (bilancia) · ${shortDate(START.d)}/2026</p></div>
+      <section class="card stack">
+        <h2>Nuova misurazione</h2>
+        <form id="wForm" class="form-row" novalidate>
+          <div class="field"><label for="wDate">Data</label><input id="wDate" type="date" value="${dkey(new Date())}" required></div>
+          <div class="field"><label for="wKg">Peso (kg)</label><input id="wKg" inputmode="decimal" autocomplete="off" placeholder="64,7"></div>
+          <div class="field"><label for="wWaist">Vita (cm)</label><input id="wWaist" inputmode="decimal" autocomplete="off" placeholder="facolt."></div>
+          <button class="btn" type="submit">Salva</button>
+        </form>
+        <p class="err" id="wErr" role="alert"></p>
+        <p class="tiny muted">Mattina, a digiuno, dopo il bagno. Vita misurata all'altezza dell'ombelico, a fine espirazione, ogni lunedì. I dati restano solo su questo dispositivo: usa il backup qui sotto per spostarli.</p>
+      </section>
+      <div class="stats">
+        ${stat('Ultimo peso', last ? `${f2(last.kg)}` : '—')}
+        ${stat('Media 7 giorni', avg7 != null ? f2(avg7) : '—')}
+        ${stat('Settimana vs prec.', dWeek != null ? sign(Math.round(dWeek * 100) / 100, f2) : '—', dWeek == null ? '' : dWeek > 0.05 ? 'up' : dWeek < -0.05 ? 'down' : '')}
+        ${stat('Dal via', avg7 != null ? sign(Math.round((avg7 - START.kg) * 100) / 100, f2) : '—', avg7 == null ? '' : avg7 > START.kg ? 'up' : 'down')}
+      </div>
+      <section class="card advice"><p class="eyebrow">Cosa fare adesso</p><p style="margin-top:6px">${esc(advice(wk))}</p></section>
+      <section class="card chart stack"><div class="row"><h2>Andamento</h2><span class="spacer"></span><span class="tiny muted">punti = pesate · linea = media 7 giorni · tratteggio = partenza</span></div>${chart(ws)}</section>
+      <div class="grid2">
+        <section class="card stack"><h2>Medie settimanali</h2>
+          ${wk.length ? `<div class="tbl-wrap"><table><thead><tr><th>Settimana dal</th><th class="r">Pesate</th><th class="r">Media</th><th class="r">Δ</th><th class="r">Vita</th></tr></thead><tbody>
+          ${wk.slice().reverse().map((w, i, arr) => { const prev = arr[i + 1]; return `<tr><td>${shortDate(w.wk)}</td><td class="r">${w.n}</td><td class="r">${f2(w.kg)}</td><td class="r">${prev ? sign(Math.round((w.kg - prev.kg) * 100) / 100, f2) : '—'}</td><td class="r">${w.waist != null ? f1(w.waist) : '—'}</td></tr>`; }).join('')}
+          </tbody></table></div>` : '<p class="small muted">Ancora nessuna pesata.</p>'}
+          ${waists.length >= 2 ? `<p class="small">Girovita: <strong>${sign(r1(waists[waists.length - 1].w - waists[0].w))} cm</strong> dalla prima misura.</p>` : ''}
+        </section>
+        <section class="card stack"><h2>Registro</h2>
+          ${ws.length ? `<ul class="entries">${ws.slice().reverse().slice(0, 30).map((w) => `<li><span class="muted">${shortDate(w.d)}</span><strong>${f2(w.kg)} kg</strong>${w.w != null ? `<span class="muted">· vita ${f1(w.w)} cm</span>` : ''}<button type="button" class="x-btn" data-act="wdel" data-d="${w.d}" aria-label="Elimina la misura del ${shortDate(w.d)}">${I.trash}</button></li>`).join('')}</ul>` : '<p class="small muted">Le misure che salvi compaiono qui.</p>'}
+        </section>
+      </div>
+      <section class="card stack">
+        <h2>Backup dei dati</h2>
+        <p class="small muted">Pesi, carichi della scheda, scambi dei pasti e lista della spesa sono salvati in questo browser. Esporta un file per sicurezza o per spostarli dal PC al telefono.</p>
+        <div class="row"><button type="button" class="btn ghost" data-act="export">${I.down} Esporta backup</button>
+        <label class="btn ghost" for="importFile">${I.up} Importa backup</label><input id="importFile" type="file" accept="application/json,.json" class="sr"></div>
+        <p class="err" id="impMsg" role="status"></p>
+      </section>
+    </div>`;
+  }
+
+  /* ================= GUIDA ================= */
+  function viewGuida() {
+    const tabs = [['target', 'Target & TDEE'], ['alimenti', 'Alimenti'], ['regole', 'Regole']];
+    const seg = `<div class="seg" role="tablist" aria-label="Sezioni della guida">${tabs.map(([k, l]) => `<button type="button" role="tab" data-act="gtab" data-tab="${k}" aria-selected="${ui.guidaTab === k}">${l}</button>`).join('')}</div>`;
+    const body = ui.guidaTab === 'alimenti' ? guidaAlimenti() : ui.guidaTab === 'regole' ? guidaRegole() : guidaTarget();
+    return `<div class="stack"><div><p class="eyebrow">Il metodo</p><h1>Guida</h1></div>${seg}${body}</div>`;
+  }
+
+  function guidaTarget() {
+    const kv = [['Età', '18 anni'], ['Altezza', '173 cm'], ['Peso', '64,70 kg'], ['BMI', '21,6'], ['Grasso (BIA)', '17,7%'], ['Massa magra', '53,26 kg'], ['Grasso viscerale', '3'], ['Acqua', '55,7%']];
+    return `<div class="stack">
+      <section class="card stack"><h2>Punto di partenza · 28/09/2026</h2>
+        <dl class="kv" style="margin:0">${kv.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>
+        <p class="small muted">Obiettivo: ricomposizione corporea. Meno grasso su basso addome e fianchi, più muscolo (soprattutto dorsali e deltoidi laterali), carichi in salita. La percentuale di grasso della bilancia può sbagliare di ±3–5 punti: usala solo come andamento.</p>
+      </section>
+      <div class="grid2">
+        <section class="card stack"><h2>Metabolismo basale</h2>
+          <div class="tbl-wrap"><table><thead><tr><th>Formula</th><th class="r">kcal</th></tr></thead><tbody>
+            <tr><td>Mifflin-St Jeor</td><td class="r">1643</td></tr>
+            <tr><td>Katch-McArdle (massa magra)</td><td class="r">1520</td></tr>
+            <tr><td>Cunningham (massa magra)</td><td class="r">1672</td></tr>
+            <tr><td>Tinsley 2019 (chi fa pesi)</td><td class="r">1663</td></tr>
+            <tr><td class="muted">Bilancia BIA (esclusa, sottostima)</td><td class="r muted">1449</td></tr>
+          </tbody><tfoot><tr><td>BMR di lavoro (media)</td><td class="r">≈ 1625</td></tr></tfoot></table></div>
+        </section>
+        <section class="card stack"><h2>Dispendio giornaliero</h2>
+          <div class="tbl-wrap"><table><thead><tr><th></th><th class="r">ON</th><th class="r">OFF</th></tr></thead><tbody>
+            <tr><td>BMR</td><td class="r">1625</td><td class="r">1625</td></tr>
+            <tr><td>NEAT (scuola, passi)</td><td class="r">300</td><td class="r">300</td></tr>
+            <tr><td>Pesi ~60′ + tapis 14%</td><td class="r">330</td><td class="r">0</td></tr>
+            <tr><td>Digestione (TEF ~10%)</td><td class="r">250</td><td class="r">214</td></tr>
+            <tr><td>TDEE teorico</td><td class="r">2505</td><td class="r">2139</td></tr>
+          </tbody><tfoot><tr><td>TDEE di lavoro</td><td class="r">≈ 2450</td><td class="r">≈ 2100</td></tr></tfoot></table></div>
+          <p class="tiny muted">Il calcolo teorico è stato corretto con la tua storia reale: in estate, a 1850 kcal con 3 allenamenti, perdevi ~0,2 kg a settimana. Media di lavoro ≈ 2300 kcal.</p>
+        </section>
+      </div>
+      <section class="card stack"><h2>Target</h2>
+        <div class="tbl-wrap"><table><thead><tr><th></th><th class="r">kcal</th><th class="r">Proteine</th><th class="r">Carboidrati</th><th class="r">Grassi</th></tr></thead><tbody>
+          <tr><td><span class="badge on">ON</span> Lun Mar Gio Ven</td><td class="r">2200</td><td class="r">140 g</td><td class="r">275 g</td><td class="r">60 g</td></tr>
+          <tr><td><span class="badge off">OFF</span> Mer Sab Dom</td><td class="r">1900</td><td class="r">140 g</td><td class="r">191 g</td><td class="r">64 g</td></tr>
+        </tbody><tfoot><tr><td>Media settimanale</td><td class="r">2071</td><td colspan="3" class="small muted">−10% dal TDEE, circa −230 kcal al giorno</td></tr></tfoot></table></div>
+        <div class="prose small">
+          <p>Proteine a 2,2 g/kg per proteggere e costruire muscolo mentre perdi grasso. Carboidrati concentrati nei giorni in cui ti alleni, grassi un po' più alti nei giorni OFF per saziarti. Per il grasso conta la media della settimana.</p>
+          <p><strong>Perché non 1850 fisse:</strong> con 4 allenamenti più la scuola sarebbero −450 kcal al giorno (−20%). Scenderesti più in fretta sulla bilancia, ma i carichi si fermerebbero (soprattutto la schiena, che devi costruire) e arriveresti affamato alle 14:30.</p>
+          <p><strong>Cosa aspettarti:</strong> nelle prime 1–2 settimane la bilancia può salire di 0,3–0,8 kg (glicogeno e acqua). Poi −0,1/−0,25 kg a settimana, con il girovita che scende e i carichi che salgono. Proiezione a metà gennaio 2027: circa 63 kg, −2,5/−3 kg di grasso, +0,5/+1 kg di massa magra, grasso sulla bilancia intorno al 14%.</p>
+        </div>
+      </section>
+    </div>`;
+  }
+
+  function guidaAlimenti() {
+    const ids = Object.keys(D.foods).sort((a, b) => D.foods[a].cat.localeCompare(D.foods[b].cat, 'it') || D.foods[a].n.localeCompare(D.foods[b].n, 'it'));
+    return `<div class="stack">
+      <section class="card stack">
+        <div class="row"><h2>Database alimenti</h2><span class="spacer"></span><span class="badge off">${ids.length} alimenti</span></div>
+        <p class="small muted">Valori per 100 g (peso da crudo per carne, pesce, pasta, riso e patate). Sono i numeri usati in tutti i calcoli del piano. Se compri una marca con valori diversi, la differenza è di solito entro il ±5%.</p>
+        <label class="sr" for="foodSearch">Cerca un alimento</label>
+        <input id="foodSearch" class="search" type="search" placeholder="Cerca: pollo, pasta, yogurt…" autocomplete="off">
+        <div class="tbl-wrap"><table id="foodTable"><thead><tr><th>Alimento</th><th class="r">kcal</th><th class="r">P</th><th class="r">C</th><th class="r">G</th><th>Fonte</th></tr></thead><tbody>
+          ${ids.map((id) => { const f = D.foods[id]; return `<tr data-n="${esc(f.n.toLowerCase())}"><td>${esc(f.n)}${f.note ? `<br><span class="tiny muted">${esc(f.note)}</span>` : ''}</td><td class="r">${f0(f.k)}</td><td class="r">${f1(f.p)}</td><td class="r">${f1(f.c)}</td><td class="r">${f1(f.f)}</td><td class="tiny muted">${esc(f.src)}</td></tr>`; }).join('')}
+        </tbody></table></div>
+      </section>
+      <section class="card stack"><h2>Nota sulla tua whey</h2>
+        <p class="small">L'etichetta della Prozis 100% Real Whey gusto Brownie (Open Food Facts) riporta <strong>72 g di proteine ogni 100 g</strong>, cioè <strong>21,6 g per scoop da 30 g</strong>, non 24. Nel piano ho usato il valore dell'etichetta. Se sul tuo barattolo c'è scritto diversamente, va aggiornato.</p>
+        <p class="small">Anche lo <strong>Special K "Protein"</strong> ha solo 12 g di proteine per 100 g: le proteine vere della yogurt bowl vengono dallo yogurt greco.</p>
+      </section>
+      <section class="card stack"><h2>Cibi esclusi dal piano</h2>
+        <div class="pill-list no">${['Lenticchie', 'Ceci', 'Fagioli', 'Piselli', 'Verdure cotte', 'Finocchio', 'Cavolo', 'Sedano', 'Rucola', 'Radicchio', 'Avocado', 'Ricotta', 'Patate dolci', 'Couscous', 'Farro'].map((x) => `<span>${x}</span>`).join('')}</div>
+        <p class="tiny muted">Unica verdura cotta ammessa: pomodoro in passata o nel sugo.</p>
+      </section>
+    </div>`;
+  }
+
+  function guidaRegole() {
+    return `<div class="grid2">
+      <section class="card prose small"><h2>Merende a scuola</h2>
+        <ul><li>Tutto si prepara <strong>la sera prima in 5 minuti</strong>: panino in carta stagnola, frutta intera, frutta secca in un sacchettino.</li>
+        <li>Niente tonno, uova o sgombro a scuola (odore), niente contenitori, niente cucchiaino.</li>
+        <li>La merenda delle 9:30 è il tuo primo pasto: non saltarla, altrimenti arrivi affamato al pranzo pre-workout.</li>
+        <li>Bevi acqua durante la mattina: almeno 500 ml prima di pranzo.</li></ul></section>
+      <section class="card prose small"><h2>Pasto libero</h2>
+        <ul><li>1 a settimana, sabato o domenica a pranzo (nel piano è domenica: puoi scambiare i giorni).</li>
+        <li>Una porzione normale: pizza, hamburger con patatine piccole, sushi da 12–16 pezzi.</li>
+        <li>Niente antipasto + dolce + bis, e non diventa una giornata libera.</li>
+        <li>Il resto della giornata è già più leggero (circa 1100 kcal) per lasciargli spazio.</li></ul></section>
+      <section class="card prose small"><h2>Recupero</h2>
+        <ul><li><strong>Sonno:</strong> 8 ore (22:30 → 6:30). È metà della ricomposizione.</li>
+        <li><strong>Acqua:</strong> 2,5–3 litri al giorno, +0,5 litri nei giorni di palestra.</li>
+        <li><strong>Passi:</strong> 7–8 mila al giorno, 8–10 mila nei giorni OFF.</li>
+        <li><strong>Creatina monoidrato</strong> (facoltativa): 3–5 g al giorno, tutti i giorni. È l'integratore più studiato, ma aggiunge 0,5–1 kg d'acqua sulla bilancia.</li></ul></section>
+      <section class="card prose small"><h2>Misure e correzioni</h2>
+        <ul><li>Peso almeno 4 mattine a settimana: conta la <strong>media settimanale</strong>, non il singolo giorno.</li>
+        <li>Girovita all'ombelico ogni lunedì, foto ogni 4 settimane, bilancia BIA sempre nelle stesse condizioni.</li>
+        <li>Calo oltre 0,4 kg a settimana per 2 settimane → +150 kcal.</li>
+        <li>Peso e girovita fermi per 3 settimane → −100/150 kcal oppure +2000 passi.</li>
+        <li>Carichi in calo per 2 settimane → +100 kcal nei giorni ON e più sonno.</li></ul></section>
+    </div>`;
+  }
+
+  /* ================= ROUTER & EVENTI ================= */
+  const routes = { oggi: viewOggi, piano: viewPiano, scheda: viewScheda, progressi: viewProgressi, guida: viewGuida };
+  const titles = { oggi: 'Oggi', piano: 'Piano', scheda: 'Scheda', progressi: 'Progressi', guida: 'Guida' };
+  let current = '';
+  function render(scrollTop) {
+    const name = (location.hash.replace(/^#\/?/, '').split('/')[0]) || 'oggi';
+    const r = routes[name] ? name : 'oggi';
+    if (r !== 'scheda' && wake.want) wakeOff();
+    $$('.nav a').forEach((a) => { if (a.dataset.route === r) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+    const y = window.scrollY;
+    main.innerHTML = routes[r]();
+    document.title = `${titles[r]} · Recomp`;
+    if (scrollTop || r !== current) { window.scrollTo(0, 0); if (r !== current && current) main.focus({ preventScroll: true }); }
+    else window.scrollTo(0, y);
+    current = r;
+  }
+  window.addEventListener('hashchange', () => render(true));
+
+  main.addEventListener('click', (ev) => {
+    const t = ev.target.closest('[data-act]');
+    if (!t) return;
+    const act = t.dataset.act;
+    if (act === 'eat') {
+      const key = dkey(new Date());
+      const all = store.get('eaten', {});
+      const arr = new Set(all[key] || []);
+      const si = Number(t.dataset.si);
+      if (arr.has(si)) arr.delete(si); else arr.add(si);
+      all[key] = Array.from(arr);
+      Object.keys(all).forEach((k) => { if ((fromKey(key) - fromKey(k)) / 86400000 > 10) delete all[k]; });
+      store.set('eaten', all); render();
+    } else if (act === 'ptab') { ui.pianoTab = t.dataset.tab; render(); }
+    else if (act === 'gtab') { ui.guidaTab = t.dataset.tab; render(); }
+    else if (act === 'pday') { ui.pianoDay = Number(t.dataset.di); render(); }
+    else if (act === 'resetday') {
+      const sw = store.get('swaps', {}); const di = t.dataset.di;
+      Object.keys(sw).forEach((k) => { if (k.split(':')[0] === di) delete sw[k]; });
+      store.set('swaps', sw); render();
+    } else if (act === 'shopreset') { store.set('shop', {}); render(); }
+    else if (act === 'wo') { ui.wo = t.dataset.wo; render(true); }
+    else if (act === 'openwo') { ui.wo = t.dataset.wo; }
+    else if (act === 'rest') { startTimer(Number(t.dataset.s)); }
+    else if (act === 'toggle') {
+      const el = document.getElementById(t.dataset.t);
+      if (el) { el.classList.toggle('hidden'); t.setAttribute('aria-expanded', String(!el.classList.contains('hidden'))); }
+    } else if (act === 'wdel') {
+      store.set('weights', weights().filter((w) => w.d !== t.dataset.d)); render();
+    } else if (act === 'export') {
+      const out = {};
+      try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k.startsWith('rc.')) out[k] = localStorage.getItem(k); } } catch (e) { /* ignora */ }
+      const json = JSON.stringify({ app: 'recomp', date: dkey(new Date()), data: out }, null, 2);
+      const name = `recomp-backup-${dkey(new Date())}.json`;
+      const download = () => {
+        const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' })); a.download = name;
+        document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+      };
+      // Su iPhone il foglio Condividi permette "Salva su File", AirDrop o l'invio a te stesso
+      let file = null;
+      try { file = new File([json], name, { type: 'application/json' }); } catch (e) { file = null; }
+      if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], title: 'Backup Recomp' }).catch((e) => { if (e && e.name !== 'AbortError') download(); });
+      } else download();
+    } else if (act === 'installhide') { store.set('installHidden', true); render(); }
+    else if (act === 'install' && installEvt) {
+      installEvt.prompt(); installEvt.userChoice.finally(() => { installEvt = null; render(); });
+    } else if (act === 'wake') {
+      if (wake.want) wakeOff(); else { wake.want = true; wakeOn(); }
+      render();
+    }
+  });
+
+  main.addEventListener('change', (ev) => {
+    const t = ev.target;
+    if (t.dataset.act === 'swap') {
+      const sw = store.get('swaps', {});
+      const k = t.dataset.di + ':' + t.dataset.si;
+      if (t.value === D.week[Number(t.dataset.di)].pick[Number(t.dataset.si)]) delete sw[k]; else sw[k] = t.value;
+      store.set('swaps', sw); render();
+    } else if (t.dataset.act === 'shop') {
+      const s = store.get('shop', {}); if (t.checked) s[t.dataset.id] = 1; else delete s[t.dataset.id];
+      store.set('shop', s); t.closest('li').classList.toggle('got', t.checked);
+      const tot = Object.keys(shoppingList()); const b = t.closest('.card').querySelector('.badge');
+      if (b) b.textContent = `${tot.filter((id) => s[id]).length}/${tot.length}`;
+    } else if (t.dataset.act === 'blockstart') {
+      if (t.value) { store.set('blockStart', t.value); render(); }
+    } else if (t.id === 'importFile' && t.files && t.files[0]) {
+      const msg = $('#impMsg');
+      const rd = new FileReader();
+      rd.onload = () => {
+        try {
+          const j = JSON.parse(rd.result);
+          if (!j || j.app !== 'recomp' || typeof j.data !== 'object') throw new Error('formato');
+          Object.keys(j.data).forEach((k) => { if (k.startsWith('rc.') && typeof j.data[k] === 'string') localStorage.setItem(k, j.data[k]); });
+          render(); const m2 = $('#impMsg'); if (m2) { m2.style.color = 'var(--ok)'; m2.textContent = 'Backup importato.'; }
+        } catch (e) { msg.textContent = 'File non valido: scegli un backup esportato da questo sito.'; }
+      };
+      rd.readAsText(t.files[0]);
+    }
+  });
+
+  main.addEventListener('input', (ev) => {
+    const t = ev.target;
+    if (t.dataset.ex) {
+      const id = t.dataset.ex, i = Number(t.dataset.i), k = Number(t.dataset.k);
+      const log = store.get('log', {});
+      const today = dkey(new Date());
+      const arr = log[id] || (log[id] = []);
+      let rec = arr.find((r) => r.d === today);
+      if (!rec) { rec = { d: today, sets: [] }; arr.push(rec); }
+      for (let j = 0; j <= i; j++) if (!rec.sets[j]) rec.sets[j] = [null, null];
+      rec.sets[i][k] = num(t.value);
+      if (rec.sets.every((s) => !s || (s[0] == null && s[1] == null))) arr.splice(arr.indexOf(rec), 1);
+      if (!arr.length) delete log[id];
+      store.set('log', log);
+    } else if (t.id === 'foodSearch') {
+      const q = t.value.trim().toLowerCase();
+      $$('#foodTable tbody tr').forEach((tr) => { tr.classList.toggle('hidden', !!q && !tr.dataset.n.includes(q)); });
+    }
+  });
+
+  main.addEventListener('submit', (ev) => {
+    if (ev.target.id !== 'wForm') return;
+    ev.preventDefault();
+    const err = $('#wErr');
+    const d = $('#wDate').value;
+    const kg = num($('#wKg').value);
+    const wRaw = $('#wWaist').value;
+    const w = num(wRaw);
+    if (!d) { err.textContent = 'Scegli la data.'; return; }
+    if (kg == null || kg < 35 || kg > 150) { err.textContent = 'Scrivi un peso valido in kg (es. 64,7).'; $('#wKg').focus(); return; }
+    if (wRaw.trim() && (w == null || w < 40 || w > 150)) { err.textContent = 'La vita va in centimetri (es. 78,5) oppure lasciala vuota.'; $('#wWaist').focus(); return; }
+    const ws = weights().filter((x) => x.d !== d);
+    const e = { d, kg: Math.round(kg * 100) / 100 };
+    if (w != null) e.w = r1(w);
+    ws.push(e);
+    store.set('weights', ws);
+    render();
+  });
+  main.addEventListener('input', (ev) => { if (ev.target.closest && ev.target.closest('#wForm')) { const e = $('#wErr'); if (e) e.textContent = ''; } });
+
+  /* ---------------- tema ---------------- */
+  const themeBtn = $('#themeBtn');
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  function effectiveTheme() { const t = document.documentElement.getAttribute('data-theme'); return t || (mq.matches ? 'dark' : 'light'); }
+  function paintThemeBtn() { const dark = effectiveTheme() === 'dark'; themeBtn.innerHTML = dark ? I.sun : I.moon; themeBtn.setAttribute('aria-label', dark ? 'Passa al tema chiaro' : 'Passa al tema scuro'); }
+  themeBtn.addEventListener('click', () => {
+    const next = effectiveTheme() === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next); store.set('theme', next); paintThemeBtn();
+  });
+  if (mq.addEventListener) mq.addEventListener('change', paintThemeBtn);
+  paintThemeBtn();
+
+  /* ---------------- avvio ---------------- */
+  render(true);
+  // App installata: chiede al sistema di non cancellare i dati salvati (pesi, carichi)
+  if (isStandalone() && navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  }
+})();

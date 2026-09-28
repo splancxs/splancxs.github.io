@@ -14,6 +14,14 @@ Sito statico (GitHub Pages) con piano alimentare calcolato al grammo, scheda Tor
 | `tools/genera_icone.py` | Genera le icone PNG |
 | `sw.js`, `manifest.webmanifest` | Uso offline e installazione su telefono |
 
+## Installarlo come app su iPhone
+
+1. Apri `https://splancxs.github.io` con **Safari** (non Chrome: su iPhone solo Safari installa le web app).
+2. Tocca **Condividi** → **Aggiungi alla schermata Home** → **Aggiungi**.
+3. Da quel momento usa sempre l'icona Recomp: si apre a schermo intero, funziona offline e tiene i tuoi dati (pesi, carichi, spunte).
+
+I dati dell'app installata sono separati da quelli di Safari: per spostarli usa Progressi → Esporta / Importa backup. Il timer di recupero suona solo se l'iPhone non è in modalità silenziosa; in ogni caso la barra del timer diventa lime allo scadere.
+
 ## Modificare il piano
 
 1. Cambia valori, ricette o target in `tools/genera_piano.py`.
