@@ -1058,6 +1058,64 @@
   });
   main.addEventListener('input', (ev) => { if (ev.target.closest && ev.target.closest('#wForm')) { const e = $('#wErr'); if (e) e.textContent = ''; } });
 
+  /* ---------------- barra in basso: tieni premuto e trascina (come iOS 26) ---------------- */
+  // La bolla segue il dito, la sezione sotto il dito si "ingrandisce" e al rilascio si apre.
+  // Un tocco semplice funziona come prima; da tastiera i link restano normali.
+  (function navDrag() {
+    const nav = $('.nav');
+    const links = $$('.nav a');
+    const mobile = window.matchMedia('(max-width: 899px)');
+    let drag = null;
+    let swallowClick = false;
+    const PAD = 6;
+    function place(x) {
+      const r = nav.getBoundingClientRect();
+      const w = (r.width - 2 * PAD) / links.length;
+      const dx = Math.max(0, Math.min((links.length - 1) * w, x - r.left - PAD - w / 2));
+      nav.style.setProperty('--dx', `${dx}px`);
+      const idx = Math.round(dx / w);
+      if (idx !== drag.idx) {
+        drag.idx = idx;
+        links.forEach((a, i) => a.classList.toggle('lens', i === idx));
+        if (drag.moved && N.haptics) safe(N.haptics.selectionChanged());
+      }
+    }
+    nav.addEventListener('pointerdown', (e) => {
+      if (!mobile.matches || (e.pointerType === 'mouse' && e.button !== 0)) return;
+      if (!e.target.closest('a')) return;
+      drag = { id: e.pointerId, x0: e.clientX, idx: -1, moved: false };
+      try { nav.setPointerCapture(e.pointerId); } catch (err) { /* ignora */ }
+      nav.classList.add('dragging');
+      place(e.clientX);
+      if (N.haptics) safe(N.haptics.selectionStart());
+    });
+    nav.addEventListener('pointermove', (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      if (Math.abs(e.clientX - drag.x0) > 4) drag.moved = true;
+      place(e.clientX);
+      e.preventDefault();
+    });
+    function end(e, go) {
+      if (!drag || (e && e.pointerId !== drag.id)) return;
+      const idx = drag.idx;
+      drag = null;
+      nav.classList.remove('dragging');
+      links.forEach((a) => a.classList.remove('lens'));
+      if (N.haptics) safe(N.haptics.selectionEnd());
+      if (!go || idx < 0) return;
+      swallowClick = true; setTimeout(() => { swallowClick = false; }, 400);
+      nav.style.setProperty('--i', idx); // la bolla rimbalza sulla sezione scelta
+      const href = links[idx].getAttribute('href');
+      if (location.hash !== href) location.hash = href; else render(true);
+      buzz();
+    }
+    nav.addEventListener('pointerup', (e) => end(e, true));
+    nav.addEventListener('pointercancel', (e) => end(e, false));
+    nav.addEventListener('lostpointercapture', (e) => { if (drag) end(e, false); });
+    // il "click" che segue il rilascio è già gestito sopra
+    nav.addEventListener('click', (e) => { if (swallowClick) e.preventDefault(); });
+  })();
+
   /* ---------------- tema ---------------- */
   const themeBtn = $('#themeBtn');
   const mq = window.matchMedia('(prefers-color-scheme: dark)');

@@ -147,6 +147,20 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .nav a svg { width: 23px; height: 23px; transition: transform .35s cubic-bezier(.34, 1.4, .5, 1); }
 .nav a[aria-current="page"] { color: var(--ink); font-weight: 700; }
 .nav a[aria-current="page"] svg { color: var(--accent-text); transform: translateY(-1px) scale(1.06); }
+/* tieni premuto e trascina: la bolla segue il dito come una lente (posizione in --dx, impostata da app.js) */
+.nav { touch-action: none; transition: transform .35s cubic-bezier(.34, 1.4, .5, 1); }
+.nav.dragging { transform: scale(1.03); }
+.nav.dragging::after {
+  transition: transform .08s linear, background .2s ease;
+  transform: translateX(var(--dx, 0px)) scale(1.14, 1.2);
+  background: color-mix(in srgb, var(--glass-pill) 60%, rgba(255, 255, 255, .22));
+  box-shadow: inset 0 1px 0 var(--glass-shine), inset 0 0 0 1px rgba(255, 255, 255, .28), 0 6px 18px rgba(0, 0, 0, .18);
+}
+.nav.dragging a { transform: none; }
+.nav.dragging a[aria-current="page"] { color: var(--muted); font-weight: 600; }
+.nav.dragging a[aria-current="page"] svg { color: inherit; transform: none; }
+.nav.dragging a.lens { color: var(--ink); font-weight: 700; }
+.nav.dragging a.lens svg { color: var(--accent-text); transform: translateY(-2px) scale(1.22); }
 @media (min-width: 900px) {
   .nav { position: static; display: flex; gap: 4px; background: none; border: 0; padding: 0; backdrop-filter: none; -webkit-backdrop-filter: none; margin: 0 0 0 12px; max-width: none; box-shadow: none; border-radius: 0; isolation: auto; }
   .nav::before, .nav::after { display: none; }
