@@ -807,3 +807,21 @@ h2 { font-size: 1.45rem; font-weight: 800; text-transform: uppercase; letter-spa
 .wset input { font-family: var(--display); font-size: 20px; font-weight: 700; }
 .wchk[aria-pressed="true"], .check[aria-pressed="true"] { background: var(--accent); border-color: var(--accent-line); }
 .sugg.up { background: var(--accent); color: var(--accent-ink); }
+
+/* Barra in basso: il vetro sfocato è un livello separato dietro la barra.
+   Safari su iPhone, scorrendo veloce, può non ridisegnare testi e icone che stanno
+   DENTRO un elemento con backdrop-filter: così scritte e icone ne restano fuori. */
+@media (max-width: 899px) {
+  .nav { background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .nav::after {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; z-index: -2; pointer-events: none;
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: blur(22px) saturate(190%); backdrop-filter: blur(22px) saturate(190%);
+    -webkit-transform: translate3d(0, 0, 0); transform: translate3d(0, 0, 0);
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .nav::after { background: var(--surface); }
+  }
+  .nav a span { display: block; -webkit-transform: translate3d(0, 0, 0); transform: translate3d(0, 0, 0); -webkit-backface-visibility: hidden; backface-visibility: hidden; }
+}
+@media (min-width: 900px) { .nav::after { display: none; } }
