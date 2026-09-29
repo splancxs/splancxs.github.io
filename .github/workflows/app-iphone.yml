@@ -1,5 +1,9 @@
-# Compila l'app iPhone di Recomp su un Mac di GitHub e produce Recomp.ipa (non firmata).
-# La firma la fa Sideloadly sul PC con il tuo Apple ID gratuito.
+# Compila l'app iPhone di Recomp su un Mac di GitHub e la pubblica per AltStore.
+# - Recomp.ipa (non firmata: la firma la fa AltStore con il tuo Apple ID gratuito)
+# - altstore-source.json: la "sorgente" AltStore che dichiara i permessi (HealthKit). AltStore attiva i permessi
+#   speciali solo per le app installate da una sorgente che li dichiara, non da un .ipa caricato a mano.
+# Entrambi finiscono in una Release pubblica; l'indirizzo fisso della sorgente è:
+#   https://github.com/splancxs/splancxs.github.io/releases/latest/download/altstore-source.json
 # Si avvia da solo quando cambiano sito o progetto iOS; si può lanciare a mano da Actions → "App iPhone" → Run workflow.
 name: App iPhone
 
@@ -12,6 +16,9 @@ on:
       - 'app-ios/**'
       - '.github/workflows/app-iphone.yml'
   workflow_dispatch:
+
+permissions:
+  contents: write # serve per creare la Release
 
 jobs:
   build:
@@ -50,16 +57,74 @@ jobs:
           test -d build/Build/Products/Release-iphoneos/App.app
 
       - name: Crea Recomp.ipa
+        env:
+          BUILD: ${{ github.run_number }}
         run: |
           APP=app-ios/ios/App/build/Build/Products/Release-iphoneos/App.app
-          # firma provvisoria "ad-hoc" solo per incorporare l'entitlement HealthKit: Sideloadly poi rifirma con il tuo Apple ID
+          # versione = numero della compilazione, così AltStore riconosce gli aggiornamenti
+          plutil -replace CFBundleShortVersionString -string "1.0.$BUILD" "$APP/Info.plist"
+          plutil -replace CFBundleVersion -string "$BUILD" "$APP/Info.plist"
+          # firma provvisoria "ad-hoc" solo per incorporare l'entitlement HealthKit: AltStore poi rifirma con il tuo Apple ID
           codesign --force --deep --sign - "$APP"
           codesign --force --sign - --entitlements app-ios/App.entitlements "$APP"
-          codesign -d --entitlements - "$APP" || true
+          codesign -d --entitlements :- "$APP" > entitlements.plist
+          plutil -convert json -o entitlements.json entitlements.plist
+          plutil -convert json -o info.json "$APP/Info.plist"
           mkdir -p Payload
           cp -R "$APP" Payload/
           zip -qry Recomp.ipa Payload
           ls -lh Recomp.ipa
+
+      - name: Crea la sorgente AltStore
+        env:
+          BUILD: ${{ github.run_number }}
+          REPO: ${{ github.repository }}
+        run: |
+          node - <<'EOF'
+          const fs = require('fs');
+          const build = process.env.BUILD, repo = process.env.REPO;
+          const ent = JSON.parse(fs.readFileSync('entitlements.json', 'utf8'));
+          const info = JSON.parse(fs.readFileSync('info.json', 'utf8'));
+          const entitlements = Object.keys(ent).filter((k) => !['application-identifier', 'com.apple.developer.team-identifier'].includes(k));
+          const privacy = Object.fromEntries(Object.entries(info).filter(([k]) => k.endsWith('UsageDescription')));
+          const size = fs.statSync('Recomp.ipa').size;
+          const version = `1.0.${build}`;
+          const date = new Date().toISOString();
+          const downloadURL = `https://github.com/${repo}/releases/download/build-${build}/Recomp.ipa`;
+          const iconURL = 'https://splancxs.github.io/assets/icons/icon-512.png';
+          const desc = 'Piano alimentare al grammo, scheda Torso/Limbs, progressi e Apple Salute.';
+          const source = {
+            name: 'Recomp', identifier: 'io.github.splancxs.recomp.source', subtitle: 'App personale di Recomp',
+            iconURL, website: 'https://splancxs.github.io', tintColor: '#C4F031',
+            apps: [{
+              name: 'Recomp', bundleIdentifier: info.CFBundleIdentifier, developerName: 'splancxs',
+              subtitle: 'Ricomposizione corporea', localizedDescription: desc, iconURL, tintColor: '#C4F031',
+              versions: [{ version, buildVersion: String(build), date, downloadURL, size, minOSVersion: info.MinimumOSVersion || '15.0', localizedDescription: `Compilazione ${build}` }],
+              version, versionDate: date, downloadURL, size,
+              appPermissions: { entitlements, privacy },
+            }],
+            news: [],
+          };
+          fs.writeFileSync('altstore-source.json', JSON.stringify(source, null, 2));
+          const notes = [
+            `Compilazione ${build} · versione ${version}`,
+            '', 'Sorgente AltStore (indirizzo fisso):',
+            `https://github.com/${repo}/releases/latest/download/altstore-source.json`,
+            '', 'Entitlement incorporati nell\'app:', '```json', JSON.stringify(ent, null, 2), '```',
+            '', 'Permessi privacy:', '```json', JSON.stringify(privacy, null, 2), '```',
+          ].join('\n');
+          fs.writeFileSync('notes.md', notes);
+          console.log(notes);
+          EOF
+
+      - name: Pubblica la Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD: ${{ github.run_number }}
+        run: |
+          gh release create "build-$BUILD" Recomp.ipa altstore-source.json \
+            --repo "${{ github.repository }}" --title "Recomp · compilazione $BUILD" \
+            --notes-file notes.md --latest
 
       - uses: actions/upload-artifact@v4
         with:

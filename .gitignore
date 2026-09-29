@@ -1,0 +1,4 @@
+# file generati durante la compilazione dell'app iPhone
+app-ios/node_modules/
+app-ios/www/
+app-ios/ios/
