@@ -1,0 +1,34 @@
+# Progetto XcodeGen della mini app di test HealthKit (generato e compilato su GitHub Actions).
+name: RecompTest
+options:
+  bundleIdPrefix: io.github.splancxs
+  deploymentTarget:
+    iOS: "16.0"
+targets:
+  RecompTest:
+    type: application
+    platform: iOS
+    sources: [Sources]
+    dependencies:
+      - sdk: HealthKit.framework
+    info:
+      path: Info.plist
+      properties:
+        CFBundleDisplayName: Recomp Test
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "1"
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        NSHealthShareUsageDescription: "Test di Recomp: legge il peso da Salute."
+        NSHealthUpdateUsageDescription: "Test di Recomp: può scrivere il peso in Salute."
+    entitlements:
+      path: RecompTest.entitlements
+      properties:
+        com.apple.developer.healthkit: true
+        com.apple.developer.healthkit.access: []
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.splancxs.recomptest
+        TARGETED_DEVICE_FAMILY: "1"
+        SWIFT_VERSION: "5.0"
+        GENERATE_INFOPLIST_FILE: NO

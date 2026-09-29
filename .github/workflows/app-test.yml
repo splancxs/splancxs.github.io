@@ -1,0 +1,89 @@
+# Mini app 100% nativa per verificare HealthKit con AltStore + Apple ID gratuito.
+# Pubblica RecompTest.ipa e la sua sorgente AltStore nella Release "healthkit-test" (non tocca la sorgente di Recomp):
+#   https://github.com/splancxs/splancxs.github.io/releases/download/healthkit-test/altstore-test.json
+name: Test HealthKit nativo
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app-test/**'
+      - '.github/workflows/app-test.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Genera il progetto Xcode
+        working-directory: app-test
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Compila (senza firma)
+        working-directory: app-test
+        run: |
+          xcodebuild -project RecompTest.xcodeproj -target RecompTest -configuration Release -sdk iphoneos \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build | tail -n 40
+          test -d build/Release-iphoneos/RecompTest.app
+
+      - name: Crea RecompTest.ipa e la sorgente
+        env:
+          BUILD: ${{ github.run_number }}
+          REPO: ${{ github.repository }}
+        run: |
+          APP=app-test/build/Release-iphoneos/RecompTest.app
+          plutil -replace CFBundleShortVersionString -string "1.0.$BUILD" "$APP/Info.plist"
+          plutil -replace CFBundleVersion -string "$BUILD" "$APP/Info.plist"
+          codesign --force --sign - --entitlements app-test/RecompTest.entitlements "$APP"
+          codesign -d --entitlements :- "$APP" > entitlements.plist
+          plutil -convert json -o entitlements.json entitlements.plist
+          plutil -convert json -o info.json "$APP/Info.plist"
+          mkdir -p Payload && cp -R "$APP" Payload/ && zip -qry RecompTest.ipa Payload
+          node - <<'EOF'
+          const fs = require('fs');
+          const build = process.env.BUILD, repo = process.env.REPO;
+          const ent = JSON.parse(fs.readFileSync('entitlements.json', 'utf8'));
+          const info = JSON.parse(fs.readFileSync('info.json', 'utf8'));
+          const entitlements = Object.keys(ent).filter((k) => !['application-identifier', 'com.apple.developer.team-identifier'].includes(k));
+          const privacy = Object.fromEntries(Object.entries(info).filter(([k]) => k.endsWith('UsageDescription')));
+          const size = fs.statSync('RecompTest.ipa').size;
+          const version = `1.0.${build}`, date = new Date().toISOString();
+          const downloadURL = `https://github.com/${repo}/releases/download/healthkit-test/RecompTest.ipa`;
+          const iconURL = 'https://splancxs.github.io/assets/icons/icon-512.png';
+          const source = {
+            name: 'Recomp Test', identifier: 'io.github.splancxs.recomptest.source', iconURL, tintColor: '#34C759',
+            apps: [{
+              name: 'Recomp Test', bundleIdentifier: info.CFBundleIdentifier, developerName: 'splancxs',
+              localizedDescription: 'Mini app nativa per provare il permesso HealthKit.', iconURL, tintColor: '#34C759',
+              versions: [{ version, buildVersion: String(build), date, downloadURL, size, minOSVersion: '16.0' }],
+              version, versionDate: date, downloadURL, size,
+              appPermissions: { entitlements, privacy },
+            }],
+            news: [],
+          };
+          fs.writeFileSync('altstore-test.json', JSON.stringify(source, null, 2));
+          fs.writeFileSync('notes.md', ['Mini app nativa di test HealthKit · compilazione ' + build, '', 'Sorgente AltStore:',
+            `https://github.com/${repo}/releases/download/healthkit-test/altstore-test.json`, '', 'Entitlement incorporati:',
+            '```json', JSON.stringify(ent, null, 2), '```'].join('\n'));
+          EOF
+          cat notes.md
+
+      - name: Pubblica la Release di test
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete healthkit-test --repo "${{ github.repository }}" --yes --cleanup-tag || true
+          gh release create healthkit-test RecompTest.ipa altstore-test.json --repo "${{ github.repository }}" \
+            --title "Recomp Test (HealthKit)" --notes-file notes.md --prerelease --latest=false
