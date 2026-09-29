@@ -399,12 +399,19 @@ tfoot td { font-weight: 800; background: var(--surface-2); }
 .timer[hidden] { display: none; }
 .timer-in { pointer-events: auto; }
 @media (min-width: 900px) { .timer { bottom: 20px; } }
-.timer-in { display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 16px; border-radius: 18px; background: var(--ink); color: var(--bg); box-shadow: 0 10px 30px rgba(0,0,0,.25); }
-.timer-label { font-size: 12px; font-weight: 700; opacity: .7; }
-.timer-time { font-size: 24px; font-weight: 800; min-width: 64px; }
-.timer .chip { background: transparent; color: var(--bg); border-color: color-mix(in srgb, var(--bg) 35%, transparent); padding: 6px 10px; }
+.timer-in { display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 10px; border-radius: 24px; background: var(--ink); color: var(--bg); box-shadow: 0 12px 34px rgba(0,0,0,.3); width: 100%; max-width: 440px; }
+.t-ring { width: 46px; height: 46px; flex: none; }
+.t-ring circle { fill: none; stroke-width: 5; }
+.t-ring .t-bg { stroke: color-mix(in srgb, var(--bg) 22%, transparent); }
+.t-ring .t-fg { stroke: var(--accent); stroke-linecap: round; transition: stroke-dashoffset .25s linear; }
+.t-txt { flex: 1; min-width: 0; display: grid; }
+.timer-time { font-size: 22px; font-weight: 800; line-height: 1.1; letter-spacing: -0.02em; }
+.timer-next { font-size: 12px; opacity: .75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.t-btn { flex: none; width: 42px; height: 42px; border-radius: 14px; border: 0; background: color-mix(in srgb, var(--bg) 16%, transparent); color: var(--bg); font-weight: 800; font-size: 14px; }
+.t-btn:active { transform: scale(.94); }
 .timer.done .timer-in { background: var(--accent); color: var(--accent-ink); }
-.timer.done .chip { color: var(--accent-ink); border-color: var(--accent-ink); }
+.timer.done .t-btn { background: rgba(0,0,0,.1); color: var(--accent-ink); }
+.timer.done .t-ring .t-fg { stroke: var(--accent-ink); }
 
 /* Forms */
 .field { display: grid; gap: 6px; }
@@ -640,3 +647,28 @@ html.no-scroll, html.no-scroll body { overflow: hidden; }
 .alt-m em { font-style: normal; font-weight: 700; color: var(--ink); }
 .alt.cur { border: 2px solid var(--ink); background: var(--surface-2); }
 .alt:active { transform: scale(.98); }
+
+/* ============ Allenamento pro ============ */
+/* serie: scorri a sinistra per eliminarla */
+.wswipe { position: relative; border-radius: 12px; overflow: hidden; touch-action: pan-y; }
+.wswipe-bg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: flex-end; padding-right: 16px; background: var(--bad); color: #fff; font-size: 13px; font-weight: 800; }
+.wswipe .wset { position: relative; background: var(--surface); transition: transform .25s cubic-bezier(.2, .9, .25, 1); }
+.wswipe .wset.done { background: color-mix(in srgb, var(--accent) 22%, var(--surface)); }
+.wswipe.swiping .wset { transition: none; }
+.wx-menu .x-btn { width: 32px; height: 32px; font-size: 15px; font-weight: 800; }
+/* calcolatore dischi */
+.plates-vis { display: flex; align-items: center; gap: 3px; min-height: 96px; padding: 10px 0; overflow-x: auto; }
+.pv-bar { flex: none; width: 46px; height: 12px; border-radius: 3px; background: var(--line-2); }
+.pv { flex: none; display: grid; place-items: center; width: 22px; border-radius: 5px; font-size: 10px; font-weight: 800; color: #fff; writing-mode: vertical-rl; transform: rotate(180deg); }
+.pv.p25 { height: 92px; background: #d6453d; } .pv.p20 { height: 86px; background: #2f7fcf; } .pv.p15 { height: 78px; background: #d8921f; }
+.pv.p10 { height: 68px; background: #23874d; } .pv.p5 { height: 54px; background: #6b6b66; } .pv.p2_5 { height: 44px; background: #3a3a38; } .pv.p1_25 { height: 36px; background: #8f8f88; }
+/* coriandoli */
+.confetti { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 90; }
+/* modalità palestra: tutto più grande, per usarla con le mani sudate */
+.gym-mode .wset { grid-template-columns: 42px minmax(0, 1fr) 84px 70px 50px; gap: 8px; padding: 6px 4px; }
+.gym-mode .wset input { min-height: 52px; font-size: 20px; }
+.gym-mode .wchk { width: 50px; height: 50px; }
+.gym-mode .wtype { width: 40px; height: 40px; font-size: 16px; }
+.gym-mode .wprev { font-size: 14px; }
+.gym-mode .wx-t h3 { font-size: 19px; }
+.gym-mode .wo-stats b { font-size: 24px; }

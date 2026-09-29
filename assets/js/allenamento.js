@@ -128,13 +128,13 @@
     const label = s.type === 'n' ? String(nums[j]) : typeLabel[s.type];
     const kgIn = e.unit === 'sec' ? '<span class="wdash">—</span>'
       : `<input inputmode="decimal" autocomplete="off" data-wi="kg" data-i="${i}" data-j="${j}" value="${s.kg != null ? k.fmtKg(s.kg) : ''}" placeholder="${ph.kg != null ? k.fmtKg(ph.kg) : ''}" aria-label="Serie ${j + 1}, chili">`;
-    return `<div class="wset${s.done ? ' done' : ''}">
+    return `<div class="wswipe" data-swipe="del" data-i="${i}" data-j="${j}"><span class="wswipe-bg" aria-hidden="true">Elimina</span><div class="wset${s.done ? ' done' : ''}">
       <button type="button" class="wtype t-${s.type}" data-w="type" data-i="${i}" data-j="${j}" aria-label="Tipo di serie: ${typeName[s.type]}, tocca per cambiare">${label}</button>
       <span class="wprev">${prevTxt}</span>
       ${kgIn}
       <input inputmode="numeric" autocomplete="off" data-wi="r" data-i="${i}" data-j="${j}" value="${s.r != null ? s.r : ''}" placeholder="${ph.r != null ? ph.r : ''}" aria-label="Serie ${j + 1}, ${e.unit === 'sec' ? 'secondi' : 'ripetizioni'}">
       <button type="button" class="wchk" data-w="done" data-i="${i}" data-j="${j}" aria-pressed="${s.done}" aria-label="Serie ${j + 1} completata">${K().I.check}</button>
-    </div>`;
+    </div></div>`;
   }
 
   function itemCard(a, it, i) {
@@ -149,6 +149,8 @@
         <div class="wx-t">${it.sup ? `<span class="badge on">${k.esc(it.sup)}</span> ` : ''}<h3>${k.esc(e.n)}</h3>
           <div class="ex-meta"><span>${k.esc(e.m)}</span><span><b>${it.sets.length} × ${it.lo}–${it.hi}</b>${e.unit === 'sec' ? '″' : ''}</span><span>Rec. <b>${it.rest > 0 ? k.restTxt(it.rest) : 'superserie'}</b></span></div></div>
         <div class="wx-menu">
+          <button type="button" class="x-btn" data-w="move" data-d="-1" data-i="${i}" aria-label="Sposta su"${i === 0 ? ' disabled' : ''}>↑</button>
+          <button type="button" class="x-btn" data-w="move" data-d="1" data-i="${i}" aria-label="Sposta giù"${i === a.items.length - 1 ? ' disabled' : ''}>↓</button>
           <button type="button" class="chip" data-w="note" data-i="${i}">Nota</button>
           <button type="button" class="chip" data-w="pick-swap" data-i="${i}">Cambia</button>
           <button type="button" class="x-btn" data-w="remove" data-i="${i}" aria-label="Togli ${k.esc(e.n)}">${k.I.trash}</button>
@@ -162,6 +164,7 @@
         ${it.sets.map((s, j) => setRow(it, i, j, s, nums)).join('')}
       </div>
       <div class="ex-f"><button type="button" class="chip" data-w="addset" data-i="${i}">+ Serie</button>${it.sets.length > 1 ? `<button type="button" class="chip" data-w="delset" data-i="${i}">− Serie</button>` : ''}
+        ${plateable(e) ? `<button type="button" class="chip" data-w="plates" data-i="${i}">Dischi</button>` : ''}
         ${e.cue ? `<button type="button" class="chip" data-act="toggle" data-t="wcue-${i}" aria-expanded="false">Tecnica</button>` : ''}</div>
       ${e.cue ? `<p class="cue hidden" id="wcue-${i}">${k.esc(e.cue)}</p>` : ''}
     </article>`;
@@ -177,13 +180,101 @@
         <div class="row"><div><p class="eyebrow">Allenamento in corso</p><h1>${k.esc(a.name)}</h1></div><span class="spacer"></span>
           <button type="button" class="btn" data-w="finish">Termina</button></div>
         <div class="wo-stats"><div><span>Durata</span><b id="woElapsed">${elapsed(a)}</b></div><div><span>Volume ${k.tip('volume')}</span><b>${k.f0(vol)} kg</b></div><div><span>Serie</span><b>${doneWork}/${all.filter(isWork).length}</b></div></div>
-        ${k.wakeChip()}
+        <div class="row" style="margin-top:12px">${k.wakeChip()}<button type="button" class="chip${gymMode() ? ' accent' : ''}" data-w="gymmode" aria-pressed="${gymMode()}">Modalità palestra${gymMode() ? ': attiva' : ''}</button><button type="button" class="chip" data-w="plates" data-i="-1">Calcola dischi</button></div>
       </section>
       ${a.items.length ? a.items.map((it, i) => itemCard(a, it, i)).join('') : '<p class="card small muted">Nessun esercizio: aggiungine uno qui sotto.</p>'}
       <div class="row"><button type="button" class="btn ghost" data-w="pick-add">+ Aggiungi esercizio</button><span class="spacer"></span><button type="button" class="chip" data-w="discard">Annulla allenamento</button></div>
       <section class="card flat small"><strong>Cardio finale:</strong> tapis roulant 15–20′ al 14%, 4,0–4,5 km/h, senza corrimano.</section>
     </div>`;
   }
+
+
+  /* ---------------- extra "pro" ---------------- */
+  const gymMode = () => !!K().store.get('gymMode', false);
+  function applyGymMode() { document.documentElement.classList.toggle('gym-mode', gymMode()); }
+  function nextLabel(a, i, j) {
+    const it = a.items[i];
+    const k = K();
+    const fmt = (x, jj) => {
+      const e = exOf(x.ex); const ph = placeholder(x, jj); const s = x.sets[jj];
+      const kg = s.kg != null ? s.kg : ph.kg; const r = s.r != null ? s.r : ph.r;
+      return `${e.n.split(' · ')[0]} · serie ${jj + 1}${e.unit === 'sec' ? ` · ${r}″` : kg != null ? ` · ${k.fmtKg(kg)} kg × ${r}` : ''}`;
+    };
+    const jn = it.sets.findIndex((s, jj) => jj > j && !s.done);
+    if (jn >= 0) return 'Prossima: ' + fmt(it, jn);
+    for (let ii = i + 1; ii < a.items.length; ii++) { const jj = a.items[ii].sets.findIndex((s) => !s.done); if (jj >= 0) return 'Poi: ' + fmt(a.items[ii], jj); }
+    return 'Ultima serie fatta: termina e fai il cardio';
+  }
+
+  // calcolatore dei dischi: per lato, dischi disponibili in palestra
+  const PLATES = [25, 20, 15, 10, 5, 2.5, 1.25];
+  const fkg2 = (x) => Number(x).toLocaleString('it-IT', { maximumFractionDigits: 2 });
+  const plateable = (e) => /Bilanciere|Leg Press|Hack|Calf alla Leg|T-Bar|Hip Thrust|Squat/i.test(`${e.eq} ${e.n}`);
+  function plateCalc(total, bar) {
+    let side = Math.max(0, (total - bar) / 2);
+    const out = [];
+    PLATES.forEach((pl) => { while (side >= pl - 1e-9) { out.push(pl); side = Math.round((side - pl) * 100) / 100; } });
+    return { plates: out, rest: side };
+  }
+  function platesHtml(total, bar) {
+    const k = K();
+    const { plates, rest } = plateCalc(total, bar);
+    const count = {};
+    plates.forEach((pl) => { count[pl] = (count[pl] || 0) + 1; });
+    const list = Object.keys(count).sort((a, b) => b - a).map((pl) => `${count[pl]} × ${fkg2(pl)} kg`).join(' + ');
+    return `<div class="plates-vis" aria-hidden="true"><span class="pv-bar"></span>${plates.map((pl) => `<span class="pv p${String(pl).replace('.', '_')}">${fkg2(pl)}</span>`).join('')}</div>
+      <p><b>Per lato:</b> ${plates.length ? list : 'nessun disco'}</p>
+      ${rest > 0.01 ? `<p class="small muted">Restano ${fkg2(rest)} kg per lato che non si fanno con i dischi standard: arrotonda.</p>` : ''}`;
+  }
+  function openPlates(kg, name) {
+    const k = K();
+    k.openSheet(`<div class="stack plates" id="platesBox">
+      <h2>Calcola dischi</h2>${name ? `<p class="small muted">${k.esc(name)}</p>` : ''}
+      <div class="form-row" style="grid-template-columns:1fr 1fr">
+        <div class="field"><label for="plKg">Carico totale (kg)</label><input id="plKg" inputmode="decimal" value="${kg != null ? k.fmtKg(kg) : ''}" data-plate="1"></div>
+        <div class="field"><label for="plBar">Base</label><select id="plBar" class="search" data-plate="1"><option value="20">Bilanciere 20 kg</option><option value="10">Bilanciere EZ 10 kg</option><option value="0">Macchina (solo dischi)</option></select></div>
+      </div>
+      <div id="plOut">${platesHtml(kg || 0, 20)}</div>
+      <p class="tiny muted">Per la leg press e le macchine a dischi scegli «solo dischi»: il peso della slitta non è contato.</p>
+      <button type="button" class="btn" data-act="sheet-close">Chiudi</button>
+    </div>`);
+  }
+  W.sheetInput = function (t) {
+    if (!t.dataset.plate) return;
+    const k = K();
+    const kg = k.num(document.getElementById('plKg').value) || 0;
+    const bar = Number(document.getElementById('plBar').value);
+    document.getElementById('plOut').innerHTML = platesHtml(kg, bar);
+  };
+
+  // coriandoli leggeri per i record (niente se è attivo «riduci movimento»)
+  function confetti() {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const c = document.createElement('canvas');
+    c.className = 'confetti';
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    c.width = innerWidth * dpr; c.height = innerHeight * dpr;
+    document.body.appendChild(c);
+    const ctx = c.getContext('2d');
+    const cols = ['#c4f031', '#ff6a55', '#f2b64a', '#5ba4ec', '#f1f1ec'];
+    const ps = Array.from({ length: 140 }, () => ({ x: Math.random() * c.width, y: -Math.random() * c.height * 0.4, vx: (Math.random() - 0.5) * 4 * dpr, vy: (2 + Math.random() * 4) * dpr, s: (4 + Math.random() * 5) * dpr, r: Math.random() * 6, vr: (Math.random() - 0.5) * 0.3, col: cols[(Math.random() * cols.length) | 0] }));
+    const t0 = performance.now();
+    (function draw(t) {
+      const el = t - t0;
+      ctx.clearRect(0, 0, c.width, c.height);
+      ps.forEach((p) => { p.x += p.vx; p.y += p.vy; p.vy += 0.06 * dpr; p.r += p.vr; ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.globalAlpha = Math.max(0, 1 - el / 2200); ctx.fillStyle = p.col; ctx.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2); ctx.restore(); });
+      if (el < 2200) requestAnimationFrame(draw); else c.remove();
+    })(t0);
+  }
+
+  // scorri a sinistra una serie per eliminarla (chiamato da app.js)
+  W.delSet = function (i, j) {
+    const a = getActive();
+    if (!a || !a.items[i] || a.items[i].sets.length <= 1) return false;
+    a.items[i].sets.splice(j, 1);
+    setActive(a); K().buzz('MEDIUM'); K().render();
+    return true;
+  };
 
   /* ---------------- fine allenamento ---------------- */
   function finish() {
@@ -221,6 +312,7 @@
     ui.summary = w.id;
     k.buzz('HEAVY');
     k.render(true);
+    if (w.prs.length) setTimeout(confetti, 120);
   }
 
   function summaryView(w) {
@@ -489,6 +581,7 @@
   /* ---------------- vista principale ---------------- */
   W.view = function () {
     const k = K();
+    applyGymMode();
     const a = getActive();
     let body;
     if (ui.edit && ui.draft) body = viewEditor();
@@ -533,7 +626,7 @@
           if (s.kg == null && exOf(it.ex).unit !== 'sec') s.kg = ph.kg;
           if (s.r == null) s.r = ph.r;
           s.done = true;
-          if (it.rest > 0) k.startTimer(it.rest);
+          if (it.rest > 0) k.startTimer(it.rest, nextLabel(a, i, j));
           k.buzz('MEDIUM');
         } else s.done = false;
         setActive(a); k.render(); return true;
@@ -543,6 +636,17 @@
       case 'delset': { const it = a.items[i]; if (it.sets.length > 1) it.sets.pop(); setActive(a); k.render(); return true; }
       case 'note': a.items[i].showNote = !a.items[i].showNote; setActive(a); k.render(); return true;
       case 'remove': if (confirm(`Togliere ${exOf(a.items[i].ex).n} da questo allenamento?`)) { a.items.splice(i, 1); setActive(a); k.render(); } return true;
+      case 'move': {
+        const to = i + Number(t.dataset.d);
+        if (to >= 0 && to < a.items.length) { [a.items[i], a.items[to]] = [a.items[to], a.items[i]]; setActive(a); k.render(); }
+        return true;
+      }
+      case 'gymmode': k.store.set('gymMode', !gymMode()); applyGymMode(); k.render(); return true;
+      case 'plates': {
+        const it = i >= 0 && a ? a.items[i] : null;
+        const kg = it ? (it.sets.find((x) => !x.done && x.kg != null) || {}).kg ?? placeholder(it, 0).kg : null;
+        openPlates(kg, it ? exOf(it.ex).n : ''); return true;
+      }
       case 'pick-add': ui.picker = { ctx: 'add' }; ui.muscle = ''; k.render(); return true;
       case 'pick-swap': ui.picker = { ctx: 'swap', i }; ui.muscle = exOf(a.items[i].ex).m; k.render(); return true;
       case 'pick-edit': ui.picker = { ctx: 'edit' }; ui.muscle = ''; k.render(); return true;

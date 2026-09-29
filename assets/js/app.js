@@ -658,7 +658,7 @@
   }
 
   /* ---------------- timer recupero ---------------- */
-  const timer = { end: 0, id: 0, ctx: null };
+  const timer = { end: 0, id: 0, ctx: null, total: 1 };
   const tEl = document.getElementById('timer');
   function beep() {
     try {
@@ -674,6 +674,8 @@
   function tick() {
     const left = Math.max(0, Math.round((timer.end - Date.now()) / 1000));
     $('#timerTime').textContent = left > 0 ? mmss(left) : 'Via!';
+    const ring = $('#timerRing');
+    if (ring) ring.style.strokeDashoffset = (125.66 * (1 - Math.max(0, (timer.end - Date.now()) / 1000) / timer.total)).toFixed(2);
     if (left <= 0) {
       clearInterval(timer.id); tEl.classList.add('done'); beep();
       if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
@@ -687,13 +689,19 @@
       id: TIMER_ID, title: 'Recupero finito', body: 'Via con la prossima serie.', schedule: { at: new Date(timer.end), allowWhileIdle: true },
     }] })));
   }
-  function startTimer(sec) {
+  function startTimer(sec, next) {
+    timer.total = sec;
+    $('#timerNext').textContent = next || 'Recupero';
     try { if (!timer.ctx) { const AC = window.AudioContext || window.webkitAudioContext; if (AC) timer.ctx = new AC(); } if (timer.ctx && timer.ctx.state === 'suspended') timer.ctx.resume(); } catch (e) { /* ignora */ }
     timer.end = Date.now() + sec * 1000; tEl.hidden = false; tEl.classList.remove('done');
     clearInterval(timer.id); tick(); timer.id = setInterval(tick, 250);
     buzz(); timerNotify();
   }
-  $('#timerPlus').addEventListener('click', () => { if (tEl.classList.contains('done')) startTimer(15); else { timer.end += 15000; tick(); timerNotify(); } });
+  $('#timerPlus').addEventListener('click', () => { if (tEl.classList.contains('done')) startTimer(15, $('#timerNext').textContent); else { timer.end += 15000; timer.total += 15; tick(); timerNotify(); } buzz(); });
+  $('#timerMinus').addEventListener('click', () => {
+    if (tEl.classList.contains('done')) return;
+    timer.end = Math.max(Date.now() + 1000, timer.end - 15000); tick(); timerNotify(); buzz();
+  });
   $('#timerStop').addEventListener('click', () => {
     clearInterval(timer.id); tEl.hidden = true;
     if (N.notif) safe(N.notif.cancel({ notifications: [{ id: TIMER_ID }] }));
@@ -1268,20 +1276,21 @@
     let sw = null;
     let blockClick = false;
     main.addEventListener('pointerdown', (e) => {
-      const row = e.target.closest('[data-swipe="eat"]');
+      const row = e.target.closest('[data-swipe]');
       if (!row || e.target.closest('.check') || (e.pointerType === 'mouse' && e.button !== 0)) return;
-      sw = { row, fg: row.querySelector('.mrow-fg'), id: e.pointerId, x0: e.clientX, y0: e.clientY, dx: 0, on: false };
+      const dir = row.dataset.swipe === 'del' ? -1 : 1; // pasti: a destra; serie: a sinistra per eliminare
+      sw = { row, dir, fg: row.querySelector('.mrow-fg, .wset'), id: e.pointerId, x0: e.clientX, y0: e.clientY, dx: 0, on: false };
     });
     main.addEventListener('pointermove', (e) => {
       if (!sw || e.pointerId !== sw.id) return;
       const dx = e.clientX - sw.x0, dy = e.clientY - sw.y0;
       if (!sw.on) {
         if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { sw = null; return; } // sta scorrendo la pagina
-        if (dx > 10 && dx > Math.abs(dy) * 1.2) { sw.on = true; sw.row.classList.add('swiping'); try { sw.row.setPointerCapture(e.pointerId); } catch (err) { /* ignora */ } }
+        if (dx * sw.dir > 10 && Math.abs(dx) > Math.abs(dy) * 1.2) { sw.on = true; sw.row.classList.add('swiping'); try { sw.row.setPointerCapture(e.pointerId); } catch (err) { /* ignora */ } }
         else return;
       }
-      sw.dx = Math.max(0, Math.min(140, dx));
-      sw.fg.style.transform = `translate3d(${sw.dx}px, 0, 0)`;
+      sw.dx = Math.max(0, Math.min(140, dx * sw.dir));
+      sw.fg.style.transform = `translate3d(${sw.dx * sw.dir}px, 0, 0)`;
       sw.row.classList.toggle('armed', sw.dx > 80);
     });
     function end() {
@@ -1291,7 +1300,10 @@
       blockClick = true; setTimeout(() => { blockClick = false; }, 350);
       s0.row.classList.remove('swiping', 'armed');
       s0.fg.style.transform = '';
-      if (s0.dx > 80) { toggleEaten(Number(s0.row.dataset.si)); setTimeout(render, 180); }
+      if (s0.dx > 80) {
+        if (s0.dir < 0) { if (window.RCW) window.RCW.delSet(Number(s0.row.dataset.i), Number(s0.row.dataset.j)); }
+        else { toggleEaten(Number(s0.row.dataset.si)); setTimeout(render, 180); }
+      }
     }
     main.addEventListener('pointerup', end);
     main.addEventListener('pointercancel', () => { if (sw && sw.on) { sw.row.classList.remove('swiping', 'armed'); sw.fg.style.transform = ''; } sw = null; });
@@ -1318,6 +1330,8 @@
     if (commonAct(t, t.dataset.act)) return;
     if (window.RC && window.RC.sheetAct) window.RC.sheetAct(t, t.dataset.act);
   });
+  sheetEl.addEventListener('input', (ev) => { if (window.RCW && window.RCW.sheetInput) window.RCW.sheetInput(ev.target); });
+  sheetEl.addEventListener('change', (ev) => { if (window.RCW && window.RCW.sheetInput) window.RCW.sheetInput(ev.target); });
   document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') closeSheet(); });
 
   /* ---------------- titolo grande che si compatta nella barra in alto (come iOS) ---------------- */
