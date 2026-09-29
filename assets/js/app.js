@@ -76,7 +76,7 @@
     if (!isNative) return null;
     try { return (Cap.Plugins && Cap.Plugins[name]) || (Cap.registerPlugin ? Cap.registerPlugin(name) : null); } catch (e) { return null; }
   };
-  const N = { notif: plugin('LocalNotifications'), haptics: plugin('Haptics'), health: plugin('Health'), status: plugin('StatusBar') };
+  const N = { notif: plugin('LocalNotifications'), haptics: plugin('Haptics'), status: plugin('StatusBar') };
   const safe = (p) => { try { return Promise.resolve(p).catch(() => null); } catch (e) { return Promise.resolve(null); } };
   const buzz = (style = 'LIGHT') => { if (N.haptics) safe(N.haptics.impact({ style })); };
   if (N.status) safe(N.status.setStyle({ style: 'DARK' })); // testo della barra di stato bianco sulla striscia scura
@@ -139,74 +139,14 @@
     await scheduleReminders();
   }
 
-  // Apple Salute: pesi scritti da Recomp; pesi e grasso letti da Salute (es. dalla bilancia); passi di oggi.
-  const hs = { steps: null, bf: null, busy: false };
-  const isoAt = (k, h = 7) => { const d = fromKey(k); d.setHours(h, 0, 0, 0); return d.toISOString(); };
-  async function healthConnect() {
-    if (!N.health) return;
-    hs.err = '';
-    hs.wait = true; render();
-    try {
-      const av = await N.health.isAvailable().catch((e) => ({ available: false, reason: (e && e.message) || String(e) }));
-      if (av && av.available === false) throw new Error(`Salute non disponibile${av.reason ? ': ' + av.reason : ''}`);
-      await N.health.requestAuthorization({ read: ['weight', 'bodyFat', 'steps'], write: ['weight'] });
-      store.set('health', { on: true });
-      hs.wait = false;
-      await healthPull(true);
-    } catch (e) {
-      hs.err = (e && (e.message || e.code || e.errorMessage)) || String(e);
-      store.set('health', { on: false });
-    }
-    hs.wait = false;
-    render();
-  }
-  async function healthPull(force) {
-    if (!N.health || !store.get('health', {}).on || hs.busy) return;
-    if (!force && hs.at && Date.now() - hs.at < 5 * 60000) return;
-    hs.busy = true;
-    try {
-      const since = new Date(); since.setDate(since.getDate() - 60);
-      const w = await safe(N.health.readSamples({ dataType: 'weight', startDate: since.toISOString(), endDate: new Date().toISOString(), limit: 500, ascending: true }));
-      if (w && w.samples && w.samples.length) {
-        const ws = rawWeights();
-        const have = new Set(ws.map((x) => x.d));
-        const byDay = {};
-        w.samples.forEach((s) => { if (s.sourceName === 'Recomp') return; byDay[dkey(new Date(s.startDate))] = s; });
-        let added = 0;
-        Object.entries(byDay).forEach(([d, s]) => { if (!have.has(d) && s.value > 30 && s.value < 200) { ws.push({ d, kg: Math.round(s.value * 100) / 100, t: Date.now(), src: 'Salute' }); added++; } });
-        if (added) store.set('weights', ws);
-      }
-      const bf = await safe(N.health.readSamples({ dataType: 'bodyFat', startDate: since.toISOString(), endDate: new Date().toISOString(), limit: 1, ascending: false }));
-      if (bf && bf.samples && bf.samples[0]) { const v = bf.samples[0].value; hs.bf = { v: v <= 1 ? v * 100 : v, d: dkey(new Date(bf.samples[0].startDate)) }; }
-      const start = new Date(); start.setHours(0, 0, 0, 0);
-      const st = await safe(N.health.readSamples({ dataType: 'steps', startDate: start.toISOString(), endDate: new Date().toISOString(), limit: 1000 }));
-      if (st && st.samples) hs.steps = Math.round(st.samples.reduce((a, s) => a + (s.value || 0), 0));
-      hs.at = Date.now();
-    } finally { hs.busy = false; }
-    if (current === 'oggi' || current === 'progressi') window.RC.refresh(false);
-  }
-  function healthPush(entry) {
-    if (!N.health || !store.get('health', {}).on) return;
-    safe(N.health.saveSample({ dataType: 'weight', value: entry.kg, unit: 'kilogram', startDate: isoAt(entry.d), endDate: isoAt(entry.d) }));
-  }
-
   function nativeCards() {
     if (!isNative) return '';
-    const h = store.get('health', {});
     const rem = store.get('reminders', {});
-    const health = N.health ? `<section class="card stack"><h2>Apple Salute</h2>
-      ${h.on ? `<p class="small">Collegata. I pesi che salvi qui vanno in Salute; quelli registrati da altre app (per esempio la bilancia) arrivano qui da soli.</p>
-        ${hs.bf ? `<p class="small">Ultimo grasso corporeo in Salute: <strong>${f1(hs.bf.v)}%</strong> (${shortDate(hs.bf.d)})</p>` : ''}
-        <div class="row"><button type="button" class="btn ghost" data-act="health-pull">${I.reset} Aggiorna da Salute</button></div>`
-      : `<p class="small muted">Collega Salute per scrivere lì i pesi, importare quelli della bilancia e vedere i passi di oggi nella pagina Oggi.</p>
-        ${hs.err ? `<p class="err" role="alert">Errore di Salute: ${esc(hs.err)}</p>` : ''}
-        <div class="row"><button type="button" class="btn" data-act="health-on"${hs.wait ? ' disabled' : ''}>${hs.wait ? 'Collegamento…' : 'Collega Apple Salute'}</button></div>`}
-      </section>` : '';
     const notif = N.notif ? `<section class="card stack"><h2>Promemoria</h2>
       ${Object.entries(REM).map(([k, l]) => `<label class="row small" style="justify-content:space-between;cursor:pointer"><span>${l}</span><input type="checkbox" data-act="rem" data-k="${k}"${rem[k] ? ' checked' : ''} style="width:22px;height:22px;accent-color:var(--ink)"></label>`).join('')}
       <p class="tiny muted">La merenda arriva la sera prima dei giorni di scuola con i nomi delle merende (scambi compresi). Il timer di recupero manda una notifica anche a schermo bloccato.</p>
     </section>` : '';
-    return health + notif;
+    return notif;
   }
 
   function installCard() {
@@ -410,7 +350,6 @@
             <div class="kcal-line"><span class="kcal-big">${f0(e.k)}</span><span class="kcal-of">/ ${f0(planned)} kcal mangiate</span></div>
             <div class="bar k" style="margin-bottom:16px"><i style="width:${Math.min(100, (e.k / planned) * 100)}%"></i></div>
             ${macroBars(e, [planned, T[1], T[2], T[3]])}
-            ${hs.steps != null ? `<p class="small" style="margin-top:14px">Passi oggi (Salute): <strong>${f0(hs.steps)}</strong> <span class="muted">/ ${plan.day.wo ? '7000' : '8000–10000'}</span></p>` : ''}
             <p class="small muted" style="margin-top:14px">${eaten.length ? `Mancano <strong>${f0(Math.max(0, left))} kcal</strong> ai pasti di oggi.` : 'Spunta i pasti man mano che li mangi.'}${plan.hasFree ? ' Il pasto libero non è conteggiato.' : ''}</p>
           </section>
           <h2 class="sec-title">La tua giornata</h2>
@@ -975,8 +914,6 @@
       window.RCSync.signup($('#syncEmail').value.trim(), $('#syncPw').value);
     } else if (act === 'sync-logout' && window.RCSync) { window.RCSync.logout(); }
     else if (act === 'sync-now' && window.RCSync) { window.RCSync.now(); }
-    else if (act === 'health-on') { healthConnect(); }
-    else if (act === 'health-pull') { healthPull(true); }
     else if (act === 'installhide') { store.set('installHidden', true); render(); }
     else if (act === 'install' && installEvt) {
       installEvt.prompt(); installEvt.userChoice.finally(() => { installEvt = null; render(); });
@@ -1052,7 +989,6 @@
     if (w != null) e.w = r1(w);
     ws.push(e);
     store.set('weights', ws);
-    healthPush(e);
     buzz('MEDIUM');
     render();
   });
@@ -1148,10 +1084,8 @@
   render(true);
   if (isNative) {
     scheduleReminders();
-    healthPull(false);
     let remT = 0;
     window.addEventListener('rc-change', (e) => { if (e.detail === 'rc.swaps') { clearTimeout(remT); remT = setTimeout(scheduleReminders, 1500); } });
-    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') healthPull(false); });
   }
   // App installata: chiede al sistema di non cancellare i dati salvati (pesi, carichi)
   if (isStandalone() && navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});

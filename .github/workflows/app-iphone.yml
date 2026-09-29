@@ -1,7 +1,6 @@
 # Compila l'app iPhone di Recomp su un Mac di GitHub e la pubblica per AltStore.
 # - Recomp.ipa (non firmata: la firma la fa AltStore con il tuo Apple ID gratuito)
-# - altstore-source.json: la "sorgente" AltStore che dichiara i permessi (HealthKit). AltStore attiva i permessi
-#   speciali solo per le app installate da una sorgente che li dichiara, non da un .ipa caricato a mano.
+# - altstore-source.json: la "sorgente" AltStore da cui installare e ricevere gli aggiornamenti.
 # Entrambi finiscono in una Release pubblica; l'indirizzo fisso della sorgente è:
 #   https://github.com/splancxs/splancxs.github.io/releases/latest/download/altstore-source.json
 # Si avvia da solo quando cambiano sito o progetto iOS; si può lanciare a mano da Actions → "App iPhone" → Run workflow.
@@ -64,11 +63,10 @@ jobs:
           # versione = numero della compilazione, così AltStore riconosce gli aggiornamenti
           plutil -replace CFBundleShortVersionString -string "1.0.$BUILD" "$APP/Info.plist"
           plutil -replace CFBundleVersion -string "$BUILD" "$APP/Info.plist"
-          # firma provvisoria "ad-hoc" solo per incorporare l'entitlement HealthKit: AltStore poi rifirma con il tuo Apple ID
+          # firma provvisoria "ad-hoc": AltStore poi rifirma con il tuo Apple ID
           codesign --force --deep --sign - "$APP"
-          codesign --force --sign - --entitlements app-ios/App.entitlements "$APP"
-          codesign -d --entitlements :- "$APP" > entitlements.plist
-          plutil -convert json -o entitlements.json entitlements.plist
+          codesign -d --entitlements :- "$APP" > entitlements.plist 2>/dev/null || true
+          plutil -convert json -o entitlements.json entitlements.plist 2>/dev/null || echo '{}' > entitlements.json
           plutil -convert json -o info.json "$APP/Info.plist"
           mkdir -p Payload
           cp -R "$APP" Payload/
@@ -122,6 +120,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           BUILD: ${{ github.run_number }}
         run: |
+          # pulizia: la vecchia app di prova di HealthKit non serve più
+          gh release delete healthkit-test --repo "${{ github.repository }}" --yes --cleanup-tag || true
           gh release create "build-$BUILD" Recomp.ipa altstore-source.json \
             --repo "${{ github.repository }}" --title "Recomp · compilazione $BUILD" \
             --notes-file notes.md --latest

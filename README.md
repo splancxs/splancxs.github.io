@@ -25,11 +25,11 @@ I dati dell'app installata sono separati da quelli di Safari: per spostarli usa 
 
 ## App iPhone nativa (Capacitor)
 
-`app-ios/` contiene il guscio nativo: il sito viene copiato dentro l'app (funziona offline) e in più ci sono notifiche locali (promemoria, fine recupero), vibrazione e Apple Salute (scrive i pesi; legge peso, grasso corporeo e passi). Le funzioni native si attivano solo dentro l'app (`window.Capacitor`), sul sito restano spente.
+`app-ios/` contiene il guscio nativo: il sito viene copiato dentro l'app (funziona offline) e in più ci sono notifiche locali (promemoria, fine recupero) e vibrazione. Apple Salute non è inclusa: con un Apple ID gratuito né AltStore né Sideloadly mantengono il permesso HealthKit (verificato anche con un'app nativa di prova); servirebbe l'Apple Developer Program. Le funzioni native si attivano solo dentro l'app (`window.Capacitor`), sul sito restano spente.
 
 - Compilazione: `.github/workflows/app-iphone.yml` gira su un Mac di GitHub a ogni modifica di sito o `app-ios/` e pubblica una **Release** con `Recomp.ipa` e `altstore-source.json`. Le note della Release riportano gli entitlement incorporati.
-- Installazione: **AltStore** con il proprio Apple ID gratuito, aggiungendo la sorgente `https://github.com/splancxs/splancxs.github.io/releases/latest/download/altstore-source.json`. Installare dalla sorgente (non dal file .ipa) serve perché AltStore attiva i permessi speciali, come HealthKit, solo per le app di una sorgente che li dichiara. Con l'Apple ID gratuito l'app va rinnovata ogni 7 giorni (AltStore lo fa da solo se AltServer è acceso sul PC).
-- `app-ios/patch-ios.mjs` adatta il progetto generato (permessi Salute, entitlement HealthKit, solo verticale, icona e splash da `app-ios/resources/`).
+- Installazione: **AltStore** con il proprio Apple ID gratuito, aggiungendo la sorgente `https://github.com/splancxs/splancxs.github.io/releases/latest/download/altstore-source.json`. Con l'Apple ID gratuito l'app va rinnovata ogni 7 giorni (AltStore lo fa da solo se AltServer è acceso sul PC).
+- `app-ios/patch-ios.mjs` adatta il progetto generato (solo verticale, icona e splash da `app-ios/resources/`).
 
 ## Sincronizzazione PC ↔ telefono (Firebase)
 
