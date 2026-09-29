@@ -79,7 +79,6 @@
   const N = { notif: plugin('LocalNotifications'), haptics: plugin('Haptics'), status: plugin('StatusBar') };
   const safe = (p) => { try { return Promise.resolve(p).catch(() => null); } catch (e) { return Promise.resolve(null); } };
   const buzz = (style = 'LIGHT') => { if (N.haptics) safe(N.haptics.impact({ style })); };
-  if (N.status) safe(N.status.setStyle({ style: 'DARK' })); // testo della barra di stato bianco sulla striscia scura
   if (isNative) {
     // come un'app vera: niente zoom con doppio tocco o pizzico (sfasava la pagina e la spingeva sotto l'orologio)
     const vp = document.querySelector('meta[name="viewport"]');
@@ -1502,7 +1501,12 @@
   const themeBtn = $('#themeBtn');
   const mq = window.matchMedia('(prefers-color-scheme: dark)');
   function effectiveTheme() { const t = document.documentElement.getAttribute('data-theme'); return t || (mq.matches ? 'dark' : 'light'); }
-  function paintThemeBtn() { const dark = effectiveTheme() === 'dark'; themeBtn.innerHTML = dark ? I.sun : I.moon; themeBtn.setAttribute('aria-label', dark ? 'Passa al tema chiaro' : 'Passa al tema scuro'); }
+  function paintThemeBtn() { const dark = effectiveTheme() === 'dark'; themeBtn.innerHTML = dark ? I.sun : I.moon; themeBtn.setAttribute('aria-label', dark ? 'Passa al tema chiaro' : 'Passa al tema scuro');
+    // striscia sotto l'orologio: stesso colore della barra in alto. Nell'app nativa cambio anche il colore di orologio e batteria;
+    // nell'app installata da Safari l'orologio è sempre bianco, quindi in tema chiaro la striscia resta scura.
+    document.documentElement.classList.toggle('strip-dark', !isNative && !dark);
+    if (N.status) safe(N.status.setStyle({ style: dark ? 'DARK' : 'LIGHT' }));
+  }
   function setTheme(v) {
     if (v === 'light' || v === 'dark') { document.documentElement.setAttribute('data-theme', v); store.set('theme', v); }
     else { document.documentElement.removeAttribute('data-theme'); store.set('theme', 'auto'); }

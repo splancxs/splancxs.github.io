@@ -825,3 +825,9 @@ h2 { font-size: 1.45rem; font-weight: 800; text-transform: uppercase; letter-spa
   .nav a span { display: block; -webkit-transform: translate3d(0, 0, 0); transform: translate3d(0, 0, 0); -webkit-backface-visibility: hidden; backface-visibility: hidden; }
 }
 @media (min-width: 900px) { .nav::after { display: none; } }
+
+/* striscia sotto l'orologio: stesso colore della barra in alto (prima due neri diversi) */
+.topbar::before { background: var(--bg); }
+.strip-dark .topbar::before { background: #0d0e0f; }
+/* telefono: spazio tra la colonna principale e quella laterale (prima le carte si toccavano) */
+@media (max-width: 899px) { .grid-main > * + * { margin-top: 16px; } }
