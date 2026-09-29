@@ -1,0 +1,68 @@
+# Compila l'app iPhone di Recomp su un Mac di GitHub e produce Recomp.ipa (non firmata).
+# La firma la fa Sideloadly sul PC con il tuo Apple ID gratuito.
+# Si avvia da solo quando cambiano sito o progetto iOS; si può lanciare a mano da Actions → "App iPhone" → Run workflow.
+name: App iPhone
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'assets/**'
+      - 'app-ios/**'
+      - '.github/workflows/app-iphone.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Prepara il progetto iOS
+        working-directory: app-ios
+        run: |
+          npm install --no-audit --no-fund
+          rm -rf www ios
+          mkdir -p www
+          cp ../index.html ../manifest.webmanifest www/
+          cp -R ../assets www/
+          npx cap add ios
+          node patch-ios.mjs
+          npx cap sync ios
+
+      - name: Compila (senza firma)
+        working-directory: app-ios/ios/App
+        run: |
+          if [ -d App.xcworkspace ]; then TARGET="-workspace App.xcworkspace"; else TARGET="-project App.xcodeproj"; fi
+          xcodebuild $TARGET -scheme App -configuration Release -sdk iphoneos \
+            -destination 'generic/platform=iOS' -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build | tail -n 60
+          test -d build/Build/Products/Release-iphoneos/App.app
+
+      - name: Crea Recomp.ipa
+        run: |
+          APP=app-ios/ios/App/build/Build/Products/Release-iphoneos/App.app
+          # firma provvisoria "ad-hoc" solo per incorporare l'entitlement HealthKit: Sideloadly poi rifirma con il tuo Apple ID
+          codesign --force --deep --sign - "$APP"
+          codesign --force --sign - --entitlements app-ios/App.entitlements "$APP"
+          codesign -d --entitlements - "$APP" || true
+          mkdir -p Payload
+          cp -R "$APP" Payload/
+          zip -qry Recomp.ipa Payload
+          ls -lh Recomp.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Recomp-ipa
+          path: Recomp.ipa
+          retention-days: 30
