@@ -13,23 +13,73 @@
   const lib = () => ({ ...K().D.exlib, ...K().store.get('exlib', {}) });
   const exOf = (id) => lib()[id] || { id, n: id, m: 'Altro', sec: [], inc: 2.5, unit: 'reps', eq: '', cue: '' };
   const isWork = (s) => s.type !== 'w';
-  // omino che esegue l'esercizio: due disegni Everkinetic (rilassato / in tensione) in dissolvenza continua
-  const IMG = (id, f) => `assets/esercizi/${id}-${f}.svg`;
+  // esecuzione: due foto reali (inizio / fine del movimento) alternate come una GIF
+  const IMG = (id, f) => `assets/esercizi/${id}-${f}.jpg`;
   function anim(e, size) {
-    if (!e.img) return size === 'sm' ? '<span class="exanim sm none" aria-hidden="true"></span>' : '';
+    if (!e.img) return size === 'sm' ? `<button type="button" class="exanim sm none" data-w="exanim" data-ex="${e.id}" aria-label="Muscoli allenati da ${K().esc(e.n)}">${bodyMap(e, true)}</button>` : '';
     const tag = size === 'lg' ? 'div' : 'button';
     const attrs = size === 'lg' ? 'role="img" aria-label="Esecuzione di ' + K().esc(e.n) + '"' : `type="button" data-w="exanim" data-ex="${e.id}" aria-label="Guarda l'esecuzione di ${K().esc(e.n)}"`;
-    return `<${tag} class="exanim ${size}" ${attrs}><img src="${IMG(e.img, 'relaxation')}" alt="" loading="lazy" decoding="async"><img class="t" src="${IMG(e.img, 'tension')}" alt="" loading="lazy" decoding="async"></${tag}>`;
+    return `<${tag} class="exanim ${size}" ${attrs}><img src="${IMG(e.img, 0)}" alt="" loading="lazy" decoding="async"><img class="t" src="${IMG(e.img, 1)}" alt="" loading="lazy" decoding="async"></${tag}>`;
+  }
+  // mappa dei muscoli: sagoma davanti / dietro, metà destra disegnata e specchiata
+  const BODY = {
+    f: [
+      [null, 'M0 26h5v9H0z'],
+      ['Deltoidi anteriori', 'M15 36q9-4 13 3l-3 12q-6-3-10-9z'],
+      ['Deltoidi laterali', 'M28 39q5 5 3 15l-5 2-1-5z'],
+      ['Petto', 'M1 37l13-1q3 8 8 13-8 9-21 7z'],
+      ['Bicipiti', 'M24 55q7 1 8 10l-2 17q-5 0-7-8z'],
+      [null, 'M24 84h7q2 15-1 30h-5q-3-15-1-30z'],
+      ['Addome', 'M1 60h12l-1 41-11 1z'],
+      ['Addome', 'M15 58q6 5 5 21l-2 21h-4z'],
+      [null, 'M1 104l17-2 3 10-20 7z'],
+      ['Quadricipiti', 'M3 121q8-10 19-9 3 19-2 48-8 6-14 0-5-19-3-39z'],
+      [null, 'M6 162h13v6H6z'],
+      ['Polpacci', 'M7 170q7-2 12 0 1 22-3 42h-6q-4-22-3-42z'],
+      [null, 'M9 214h8l2 8H8z'],
+    ],
+    b: [
+      [null, 'M0 26h5v9H0z'],
+      [null, 'M1 32l9 2 13 3-12 8-10 14z'],
+      ['Deltoidi posteriori', 'M17 37q10-3 13 6l-2 11q-6-3-11-9z'],
+      ['Deltoidi laterali', 'M30 43q3 5 1 11l-3 1z'],
+      ['Dorsali', 'M3 50q12-3 21 4-2 18-10 36H3z'],
+      ['Tricipiti', 'M24 56q7 0 8 8l-1 18q-5 0-8-8z'],
+      [null, 'M24 84h7q2 15-1 30h-5q-3-15-1-30z'],
+      [null, 'M1 92h13l2 12-15 2z'],
+      ['Glutei', 'M1 107q17-5 21 5 0 16-10 18-8 0-11-6z'],
+      ['Femorali', 'M3 132q9-2 18-2 2 16-2 32-7 4-13 0-4-16-3-30z'],
+      [null, 'M6 164h13v4H6z'],
+      ['Polpacci', 'M7 170q8-4 13 2 0 18-5 34h-5q-5-18-3-36z'],
+      [null, 'M9 208h7l1 14H8z'],
+    ],
+  };
+  function bodyMap(e, mini) {
+    const sec = new Set(e.sec || []);
+    const cls = (m) => (!m ? 'bm-x' : m === e.m ? 'bm-p' : sec.has(m) ? 'bm-s' : 'bm-o');
+    const half = (parts) => parts.map(([m, d]) => `<path class="${cls(m)}" d="${d}"/>`).join('');
+    const fig = (k, x) => `<g transform="translate(${x} 0)"><circle class="bm-x" cx="0" cy="15" r="11"/><g>${half(BODY[k])}</g><g transform="scale(-1 1)">${half(BODY[k])}</g></g>`;
+    return `<svg class="bodymap${mini ? ' mini' : ''}" viewBox="0 0 150 ${mini ? 226 : 240}" aria-hidden="true">${fig('f', 38)}${fig('b', 112)}${mini ? '' : '<text x="38" y="238">Davanti</text><text x="112" y="238">Dietro</text>'}</svg>`;
+  }
+  function muscoli(e) {
+    const k = K();
+    return `<div class="bm-card">${bodyMap(e)}<div class="bm-leg">
+      <p class="eyebrow">Muscoli allenati</p>
+      <p><span class="bm-dot p"></span><b>${k.esc(e.m)}</b></p>
+      ${(e.sec || []).map((m) => `<p><span class="bm-dot s"></span>${k.esc(m)}</p>`).join('')}
+</div></div>`;
   }
   function showAnim(id) {
     const k = K();
     const e = exOf(id);
-    k.openSheet(`<div class="stack"><div><p class="eyebrow">${k.esc(e.m)}${e.sec && e.sec.length ? ' · ' + e.sec.map(k.esc).join(', ') : ''}</p><h2>${k.esc(e.n)}</h2></div>
+    k.openSheet(`<div class="stack"><div><p class="eyebrow">${k.esc(e.eq || '')}</p><h2>${k.esc(e.n)}</h2></div>
       ${anim(e, 'lg')}
+      ${muscoli(e)}
       ${e.cue ? `<p><strong>Tecnica:</strong> ${k.esc(e.cue)}</p>` : ''}
-      <p class="tiny muted">Illustrazione: Everkinetic (CC BY-SA 4.0)${e.img && /Pec Deck|Lat Pulldown · presa larga|Shoulder Press|Alzate laterali al cavo|Alzate laterali alla macchina|Bayesian|Reverse Pec Deck/.test(e.n) ? ' · movimento equivalente: sulla tua macchina la posizione può essere diversa' : ''}</p>
+      ${e.img ? `<p class="tiny muted">Foto: free-exercise-db (pubblico dominio)${e.eqv ? ' · movimento equivalente: sulla tua macchina la posizione può essere diversa' : ''}</p>` : ''}
       <button type="button" class="btn" data-act="sheet-close">Chiudi</button></div>`);
   }
+
   const e1rm = (kg, r) => (kg > 0 && r > 0 ? kg * (1 + r / 30) : 0); // formula di Epley
   const volOf = (sets) => sets.filter(isWork).reduce((a, s) => a + (s.kg > 0 && s.r > 0 ? s.kg * s.r : 0), 0);
   const uid = (p) => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -429,7 +479,7 @@
       <div class="row"><h2>Scegli esercizio</h2><span class="spacer"></span><button type="button" class="chip" data-w="pick-close">Chiudi</button></div>
       <input id="pickSearch" class="search" type="search" placeholder="Cerca esercizio…" autocomplete="off" data-wi="pick-search">
       <div class="pill-list">${['', ...muscles].map((m) => `<button type="button" class="chip${ui.muscle === m ? ' solid' : ''}" data-w="pick-muscle" data-m="${k.esc(m)}">${m ? k.esc(m) : 'Tutti'}</button>`).join('')}</div>
-      <ul class="picklist">${ids.map((id) => `<li data-n="${k.esc(L[id].n.toLowerCase())}"><button type="button" data-w="pick" data-ex="${id}" class="pick-row">${L[id].img ? `<img class="pick-img" src="${IMG(L[id].img, 'relaxation')}" alt="" loading="lazy" decoding="async">` : '<span class="pick-img none"></span>'}<span class="pick-t"><b>${k.esc(L[id].n)}</b><span class="tiny muted">${k.esc(L[id].m)} · ${k.esc(L[id].eq || '')}</span></span></button></li>`).join('')}</ul>
+      <ul class="picklist">${ids.map((id) => `<li data-n="${k.esc(L[id].n.toLowerCase())}"><button type="button" data-w="pick" data-ex="${id}" class="pick-row">${L[id].img ? `<img class="pick-img" src="${IMG(L[id].img, 0)}" alt="" loading="lazy" decoding="async">` : '<span class="pick-img none"></span>'}<span class="pick-t"><b>${k.esc(L[id].n)}</b><span class="tiny muted">${k.esc(L[id].m)} · ${k.esc(L[id].eq || '')}</span></span></button></li>`).join('')}</ul>
       <details class="card flat"><summary>Crea un esercizio nuovo</summary>
         <div class="stack">
           <div class="field"><label for="nxName">Nome</label><input id="nxName" autocomplete="off"></div>
@@ -587,7 +637,7 @@
     return `<div class="stack">
       <div class="row"><button type="button" class="chip" data-w="exdetail-close">← Indietro</button></div>
       <div><p class="eyebrow">${k.esc(e.m)}${e.sec && e.sec.length ? ' · ' + e.sec.map(k.esc).join(', ') : ''}</p><h1>${k.esc(e.n)}</h1></div>
-      ${e.img ? `<section class="card exanim-card">${anim(e, 'lg')}</section>` : ''}
+      <section class="card exanim-card">${anim(e, 'lg')}${muscoli(e)}${e.eqv ? '<p class="tiny muted">Foto di un movimento equivalente: sulla tua macchina la posizione può essere diversa.</p>' : ''}</section>
       <div class="stats">${tiles.map(([l, v]) => `<div class="stat"><div class="lbl">${l}</div><div class="v">${v}</div></div>`).join('')}</div>
       <section class="card stack"><h2>Progressi</h2>${chart}</section>
       <section class="card stack"><h2>Sedute (${sessions.length})</h2>

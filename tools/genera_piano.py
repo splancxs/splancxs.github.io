@@ -604,18 +604,26 @@ EX_MAP = {
     'LB3': 'leg_extension', 'LB4': 'preacher_curl_machine', 'LB5': 'overhead_ext_rope', 'LB6': 'hammer_curl_rope',
     'LB7': 'triceps_pushdown', 'LB8': 'crunch_machine', 'LB9': 'side_plank',
 }
-# illustrazioni Everkinetic (CC BY-SA 4.0) in assets/esercizi/<id>-relaxation.svg e <id>-tension.svg
+# foto free-exercise-db (pubblico dominio, Unlicense) in assets/esercizi/<nome>-0.jpg e <nome>-1.jpg
 EX_IMG = {
-    'chest_press': '0066', 'lat_pulldown_wide': '0093', 'pec_deck': '0056', 'low_row': '0025', 'lateral_raise_cable': '0018',
-    'reverse_pec_deck': '0035', 'leg_press': '0127', 'leg_curl': '0117', 'leg_extension': '0142', 'bayesian_curl': '0247',
-    'triceps_pushdown': '0205', 'hammer_curl_rope': '0216', 'overhead_ext_rope': '0199', 'cable_crunch': '0288',
-    'incline_db_press': '0061', 'tbar_row': '0029', 'shoulder_press_machine': '0004', 'lat_pulldown_neutral': '0096',
-    'lateral_raise_machine': '0018', 'leg_press_high': '0127', 'preacher_curl_machine': '0236', 'crunch_machine': '0288',
-    'side_plank': '0113', 'bench_press_bb': '0042', 'db_bench': '0055', 'cable_fly': '0048', 'pullup': '0090',
-    'straight_arm_pulldown': '0092', 'db_shoulder_press': '0031', 'db_lateral_raise': '0018', 'squat_bb': '0122',
-    'hack_squat': '0123', 'lunges_db': '0115', 'calf_leg_press': '0273', 'calf_standing': '0282', 'db_curl': '0224',
-    'incline_db_curl': '0214', 'dips': '0054', 'ez_skullcrusher': '0183',
+    'chest_press': 'Leverage_Chest_Press', 'lat_pulldown_wide': 'Wide-Grip_Lat_Pulldown', 'pec_deck': 'Butterfly',
+    'low_row': 'Seated_Cable_Rows', 'lateral_raise_cable': 'Cable_Seated_Lateral_Raise', 'reverse_pec_deck': 'Reverse_Machine_Flyes',
+    'leg_press': 'Leg_Press', 'leg_curl': 'Lying_Leg_Curls', 'leg_extension': 'Leg_Extensions',
+    'bayesian_curl': 'Standing_One-Arm_Cable_Curl', 'triceps_pushdown': 'Triceps_Pushdown_-_Rope_Attachment', 'hammer_curl_rope': 'Cable_Hammer_Curls_-_Rope_Attachment',
+    'overhead_ext_rope': 'Cable_Rope_Overhead_Triceps_Extension', 'cable_crunch': 'Cable_Crunch', 'plank': 'Plank',
+    'incline_db_press': 'Incline_Dumbbell_Press', 'tbar_row': 'Lying_T-Bar_Row', 'shoulder_press_machine': 'Machine_Shoulder_Military_Press',
+    'lat_pulldown_neutral': 'V-Bar_Pulldown', 'lateral_raise_machine': 'Side_Lateral_Raise', 'leg_press_high': 'Leg_Press',
+    'preacher_curl_machine': 'Machine_Preacher_Curls', 'crunch_machine': 'Ab_Crunch_Machine', 'side_plank': 'Side_Bridge',
+    'bench_press_bb': 'Barbell_Bench_Press_-_Medium_Grip', 'db_bench': 'Dumbbell_Bench_Press', 'cable_fly': 'Cable_Crossover',
+    'pullup': 'Pullups', 'db_row': 'One-Arm_Dumbbell_Row', 'straight_arm_pulldown': 'Straight-Arm_Pulldown',
+    'face_pull': 'Face_Pull', 'db_shoulder_press': 'Dumbbell_Shoulder_Press', 'db_lateral_raise': 'Side_Lateral_Raise',
+    'squat_bb': 'Barbell_Squat', 'hack_squat': 'Hack_Squat', 'rdl_db': 'Stiff-Legged_Dumbbell_Deadlift',
+    'hip_thrust': 'Barbell_Hip_Thrust', 'lunges_db': 'Dumbbell_Lunges', 'calf_leg_press': 'Calf_Press_On_The_Leg_Press_Machine',
+    'calf_standing': 'Standing_Calf_Raises', 'db_curl': 'Dumbbell_Bicep_Curl', 'incline_db_curl': 'Incline_Dumbbell_Curl',
+    'dips': 'Dips_-_Triceps_Version', 'ez_skullcrusher': 'EZ-Bar_Skullcrusher',
 }
+# foto di un movimento equivalente (la tua macchina può essere diversa)
+EX_EQV = {'lateral_raise_machine', 'bayesian_curl', 'leg_press_high'}
 # serie dirette a settimana previste dalla scheda (per le statistiche)
 MUSCLE_TARGETS = {'Petto': 11, 'Dorsali': 12, 'Deltoidi laterali': 7, 'Deltoidi posteriori': 5, 'Quadricipiti': 12,
                   'Femorali': 7, 'Bicipiti': 10, 'Tricipiti': 10, 'Addome': 6}
@@ -632,6 +640,8 @@ def build_exlib():
         lib[k] = dict(id=k, n=n, m=m, sec=sec, inc=inc, unit=unit, eq=eq, cue=cues.get(k, ''))
         if k in EX_IMG:
             lib[k]['img'] = EX_IMG[k]
+        if k in EX_EQV:
+            lib[k]['eqv'] = 1
     return lib
 
 

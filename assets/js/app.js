@@ -1002,7 +1002,7 @@
         <p class="err" id="impMsg" role="status"></p>
       </section>
       <section class="card stack small"><h2>Crediti</h2>
-        <p class="muted">Illustrazioni degli esercizi: <a href="https://github.com/everkinetic/data">Everkinetic</a>, licenza CC BY-SA 4.0. Valori nutrizionali: tabelle CREA, USDA ed etichette dei prodotti.</p>
+        <p class="muted">Foto degli esercizi: <a href="https://github.com/yuhonas/free-exercise-db">free-exercise-db</a>, pubblico dominio (Unlicense). Mappa dei muscoli disegnata per Recomp. Valori nutrizionali: tabelle CREA, USDA ed etichette dei prodotti.</p>
       </section>
     </div>`;
   }
