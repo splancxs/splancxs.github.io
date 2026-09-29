@@ -129,9 +129,20 @@
   const isoAt = (k, h = 7) => { const d = fromKey(k); d.setHours(h, 0, 0, 0); return d.toISOString(); };
   async function healthConnect() {
     if (!N.health) return;
-    const r = await safe(N.health.requestAuthorization({ read: ['weight', 'bodyFat', 'steps'], write: ['weight'] }));
-    store.set('health', { on: r !== null });
-    await healthPull(true);
+    hs.err = '';
+    hs.wait = true; render();
+    try {
+      const av = await N.health.isAvailable().catch((e) => ({ available: false, reason: (e && e.message) || String(e) }));
+      if (av && av.available === false) throw new Error(`Salute non disponibile${av.reason ? ': ' + av.reason : ''}`);
+      await N.health.requestAuthorization({ read: ['weight', 'bodyFat', 'steps'], write: ['weight'] });
+      store.set('health', { on: true });
+      hs.wait = false;
+      await healthPull(true);
+    } catch (e) {
+      hs.err = (e && (e.message || e.code || e.errorMessage)) || String(e);
+      store.set('health', { on: false });
+    }
+    hs.wait = false;
     render();
   }
   async function healthPull(force) {
@@ -173,7 +184,8 @@
         ${hs.bf ? `<p class="small">Ultimo grasso corporeo in Salute: <strong>${f1(hs.bf.v)}%</strong> (${shortDate(hs.bf.d)})</p>` : ''}
         <div class="row"><button type="button" class="btn ghost" data-act="health-pull">${I.reset} Aggiorna da Salute</button></div>`
       : `<p class="small muted">Collega Salute per scrivere lì i pesi, importare quelli della bilancia e vedere i passi di oggi nella pagina Oggi.</p>
-        <div class="row"><button type="button" class="btn" data-act="health-on">Collega Apple Salute</button></div>`}
+        ${hs.err ? `<p class="err" role="alert">Errore di Salute: ${esc(hs.err)}</p>` : ''}
+        <div class="row"><button type="button" class="btn" data-act="health-on"${hs.wait ? ' disabled' : ''}>${hs.wait ? 'Collegamento…' : 'Collega Apple Salute'}</button></div>`}
       </section>` : '';
     const notif = N.notif ? `<section class="card stack"><h2>Promemoria</h2>
       ${Object.entries(REM).map(([k, l]) => `<label class="row small" style="justify-content:space-between;cursor:pointer"><span>${l}</span><input type="checkbox" data-act="rem" data-k="${k}"${rem[k] ? ' checked' : ''} style="width:22px;height:22px;accent-color:var(--ink)"></label>`).join('')}
