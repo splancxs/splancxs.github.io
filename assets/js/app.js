@@ -742,30 +742,146 @@
     }
     return `Peso in salita (${sign(r1(d * 100) / 100, f2)} kg). Se sei nelle prime 2 settimane è glicogeno. Altrimenti controlla le porzioni del pasto libero e i condimenti "a occhio".`;
   }
+  // grafico del peso interattivo: punti = pesate, linea = media 7 giorni, tratteggio verde = percorso ideale verso l'obiettivo
+  const GOAL = { d: '2027-01-18', kg: 63 };
   function chart(ws) {
     if (ws.length < 2) return '<p class="small muted">Il grafico compare dal secondo peso registrato.</p>';
     const data = ws.slice(-90);
-    const W = 640, H = 220, L = 40, R = 12, Tp = 12, B = 26;
-    const t0 = fromKey(data[0].d).getTime(), t1 = fromKey(data[data.length - 1].d).getTime();
+    const W = 640, H = 230, L = 40, R = 14, Tp = 14, B = 26;
+    const t0 = Math.min(fromKey(data[0].d).getTime(), fromKey(START.d).getTime());
+    const t1 = fromKey(data[data.length - 1].d).getTime();
     const span = Math.max(1, t1 - t0);
-    const vals = data.map((w) => w.kg).concat([START.kg]);
-    let lo = Math.min(...vals) - 0.4, hi = Math.max(...vals) + 0.4;
-    const x = (k) => L + ((fromKey(k).getTime() - t0) / span) * (W - L - R);
+    const gs = fromKey(START.d).getTime(), ge = fromKey(GOAL.d).getTime();
+    const ideal = (t) => START.kg + (GOAL.kg - START.kg) * Math.max(0, Math.min(1, (t - gs) / (ge - gs)));
+    const vals = data.map((w) => w.kg).concat([START.kg, ideal(t1)]);
+    const lo = Math.min(...vals) - 0.4, hi = Math.max(...vals) + 0.4;
+    const xt = (t) => L + ((t - t0) / span) * (W - L - R);
+    const x = (k) => xt(fromKey(k).getTime());
     const y = (v) => Tp + (1 - (v - lo) / (hi - lo)) * (H - Tp - B);
     const avg = data.map((w) => {
-      const from = fromKey(w.d).getTime() - 6 * 86400000;
-      const win = ws.filter((z) => { const t = fromKey(z.d).getTime(); return t >= from && t <= fromKey(w.d).getTime(); });
+      const to = fromKey(w.d).getTime();
+      const win = ws.filter((z) => { const t = fromKey(z.d).getTime(); return t >= to - 6 * 86400000 && t <= to; });
       return [w.d, win.reduce((a, z) => a + z.kg, 0) / win.length];
     });
     const ticks = [lo + 0.4, (lo + hi) / 2, hi - 0.4];
-    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Andamento del peso con media mobile a 7 giorni">
-      ${ticks.map((v) => `<line class="ax" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${f1(v)}</text>`).join('')}
-      <line class="base" x1="${L}" x2="${W - R}" y1="${y(START.kg)}" y2="${y(START.kg)}"/>
-      ${data.map((w) => `<circle class="pt" cx="${x(w.d)}" cy="${y(w.kg)}" r="3"/>`).join('')}
-      <polyline class="ln" points="${avg.map(([d, v]) => `${x(d).toFixed(1)},${y(v).toFixed(1)}`).join(' ')}"/>
-      <text x="${L}" y="${H - 6}">${shortDate(data[0].d)}</text><text x="${W - R}" y="${H - 6}" text-anchor="end">${shortDate(data[data.length - 1].d)}</text>
-    </svg>`;
+    const pts = data.map((w, i) => [+(x(w.d) / W * 100).toFixed(2), +(y(w.kg) / H * 100).toFixed(2), `${shortDate(w.d)} · ${f2(w.kg)} kg`, `media 7 gg ${f2(avg[i][1])} · ideale ${f2(ideal(fromKey(w.d).getTime()))}`]);
+    return `<div class="wchart" data-pts='${esc(JSON.stringify(pts))}'>
+      <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Andamento del peso con media a 7 giorni e percorso ideale verso ${GOAL.kg} kg">
+        ${ticks.map((v) => `<line class="ax" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${f1(v)}</text>`).join('')}
+        <line class="ideal" x1="${xt(t0)}" y1="${y(ideal(t0))}" x2="${xt(t1)}" y2="${y(ideal(t1))}"/>
+        ${data.map((w) => `<circle class="pt" cx="${x(w.d)}" cy="${y(w.kg)}" r="3.2"/>`).join('')}
+        <polyline class="ln" points="${avg.map(([d, v]) => `${x(d).toFixed(1)},${y(v).toFixed(1)}`).join(' ')}"/>
+        <text x="${L}" y="${H - 6}">${shortDate(data[0].d)}</text><text x="${W - R}" y="${H - 6}" text-anchor="end">${shortDate(data[data.length - 1].d)}</text>
+      </svg>
+      <div class="wc-cursor" hidden><span class="wc-line"></span><span class="wc-dot"></span><div class="wc-tip"><b></b><span></span></div></div>
+    </div>`;
   }
+
+  // riepilogo della settimana scorsa (lunedì–domenica) e di quella in corso
+  function weekSummary(ws) {
+    const today = fromKey(dkey(new Date()));
+    const mon = new Date(today); mon.setDate(mon.getDate() - dayIdx(mon));
+    const prevMon = new Date(mon); prevMon.setDate(prevMon.getDate() - 7);
+    const prev2 = new Date(prevMon); prev2.setDate(prev2.getDate() - 7);
+    const avgIn = (a, b) => { const v = ws.filter((w) => { const t = fromKey(w.d).getTime(); return t >= a.getTime() && t < b.getTime(); }); return v.length ? v.reduce((s, w) => s + w.kg, 0) / v.length : null; };
+    const eaten = store.get('eaten', {});
+    const mealsDays = (a, b) => {
+      let n = 0;
+      for (let d = new Date(a); d < b; d.setDate(d.getDate() + 1)) {
+        const plan = dayPlan(dayIdx(d));
+        const tot = plan.meals.filter((m) => !m.free).length;
+        if ((eaten[dkey(d)] || []).length >= Math.ceil(tot * 0.8)) n++;
+      }
+      return n;
+    };
+    const rows = [['Settimana scorsa', prevMon, mon, prev2], ['Questa settimana', mon, new Date(today.getTime() + 86400000), prevMon]].map(([title, a, b, before]) => {
+      const kg = avgIn(a, b), kgBefore = avgIn(before, a);
+      const st = window.RCW ? window.RCW.weekStats(a.getTime(), b.getTime()) : { n: 0, prs: 0 };
+      const days = Math.round((Math.min(b.getTime(), today.getTime() + 86400000) - a.getTime()) / 86400000);
+      return `<div class="wsum">
+        <p class="eyebrow">${title}</p>
+        <div class="wsum-g">
+          <div><span>Peso medio</span><b>${kg != null ? f2(kg) : '—'}</b><small>${kg != null && kgBefore != null ? sign(Math.round((kg - kgBefore) * 100) / 100, f2) + ' kg' : 'servono 2 settimane'}</small></div>
+          <div><span>Allenamenti</span><b>${st.n}<small style="display:inline"> / 4</small></b><small>${st.prs ? `🏆 ${st.prs} record` : 'nessun record'}</small></div>
+          <div><span>Pasti rispettati</span><b>${mealsDays(a, b)}<small style="display:inline"> / ${Math.min(7, days)}</small></b><small>giorni ≥ 80% spuntati</small></div>
+        </div>
+      </div>`;
+    }).join('');
+    return `<section class="card stack"><h2>Riepilogo</h2>${rows}</section>`;
+  }
+
+  /* ---------- foto dei progressi (solo su questo dispositivo, in IndexedDB) ---------- */
+  const PH = { db: null };
+  function phDb() {
+    if (PH.db) return Promise.resolve(PH.db);
+    return new Promise((res, rej) => {
+      if (!('indexedDB' in window)) { rej(new Error('IndexedDB non disponibile')); return; }
+      const rq = indexedDB.open('recomp-foto', 1);
+      rq.onupgradeneeded = () => rq.result.createObjectStore('foto', { keyPath: 'id' });
+      rq.onsuccess = () => { PH.db = rq.result; res(PH.db); };
+      rq.onerror = () => rej(rq.error);
+    });
+  }
+  const phTx = (mode, fn) => phDb().then((db) => new Promise((res, rej) => { const tx = db.transaction('foto', mode); const st = tx.objectStore('foto'); const out = fn(st); tx.oncomplete = () => res(out && out.result !== undefined ? out.result : out); tx.onerror = () => rej(tx.error); }));
+  const phAll = () => phTx('readonly', (st) => st.getAll());
+  const phPut = (rec) => phTx('readwrite', (st) => st.put(rec));
+  const phDel = (id) => phTx('readwrite', (st) => st.delete(id));
+  const urls = [];
+  const blobUrl = (b) => { const u = URL.createObjectURL(b); urls.push(u); return u; };
+  function shrink(file) {
+    return new Promise((res, rej) => {
+      const img = new Image();
+      img.onload = () => {
+        const s = Math.min(1, 1200 / Math.max(img.width, img.height));
+        const c = document.createElement('canvas'); c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(img.src);
+        c.toBlob((b) => (b ? res(b) : rej(new Error('conversione non riuscita'))), 'image/jpeg', 0.82);
+      };
+      img.onerror = () => rej(new Error('immagine non leggibile'));
+      img.src = URL.createObjectURL(file);
+    });
+  }
+  function photosCard() {
+    return `<section class="card stack"><div class="row"><h2>Foto dei progressi</h2><span class="spacer"></span>
+      <label class="btn ghost" for="photoIn">${I.up} Aggiungi</label><input id="photoIn" type="file" accept="image/*" class="sr"></div>
+      <p class="tiny muted">Stessa luce, stessa posa, ogni 4 settimane. Le foto restano solo su questo dispositivo: non vengono sincronizzate né pubblicate.</p>
+      <div id="photoGrid" class="pgrid"><p class="small muted">Caricamento…</p></div></section>`;
+  }
+  let photoCache = [];
+  function hydratePhotos() {
+    const box = document.getElementById('photoGrid');
+    if (!box) return;
+    urls.splice(0).forEach((u) => URL.revokeObjectURL(u));
+    phAll().then((list) => {
+      photoCache = list.sort((a, b) => (a.d < b.d ? -1 : 1));
+      const el = document.getElementById('photoGrid');
+      if (!el) return;
+      if (!photoCache.length) { el.innerHTML = '<p class="small muted">Nessuna foto ancora. La prima è il tuo punto di partenza.</p>'; return; }
+      el.innerHTML = photoCache.map((p) => `<button type="button" class="pthumb" data-act="photo-open" data-id="${p.id}"><img src="${blobUrl(p.blob)}" alt="Foto del ${shortDate(p.d)}"><span>${shortDate(p.d)}</span></button>`).join('')
+        + (photoCache.length >= 2 ? '<button type="button" class="btn" data-act="photo-compare" style="grid-column:1/-1">Confronta prima e dopo</button>' : '');
+    }).catch(() => { const el = document.getElementById('photoGrid'); if (el) el.innerHTML = '<p class="small muted">Le foto non sono disponibili in questo browser.</p>'; });
+  }
+  function photoAdd(file) {
+    shrink(file).then((blob) => phPut({ id: 'p' + Date.now(), d: dkey(new Date()), blob })).then(() => { buzz('MEDIUM'); hydratePhotos(); })
+      .catch((e) => alert('Foto non salvata: ' + e.message));
+  }
+  function photoOpen(id) {
+    const p = photoCache.find((x) => x.id === id);
+    if (!p) return;
+    openSheet(`<div class="stack"><p class="eyebrow">${esc(cap(fromKey(p.d).toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })))}</p>
+      <img class="pfull" src="${blobUrl(p.blob)}" alt="Foto del ${shortDate(p.d)}">
+      <div class="row"><button type="button" class="btn ghost" data-act="photo-del" data-id="${p.id}">${I.trash} Elimina</button><span class="spacer"></span><button type="button" class="btn" data-act="sheet-close">Chiudi</button></div></div>`);
+  }
+  function photoCompare() {
+    if (photoCache.length < 2) return;
+    const a = photoCache[0], b = photoCache[photoCache.length - 1];
+    openSheet(`<div class="stack"><h2>Prima e dopo</h2>
+      <div class="pcmp" style="--cut:50%"><img src="${blobUrl(b.blob)}" alt="Dopo, ${shortDate(b.d)}"><img class="pcmp-a" src="${blobUrl(a.blob)}" alt="Prima, ${shortDate(a.d)}"><span class="pcmp-l">${shortDate(a.d)}</span><span class="pcmp-r">${shortDate(b.d)}</span><i class="pcmp-h" aria-hidden="true"></i></div>
+      <label class="sr" for="pcmpRange">Sposta il confronto</label><input id="pcmpRange" type="range" min="0" max="100" value="50" data-cmp="1">
+      <button type="button" class="btn" data-act="sheet-close">Chiudi</button></div>`);
+  }
+
   function viewProgressi() {
     const ws = weights();
     const wk = weekly(ws);
@@ -778,7 +894,8 @@
     const waists = ws.filter((w) => w.w != null);
     const stat = (lbl, v, cls = '') => `<div class="stat"><div class="lbl">${lbl}</div><div class="v ${cls}">${v}</div></div>`;
     return `<div class="stack">
-      <div><p class="eyebrow">Monitoraggio</p><h1>Progressi</h1><p class="muted">Punto di partenza: ${f2(START.kg)} kg · ${f1(START.bf)}% di grasso (bilancia) · ${shortDate(START.d)}/2026</p></div>
+      <div><p class="eyebrow">Monitoraggio</p><h1>Progressi</h1><p class="muted">Punto di partenza: ${f2(START.kg)} kg · ${f1(START.bf)}% di grasso (bilancia) · ${shortDate(START.d)}/2026 · obiettivo ≈ ${f0(GOAL.kg)} kg a metà gennaio</p></div>
+      ${weekSummary(ws)}
       <section class="card stack">
         <h2>Nuova misurazione</h2>
         <form id="wForm" class="form-row" novalidate>
@@ -797,7 +914,7 @@
         ${stat('Dal via', avg7 != null ? sign(Math.round((avg7 - START.kg) * 100) / 100, f2) : '—', avg7 == null ? '' : avg7 > START.kg ? 'up' : 'down')}
       </div>
       <section class="card advice"><p class="eyebrow">Cosa fare adesso</p><p style="margin-top:6px">${esc(advice(wk))}</p></section>
-      <section class="card chart stack"><div class="row"><h2>Andamento</h2><span class="spacer"></span><span class="tiny muted">punti = pesate · linea = media 7 giorni · tratteggio = partenza</span></div>${chart(ws)}</section>
+      <section class="card chart stack"><div class="row"><h2>Andamento</h2><span class="spacer"></span><span class="tiny muted">punti = pesate · linea = media 7 giorni · verde = percorso ideale · passa il dito sul grafico</span></div>${chart(ws)}</section>
       <div class="grid2">
         <section class="card stack"><h2>Medie settimanali</h2>
           ${wk.length ? `<div class="tbl-wrap"><table><thead><tr><th>Settimana dal</th><th class="r">Pesate</th><th class="r">Media</th><th class="r">Δ</th><th class="r">Vita</th></tr></thead><tbody>
@@ -809,6 +926,7 @@
           ${ws.length ? `<ul class="entries">${ws.slice().reverse().slice(0, 30).map((w) => `<li><span class="muted">${shortDate(w.d)}</span><strong>${f2(w.kg)} kg</strong>${w.w != null ? `<span class="muted">· vita ${f1(w.w)} cm</span>` : ''}<button type="button" class="x-btn" data-act="wdel" data-d="${w.d}" aria-label="Elimina la misura del ${shortDate(w.d)}">${I.trash}</button></li>`).join('')}</ul>` : '<p class="small muted">Le misure che salvi compaiono qui.</p>'}
         </section>
       </div>
+      ${photosCard()}
     </div>`;
   }
 
@@ -1059,6 +1177,7 @@
     main.innerHTML = (r !== 'scheda' && window.RCW ? window.RCW.banner() : '') + routes[r]();
     document.title = `${titles[r]} · Recomp`;
     watchTitle(titles[r]);
+    if (r === 'progressi') hydratePhotos();
     if (r !== current && current) main.classList.add('page-in');
     if (scrollTop || r !== current) { window.scrollTo(0, 0); if (r !== current && current) main.focus({ preventScroll: true }); }
     else window.scrollTo(0, y);
@@ -1131,6 +1250,8 @@
       if (b) b.textContent = `${tot.filter((id) => s[id]).length}/${tot.length}`;
     } else if (t.dataset.act === 'rem') {
       setReminder(t.dataset.k, t.checked);
+    } else if (t.id === 'photoIn' && t.files && t.files[0]) {
+      photoAdd(t.files[0]); t.value = '';
     } else if (t.dataset.act === 'blockstart') {
       if (t.value) { store.set('blockStart', t.value); render(); }
     } else if (t.id === 'importFile' && t.files && t.files[0]) {
@@ -1310,6 +1431,28 @@
     main.addEventListener('click', (e) => { if (blockClick) { e.stopPropagation(); e.preventDefault(); } }, true);
   })();
 
+  /* ---------------- grafico del peso: cursore che segue il dito ---------------- */
+  (function chartScrub() {
+    function show(e) {
+      const box = e.target.closest && e.target.closest('.wchart');
+      if (!box) return;
+      const pts = JSON.parse(box.dataset.pts || '[]');
+      if (!pts.length) return;
+      const r = box.getBoundingClientRect();
+      const px = ((e.clientX - r.left) / r.width) * 100;
+      let best = pts[0];
+      pts.forEach((p) => { if (Math.abs(p[0] - px) < Math.abs(best[0] - px)) best = p; });
+      const cur = box.querySelector('.wc-cursor');
+      cur.hidden = false;
+      cur.style.setProperty('--x', best[0] + '%'); cur.style.setProperty('--y', best[1] + '%');
+      cur.querySelector('b').textContent = best[2]; cur.querySelector('.wc-tip span').textContent = best[3];
+      cur.classList.toggle('right', best[0] > 60);
+    }
+    main.addEventListener('pointermove', show);
+    main.addEventListener('pointerdown', show);
+    main.addEventListener('pointerleave', (e) => { if (e.target.classList && e.target.classList.contains('wchart')) e.target.querySelector('.wc-cursor').hidden = true; }, true);
+  })();
+
   /* ---------------- azioni comuni (pagina + pannello dal basso) ---------------- */
   function commonAct(t, act) {
     switch (act) {
@@ -1321,6 +1464,9 @@
       case 'ob-skip': case 'ob-done': closeSheet(); return true;
       case 'ptabp': ui.profTab = t.dataset.tab; render(); return true;
       case 'theme': setTheme(t.dataset.v); render(); return true;
+      case 'photo-open': photoOpen(t.dataset.id); return true;
+      case 'photo-compare': photoCompare(); return true;
+      case 'photo-del': if (confirm('Eliminare questa foto?')) phDel(t.dataset.id).then(() => { closeSheet(); hydratePhotos(); }); return true;
       default: return false;
     }
   }
@@ -1330,7 +1476,10 @@
     if (commonAct(t, t.dataset.act)) return;
     if (window.RC && window.RC.sheetAct) window.RC.sheetAct(t, t.dataset.act);
   });
-  sheetEl.addEventListener('input', (ev) => { if (window.RCW && window.RCW.sheetInput) window.RCW.sheetInput(ev.target); });
+  sheetEl.addEventListener('input', (ev) => {
+    if (ev.target.dataset.cmp) { const c = sheetEl.querySelector('.pcmp'); if (c) c.style.setProperty('--cut', ev.target.value + '%'); return; }
+    if (window.RCW && window.RCW.sheetInput) window.RCW.sheetInput(ev.target);
+  });
   sheetEl.addEventListener('change', (ev) => { if (window.RCW && window.RCW.sheetInput) window.RCW.sheetInput(ev.target); });
   document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') closeSheet(); });
 

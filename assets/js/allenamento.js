@@ -598,6 +598,7 @@
   };
 
   W.isActive = () => !!getActive();
+  W.weekStats = (a, b) => { const ws = history().filter((w) => w.start >= a && w.start < b); return { n: ws.length, prs: ws.reduce((s, w) => s + ((w.prs || []).length), 0) }; };
   W.doneToday = (rid) => { const k = K(); const today = k.dkey(new Date()); return history().some((w) => w.rid === rid && k.dkey(new Date(w.start)) === today); };
 
   // barra "allenamento in corso" nelle altre sezioni
