@@ -80,6 +80,21 @@
   const safe = (p) => { try { return Promise.resolve(p).catch(() => null); } catch (e) { return Promise.resolve(null); } };
   const buzz = (style = 'LIGHT') => { if (N.haptics) safe(N.haptics.impact({ style })); };
   if (N.status) safe(N.status.setStyle({ style: 'DARK' })); // testo della barra di stato bianco sulla striscia scura
+  if (isNative) {
+    // come un'app vera: niente zoom con doppio tocco o pizzico (sfasava la pagina e la spingeva sotto l'orologio)
+    const vp = document.querySelector('meta[name="viewport"]');
+    if (vp) vp.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover');
+    // se iOS non comunica i margini di sicurezza (notch e barra in basso) uso quelli dell'iPhone 14
+    const probe = document.createElement('div');
+    probe.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:env(safe-area-inset-top,0px);visibility:hidden;pointer-events:none';
+    document.body.appendChild(probe);
+    const top = probe.getBoundingClientRect().height;
+    probe.remove();
+    if (top < 1 && Math.max(screen.width, screen.height) >= 812) {
+      document.documentElement.style.setProperty('--sat', '47px');
+      document.documentElement.style.setProperty('--sab', '34px');
+    }
+  }
 
   const TIMER_ID = 9001;
   const REM = { merenda: 'Merenda di domani (21:00)', peso: 'Pesata del mattino', palestra: 'Palestra (16:00 nei giorni ON)' };

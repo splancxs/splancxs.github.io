@@ -22,6 +22,8 @@
   --radius: 18px;
   --radius-s: 12px;
   --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --sat: env(safe-area-inset-top, 0px); /* app nativa: app.js mette 47px se iOS non la comunica */
+  --sab: env(safe-area-inset-bottom, 0px);
   --nav-h: 72px; /* altezza reale della barra in basso, esclusa la barra di sistema */
   color-scheme: light;
 }
@@ -75,10 +77,10 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 
 /* ============ Top bar & nav ============ */
 /* niente backdrop-filter sotto i 900px: renderebbe la topbar il contenitore della nav "fixed" */
-.topbar { position: sticky; top: 0; z-index: 30; background: var(--bg); border-bottom: 1px solid var(--line); padding-top: env(safe-area-inset-top); }
+.topbar { position: sticky; top: 0; z-index: 30; background: var(--bg); border-bottom: 1px solid var(--line); padding-top: var(--sat); }
 /* App installata su iPhone: la barra di stato (orologio, batteria) è sempre bianca,
    quindi la striscia sotto il notch resta scura anche con il tema chiaro. */
-.topbar::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: env(safe-area-inset-top); background: #0d0e0f; }
+.topbar::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: var(--sat); background: #0d0e0f; }
 @media (min-width: 900px) {
   .topbar { background: color-mix(in srgb, var(--bg) 85%, transparent); backdrop-filter: saturate(1.4) blur(12px); -webkit-backdrop-filter: saturate(1.4) blur(12px); }
 }
@@ -97,7 +99,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
   --glass-shadow: 0 10px 30px rgba(20, 20, 20, .16), 0 2px 6px rgba(20, 20, 20, .08);
   --glass-pill: rgba(20, 20, 20, .075);
   --glass-shine: rgba(255, 255, 255, .55);
-  position: fixed; left: 14px; right: 14px; bottom: max(12px, calc(env(safe-area-inset-bottom) - 8px)); z-index: 40;
+  position: fixed; left: 14px; right: 14px; bottom: max(12px, calc(var(--sab) - 8px)); z-index: 40;
   max-width: 460px; margin: 0 auto;
   display: grid; grid-template-columns: repeat(5, 1fr);
   padding: 6px; border-radius: 32px; isolation: isolate;
@@ -167,7 +169,7 @@ main { max-width: 1120px; margin: 0 auto; padding: 18px 16px 8px; outline: none;
   .sticky-col { position: sticky; top: 84px; }
 }
 /* il piè di pagina lascia spazio a barra di navigazione + barra di sistema dell'iPhone */
-.foot { max-width: 1120px; margin: 0 auto; padding: 16px 16px calc(var(--nav-h) + 28px + env(safe-area-inset-bottom)); color: var(--faint); font-size: 12px; line-height: 1.6; text-align: center; }
+.foot { max-width: 1120px; margin: 0 auto; padding: 16px 16px calc(var(--nav-h) + 28px + var(--sab)); color: var(--faint); font-size: 12px; line-height: 1.6; text-align: center; }
 .foot p { border-top: 1px solid var(--line); padding-top: 16px; max-width: 520px; margin: 0 auto; }
 @media (min-width: 900px) { .foot { padding-bottom: 32px; } }
 
@@ -376,7 +378,7 @@ tfoot td { font-weight: 800; background: var(--surface-2); }
 .sup-note { font-size: 12px; font-weight: 700; color: var(--accent-text); padding: 0 14px 10px; }
 
 /* Timer bar */
-.timer { position: fixed; left: 12px; right: 12px; bottom: calc(var(--nav-h) + 14px + env(safe-area-inset-bottom)); z-index: 50; display: flex; justify-content: center; pointer-events: none; }
+.timer { position: fixed; left: 12px; right: 12px; bottom: calc(var(--nav-h) + 14px + var(--sab)); z-index: 50; display: flex; justify-content: center; pointer-events: none; }
 .timer[hidden] { display: none; }
 .timer-in { pointer-events: auto; }
 @media (min-width: 900px) { .timer { bottom: 20px; } }
@@ -406,7 +408,7 @@ tfoot td { font-weight: 800; background: var(--surface-2); }
 /* Safari iOS: il campo data ha una larghezza minima propria e sfora dalla colonna */
 input[type="date"] { -webkit-appearance: none; appearance: none; text-align: left; line-height: 1.3; }
 input[type="date"]::-webkit-date-and-time-value { text-align: left; margin: 0; }
-.err { color: var(--bad); font-size: 13px; font-weight: 600; }
+.err { color: var(--bad); font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
 .err:empty { display: none; }
 
 /* Stats */
