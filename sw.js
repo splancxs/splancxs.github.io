@@ -1,7 +1,7 @@
 // Service worker: prima la rete (contenuti sempre aggiornati), cache come riserva offline.
-const CACHE = 'recomp-v14';
+const CACHE = 'recomp-v16';
 const ASSETS = [
-  './', './index.html', './assets/css/style.css?v=15', './assets/js/allenamento.js?v=15', './assets/js/app.js?v=15', './assets/js/data.js?v=15', './assets/js/sync.js?v=15', './assets/js/firebase-config.js',
+  './', './index.html', './assets/css/style.css?v=17', './assets/js/allenamento.js?v=17', './assets/js/app.js?v=17', './assets/js/data.js?v=17', './assets/js/sync.js?v=17', './assets/js/firebase-config.js',
   './manifest.webmanifest', './assets/icons/favicon.svg', './assets/icons/icon-192.png', './assets/icons/icon-512.png',
 ];
 

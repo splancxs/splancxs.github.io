@@ -285,8 +285,7 @@
       <ul class="items">${itemsHtml(m.lines)}</ul>
       <div class="meal-tot"><div class="m"><span>P <b>${f1(m.tot.p)}</b></span><span>C <b>${f1(m.tot.c)}</b></span><span>G <b>${f1(m.tot.fa)}</b></span></div><div><b>${m.tot.k}</b> kcal</div></div>
       ${r.how ? `<p class="how" style="padding-top:12px">${esc(r.how)}</p>` : ''}
-      ${opt.swap ? `<div class="meal-f"><label class="sr" for="sw-${plan.di}-${m.si}">Scambia ${esc(m.label)}</label>
-        <select id="sw-${plan.di}-${m.si}" data-act="swap" data-di="${plan.di}" data-si="${m.si}">${optionsFor(m.slot, m.code)}</select></div>` : ''}
+      ${opt.swap ? `<div class="meal-f"><button type="button" class="btn ghost" data-act="meal-open" data-di="${plan.di}" data-si="${m.si}">${I.swap} Scambia pasto</button></div>` : ''}
     </article>`;
   }
 
@@ -305,7 +304,109 @@
     pianoDay: dayIdx(new Date()),
     wo: null,
     guidaTab: 'target',
+    profTab: 'impostazioni',
   };
+
+  // anelli stile Apple: esterno calorie, interno proteine
+  function rings(k, kt, p, pt) {
+    const ring = (r, v, t, cls) => {
+      const c = 2 * Math.PI * r;
+      const pct = Math.max(0, Math.min(1, t ? v / t : 0));
+      return `<circle class="rg-bg" cx="70" cy="70" r="${r}"/><circle class="rg ${cls}" cx="70" cy="70" r="${r}" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${(c * (1 - pct)).toFixed(1)}" transform="rotate(-90 70 70)"/>`;
+    };
+    return `<svg class="rings" viewBox="0 0 140 140" role="img" aria-label="Calorie ${f0(k)} di ${f0(kt)}, proteine ${f1(p)} di ${f0(pt)} grammi">${ring(60, k, kt, 'k')}${ring(44, p, pt, 'p')}</svg>`;
+  }
+  const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+  const inMin = (d) => (d <= 0 ? (d > -15 ? 'adesso' : `${Math.abs(d)} min fa`) : d < 60 ? `tra ${d} min` : `tra ${Math.floor(d / 60)} h ${String(d % 60).padStart(2, '0')}`);
+
+  // card "Adesso": la prossima cosa da fare, in base all'ora e a cosa hai già segnato
+  function adessoCard(plan, eaten, w) {
+    const now = new Date();
+    const nm = now.getHours() * 60 + now.getMinutes();
+    const items = plan.meals.filter((m) => !m.free).map((m) => ({ t: toMin(m.time), meal: m, done: eaten.includes(m.si) }));
+    const gymDone = w && window.RCW && window.RCW.doneToday(w.id);
+    if (w) items.push({ t: toMin('16:30'), gym: true, done: gymDone });
+    items.sort((a, b) => a.t - b.t);
+    const next = items.find((x) => !x.done && x.t >= nm - 60) || items.find((x) => !x.done);
+    if (!next) {
+      return `<section class="card adesso done"><p class="eyebrow">Adesso</p><h2>Giornata completata 🎉</h2><p class="small muted">Hai segnato tutti i pasti${w ? " e fatto l'allenamento" : ''}. Domani si continua.</p></section>`;
+    }
+    const late = next.t - nm < -15;
+    const when = late ? 'da segnare' : inMin(next.t - nm);
+    if (next.gym) {
+      const active = window.RCW && window.RCW.isActive();
+      return `<section class="card adesso gym"><p class="eyebrow">${late ? 'Allenamento di oggi' : 'Adesso · ' + when}</p><h2>16:30 · ${esc(w.name)}</h2><p class="small">${esc(w.focus)} · pesi ~60′ + tapis 15–20′</p>
+        <div class="row"><button type="button" class="btn" data-w="start" data-rid="${w.id}">${I.play} ${active ? 'Riprendi' : 'Inizia'} l'allenamento</button></div></section>`;
+    }
+    const m = next.meal;
+    return `<section class="card adesso"><p class="eyebrow">${late ? 'Da segnare · era alle ' + m.time : 'Adesso · ' + when}</p><h2>${m.time} · ${esc(m.label)}</h2>
+      <p class="small">${esc(D.recipes[m.code].name)} · <strong>${m.tot.k} kcal</strong> · P ${f1(m.tot.p)}</p>
+      <div class="row"><button type="button" class="btn" data-act="eat" data-si="${m.si}">${I.check} Segna come mangiato</button><button type="button" class="chip" data-act="meal-open" data-di="${plan.di}" data-si="${m.si}">Dettagli</button></div></section>`;
+  }
+
+  // riga compatta di un pasto: tocco = dettagli, scorri a destra = mangiato
+  function mealRow(plan, m, eaten) {
+    if (m.free) {
+      return `<li class="mrow free"><button type="button" class="mrow-main" data-act="meal-open" data-di="${plan.di}" data-si="${m.si}"><span class="mrow-t">${m.time}</span><span class="mrow-n"><b>Pasto libero</b><small>1 porzione normale · non conteggiato</small></span></button></li>`;
+    }
+    const on = eaten.includes(m.si);
+    return `<li class="mrow${on ? ' done' : ''}" data-swipe="eat" data-si="${m.si}">
+      <span class="mrow-bg" aria-hidden="true">${I.check}</span>
+      <div class="mrow-fg">
+        <button type="button" class="mrow-main" data-act="meal-open" data-di="${plan.di}" data-si="${m.si}">
+          <span class="mrow-t">${m.time}</span>
+          <span class="mrow-n"><b>${esc(m.label)}</b><small>${esc(D.recipes[m.code].name)}</small></span>
+          <span class="mrow-k"><b>${m.tot.k}</b><small>P ${f1(m.tot.p)}</small></span>
+        </button>
+        <button type="button" class="check" data-act="eat" data-si="${m.si}" aria-pressed="${on}" aria-label="Segna ${esc(m.label)} come mangiato">${I.check}</button>
+      </div>
+    </li>`;
+  }
+
+  // pannello di un pasto: ingredienti, preparazione e scambio a schede
+  function mealSheetHtml(di, si) {
+    const plan = dayPlan(di);
+    const m = plan.meals[si];
+    const isToday = di === dayIdx(new Date());
+    if (m.free) {
+      return `<div class="stack"><p class="eyebrow">${m.time} · ${esc(plan.day.name)}</p><h2>Pasto libero</h2>
+        <p>Una porzione normale di quello che vuoi: pizza, hamburger con patatine piccole, sushi (12–16 pezzi)… Niente antipasto + primo + dolce e niente bis. Stima 800–1000 kcal, fuori dai totali: il resto della giornata è già più leggero per lasciargli spazio.</p>
+        <button type="button" class="btn" data-act="sheet-close">Chiudi</button></div>`;
+    }
+    const r = D.recipes[m.code];
+    const on = (store.get('eaten', {})[dkey(new Date())] || []).includes(si);
+    const alts = Object.keys(D.variants[m.slot]).map((code) => {
+      const t = sumLines(mealLines(m.slot, code));
+      const d = t.k - m.tot.k;
+      return `<button type="button" class="alt${code === m.code ? ' cur' : ''}" data-act="sheet-swap" data-di="${di}" data-si="${si}" data-code="${code}"${code === m.code ? ' aria-current="true"' : ''}>
+        <span class="alt-c">${code}${code === m.def ? ' · originale' : ''}</span>
+        <b>${esc(D.recipes[code].name)}</b>
+        <span class="alt-m">${t.k} kcal${code === m.code ? '' : ` <em>${d > 0 ? '+' : d < 0 ? '−' : '±'}${Math.abs(d)}</em>`} · P ${f1(t.p)} · C ${f1(t.c)} · G ${f1(t.fa)}</span>
+      </button>`;
+    }).join('');
+    return `<div class="stack">
+      <div><p class="eyebrow">${m.time} · ${esc(m.label)} · ${esc(plan.day.name)}</p><h2><span class="code">${m.code}</span> ${esc(r.name)}</h2></div>
+      <div class="mtot"><div><b>${m.tot.k}</b><span>kcal</span></div><div><b>${f1(m.tot.p)}</b><span>proteine</span></div><div><b>${f1(m.tot.c)}</b><span>carbo</span></div><div><b>${f1(m.tot.fa)}</b><span>grassi</span></div></div>
+      <ul class="items" style="padding:0">${itemsHtml(m.lines)}</ul>
+      ${r.how ? `<p class="small"><strong>Come si prepara:</strong> ${esc(r.how)}</p>` : ''}
+      ${isToday ? `<button type="button" class="btn${on ? ' ghost' : ''}" data-act="sheet-eat" data-si="${si}">${I.check} ${on ? 'Togli la spunta' : 'Segna come mangiato'}</button>` : ''}
+      <div class="row"><h3>Scambia con</h3>${tip('scambio')}</div>
+      <div class="alts">${alts}</div>
+      <button type="button" class="chip" data-act="sheet-close">Chiudi</button>
+    </div>`;
+  }
+  function openMeal(di, si) { openSheet(mealSheetHtml(di, si)); }
+
+  function toggleEaten(si) {
+    const key = dkey(new Date());
+    const all = store.get('eaten', {});
+    const arr = new Set(all[key] || []);
+    if (arr.has(si)) arr.delete(si); else arr.add(si);
+    all[key] = Array.from(arr);
+    Object.keys(all).forEach((k) => { if ((fromKey(key) - fromKey(k)) / 86400000 > 10) delete all[k]; });
+    store.set('eaten', all);
+    buzz(arr.has(si) ? 'MEDIUM' : 'LIGHT');
+  }
 
   /* ================= OGGI ================= */
   function viewOggi() {
@@ -313,31 +414,23 @@
     const di = dayIdx(now);
     const key = dkey(now);
     const plan = dayPlan(di);
-    const eatenAll = store.get('eaten', {});
-    const eaten = eatenAll[key] || [];
+    const eaten = store.get('eaten', {})[key] || [];
     const T = plan.dt.target;
     const e = { k: 0, p: 0, c: 0, fa: 0 };
     plan.meals.forEach((m) => { if (!m.free && eaten.includes(m.si)) { e.k += m.tot.k; e.p += m.tot.p; e.c += m.tot.c; e.fa += m.tot.fa; } });
     e.p = r1(e.p); e.c = r1(e.c); e.fa = r1(e.fa);
-
-    const events = [];
-    if (di <= 4) {
-      events.push({ time: '06:30', html: '<strong>Sveglia</strong> · niente colazione a casa: il primo pasto è la merenda delle 9:30.' });
-      events.push({ time: '07:40', html: '<strong>Scuola</strong> fino alle 14:05 · merende 1 e 2 già nello zaino.' });
-    }
     const w = plan.day.wo ? D.workouts.find((x) => x.id === plan.day.wo) : null;
-    if (w) events.push({ time: '16:30', gym: true, html: `<strong>Palestra · ${esc(w.name)}</strong> — ${esc(w.focus)}. Pesi ~60′ + tapis 15–20′ al 14%. <a href="#/scheda">Apri la scheda →</a>` });
-
-    const rows = [
-      ...events.map((ev) => ({ time: ev.time, html: `<li class="tl event${ev.gym ? ' gym' : ''}"><div class="tl-time"><span>${ev.time}</span></div><div class="tl-body"><b class="tl-t">${ev.time}</b>${ev.html}</div></li>` })),
-      ...plan.meals.map((m) => ({ time: m.time, html: `<li class="tl"><div class="tl-time"><span>${m.time}</span></div><div>${mealCard(plan, m, { check: !m.free, checked: eaten.includes(m.si), swap: true })}</div></li>` })),
-    ].sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0));
-
     const planned = plan.tot.k;
-    const left = planned - e.k;
-    const tomorrow = (di + 1) % 7;
-    const prep = tomorrow <= 4 ? prepCard(tomorrow) : '';
+    const school = di <= 4;
 
+    const rows = [];
+    if (school) rows.push({ t: '07:40', html: '<li class="evrow"><span class="mrow-t">07:40</span><span>Scuola fino alle 14:05 · merende nello zaino</span></li>' });
+    if (w) rows.push({ t: '16:30', html: `<li class="evrow gym"><span class="mrow-t">16:30</span><span><b>Palestra · ${esc(w.name)}</b> · ${esc(w.focus)}</span></li>` });
+    plan.meals.forEach((m) => rows.push({ t: m.time, html: mealRow(plan, m, eaten) }));
+    rows.sort((a, b) => (a.t < b.t ? -1 : a.t > b.t ? 1 : 0));
+
+    const bar = (cls, name, v, t) => `<div class="leg"><span class="leg-n"><i class="dot ${cls}"></i>${name}</span><b>${f1(v)}<small> / ${f0(t)} g</small></b><div class="bar ${cls}"><i style="width:${Math.min(100, (v / t) * 100)}%"></i></div></div>`;
+    const tomorrow = (di + 1) % 7;
     return `
       <div class="grid-main">
         <div class="stack">
@@ -345,20 +438,27 @@
           <section class="card hero">
             <div class="hero-top">
               <div><p class="eyebrow">${esc(cap(longDate(now)))}</p><h1>${esc(plan.day.name)}</h1></div>
-              ${typeBadge(plan.day)}
+              <span class="row" style="gap:6px">${typeBadge(plan.day)}${tip(plan.day.type === 'ON' ? 'on' : 'off')}</span>
             </div>
-            <div class="kcal-line"><span class="kcal-big">${f0(e.k)}</span><span class="kcal-of">/ ${f0(planned)} kcal mangiate</span></div>
-            <div class="bar k" style="margin-bottom:16px"><i style="width:${Math.min(100, (e.k / planned) * 100)}%"></i></div>
-            ${macroBars(e, [planned, T[1], T[2], T[3]])}
-            <p class="small muted" style="margin-top:14px">${eaten.length ? `Mancano <strong>${f0(Math.max(0, left))} kcal</strong> ai pasti di oggi.` : 'Spunta i pasti man mano che li mangi.'}${plan.hasFree ? ' Il pasto libero non è conteggiato.' : ''}</p>
+            <div class="dash">
+              <div class="rings-wrap">${rings(e.k, planned, e.p, T[1])}<div class="rings-c"><b>${f0(e.k)}</b><span>di ${f0(planned)} kcal</span></div></div>
+              <div class="legend">
+                <div class="leg"><span class="leg-n"><i class="dot kk"></i>Calorie ${tip('kcal')}</span><b>${f0(Math.max(0, planned - e.k))}<small> kcal rimaste</small></b></div>
+                <div class="leg"><span class="leg-n"><i class="dot p"></i>Proteine</span><b>${f1(e.p)}<small> / ${f0(T[1])} g</small></b></div>
+                ${bar('c', 'Carboidrati', e.c, T[2])}
+                ${bar('g', 'Grassi', e.fa, T[3])}
+              </div>
+            </div>
+            ${plan.hasFree ? '<p class="tiny muted" style="margin-top:10px">Il pasto libero non è conteggiato negli anelli.</p>' : ''}
           </section>
-          <h2 class="sec-title">La tua giornata</h2>
-          <ol class="timeline">${rows.map((r) => r.html).join('')}</ol>
+          ${adessoCard(plan, eaten, w)}
+          <div class="row sec-title" style="margin-bottom:0"><h2>La tua giornata</h2><span class="tiny muted">tocca per i dettagli · scorri a destra per segnare</span></div>
+          <ol class="mlist">${rows.map((x) => x.html).join('')}</ol>
         </div>
         <aside class="stack sticky-col">
           ${dayTotalsCard(plan)}
           ${w ? workoutMini(w) : restCard(plan.day)}
-          ${prep}
+          ${tomorrow <= 4 ? prepCard(tomorrow) : ''}
         </aside>
       </div>`;
   }
@@ -407,7 +507,7 @@
         ${plan.hasFree ? '' : `<div class="status ${cls}">${txt}</div>`}</div>`;
     };
     return `<section class="card stack">
-      <div class="row"><h2>Totale ${esc(plan.day.name.toLowerCase())}</h2><span class="spacer"></span>${typeBadge(plan.day)}</div>
+      <div class="row"><h2>Totale ${esc(plan.day.name.toLowerCase())}</h2>${tip('macro')}<span class="spacer"></span>${typeBadge(plan.day)}</div>
       <div class="tot-grid">
         ${box('k', 'Calorie', '', t.k, T[0], ' kcal')}
         ${box('p', 'Proteine', 'p', t.p, T[1], ' g')}
@@ -449,7 +549,7 @@
         <div class="stack">
           <div class="row"><h2>${esc(plan.day.name)}</h2>${typeBadge(plan.day)}<span class="spacer"></span>
           ${hasSw ? `<button type="button" class="chip" data-act="resetday" data-di="${di}">${I.reset} Ripristina</button>` : ''}</div>
-          <p class="small muted">${esc(plan.dt.label)}${w ? ` · palestra 16:30 (${esc(w.name)})` : ''}. Usa il menu sotto ogni pasto per scambiarlo: tutte le opzioni della stessa fascia hanno quasi le stesse kcal.</p>
+          <p class="small muted">${esc(plan.dt.label)}${w ? ` · palestra 16:30 (${esc(w.name)})` : ''}. Tocca «Scambia» per cambiare un pasto con un'alternativa equivalente ${tip('scambio')}</p>
           ${meals}
         </div>
         <aside class="stack sticky-col">
@@ -684,7 +784,7 @@
       </section>
       <div class="stats">
         ${stat('Ultimo peso', last ? `${f2(last.kg)}` : '—')}
-        ${stat('Media 7 giorni', avg7 != null ? f2(avg7) : '—')}
+        ${stat('Media 7 giorni ' + tip('media'), avg7 != null ? f2(avg7) : '—')}
         ${stat('Settimana vs prec.', dWeek != null ? sign(Math.round(dWeek * 100) / 100, f2) : '—', dWeek == null ? '' : dWeek > 0.05 ? 'up' : dWeek < -0.05 ? 'down' : '')}
         ${stat('Dal via', avg7 != null ? sign(Math.round((avg7 - START.kg) * 100) / 100, f2) : '—', avg7 == null ? '' : avg7 > START.kg ? 'up' : 'down')}
       </div>
@@ -701,15 +801,6 @@
           ${ws.length ? `<ul class="entries">${ws.slice().reverse().slice(0, 30).map((w) => `<li><span class="muted">${shortDate(w.d)}</span><strong>${f2(w.kg)} kg</strong>${w.w != null ? `<span class="muted">· vita ${f1(w.w)} cm</span>` : ''}<button type="button" class="x-btn" data-act="wdel" data-d="${w.d}" aria-label="Elimina la misura del ${shortDate(w.d)}">${I.trash}</button></li>`).join('')}</ul>` : '<p class="small muted">Le misure che salvi compaiono qui.</p>'}
         </section>
       </div>
-      ${syncCard()}
-      ${nativeCards()}
-      <section class="card stack">
-        <h2>Backup dei dati</h2>
-        <p class="small muted">Pesi, carichi della scheda, scambi dei pasti e lista della spesa sono salvati in questo browser. Esporta un file per sicurezza o per spostarli dal PC al telefono.</p>
-        <div class="row"><button type="button" class="btn ghost" data-act="export">${I.down} Esporta backup</button>
-        <label class="btn ghost" for="importFile">${I.up} Importa backup</label><input id="importFile" type="file" accept="application/json,.json" class="sr"></div>
-        <p class="err" id="impMsg" role="status"></p>
-      </section>
     </div>`;
   }
 
@@ -747,13 +838,111 @@
     </section>`;
   }
 
-  /* ================= GUIDA ================= */
-  function viewGuida() {
-    const tabs = [['target', 'Target & TDEE'], ['alimenti', 'Alimenti'], ['regole', 'Regole']];
-    const seg = `<div class="seg" role="tablist" aria-label="Sezioni della guida">${tabs.map(([k, l]) => `<button type="button" role="tab" data-act="gtab" data-tab="${k}" aria-selected="${ui.guidaTab === k}">${l}</button>`).join('')}</div>`;
-    const body = ui.guidaTab === 'alimenti' ? guidaAlimenti() : ui.guidaTab === 'regole' ? guidaRegole() : guidaTarget();
-    return `<div class="stack"><div><p class="eyebrow">Il metodo</p><h1>Guida</h1></div>${seg}${body}</div>`;
+  /* ================= PROFILO (impostazioni + guida) ================= */
+  function viewProfilo() {
+    const tabs = [['impostazioni', 'Impostazioni'], ['target', 'Target'], ['alimenti', 'Alimenti'], ['regole', 'Regole']];
+    const seg = `<div class="seg" role="tablist" aria-label="Sezioni del profilo">${tabs.map(([k, l]) => `<button type="button" role="tab" data-act="ptabp" data-tab="${k}" aria-selected="${ui.profTab === k}">${l}</button>`).join('')}</div>`;
+    const body = ui.profTab === 'alimenti' ? guidaAlimenti() : ui.profTab === 'regole' ? guidaRegole() : ui.profTab === 'target' ? guidaTarget() : profiloImpostazioni();
+    return `<div class="stack"><div><p class="eyebrow">Tu e il metodo</p><h1>Profilo</h1></div>${seg}${body}</div>`;
   }
+
+  function profiloImpostazioni() {
+    const ws = weights();
+    const last = ws[ws.length - 1];
+    const theme = store.get('theme', 'auto') || 'auto';
+    const wk = blockWeek();
+    return `<div class="grid2">
+      <section class="card stack profile-card">
+        <div class="row"><span class="avatar" aria-hidden="true">R</span><div><h2>Il tuo percorso</h2><p class="small muted">Ricomposizione corporea · dal 28/09/2026</p></div></div>
+        <dl class="kv" style="margin:0">
+          <div><dt>Peso attuale</dt><dd>${last ? f2(last.kg) : '64,70'} kg</dd></div>
+          <div><dt>Obiettivo gennaio</dt><dd>≈ 63 kg</dd></div>
+          <div><dt>Blocco scheda</dt><dd>Sett. ${wk.n}/7</dd></div>
+          <div><dt>Allenamenti</dt><dd>4 a settimana</dd></div>
+        </dl>
+        <div class="row"><button type="button" class="btn ghost" data-act="onboard">Rivedi la mini-guida</button></div>
+      </section>
+      <section class="card stack">
+        <h2>Aspetto</h2>
+        <div class="seg seg-static" role="radiogroup" aria-label="Tema">${[['auto', 'Automatico'], ['light', 'Chiaro'], ['dark', 'Scuro']].map(([v, l]) => `<button type="button" role="radio" data-act="theme" data-v="${v}" aria-checked="${theme === v}" aria-selected="${theme === v}">${l}</button>`).join('')}</div>
+        <p class="tiny muted">Automatico segue il tema dell'iPhone.</p>
+      </section>
+      ${syncCard()}
+      ${nativeCards()}
+      <section class="card stack">
+        <h2>Backup dei dati</h2>
+        <p class="small muted">Pesi, allenamenti, scambi dei pasti e lista della spesa sono salvati sul dispositivo (e sincronizzati se hai fatto l'accesso). Esporta un file per sicurezza.</p>
+        <div class="row"><button type="button" class="btn ghost" data-act="export">${I.down} Esporta backup</button>
+        <label class="btn ghost" for="importFile">${I.up} Importa backup</label><input id="importFile" type="file" accept="application/json,.json" class="sr"></div>
+        <p class="err" id="impMsg" role="status"></p>
+      </section>
+    </div>`;
+  }
+
+  /* ---------------- spiegazioni ⓘ ---------------- */
+  const GLOSSARIO = {
+    on: ['Giorno ON', 'Giorno con la palestra (lunedì, martedì, giovedì, venerdì). Mangi di più, 2200 kcal, soprattutto carboidrati, per allenarti bene e recuperare.'],
+    off: ['Giorno OFF', 'Giorno senza palestra (mercoledì, sabato, domenica). 1900 kcal, meno carboidrati e un po’ più di grassi per saziarti.'],
+    kcal: ['Calorie', 'L’energia del cibo. Il piano ti tiene circa 230 kcal sotto il tuo consumo medio: perdi grasso piano piano senza svuotarti e senza avere fame.'],
+    macro: ['P · C · G', 'Proteine (P): costruiscono e proteggono il muscolo, obiettivo 140 g al giorno. Carboidrati (C): benzina per l’allenamento, più alti nei giorni ON. Grassi (G): servono agli ormoni e saziano, circa 60–64 g.'],
+    scambio: ['Scambiare un pasto', 'Tutte le opzioni della stessa fascia (per esempio le merende delle 9:30) hanno quasi le stesse calorie, ±10 kcal: puoi scambiarle quando vuoi senza sballare la giornata.'],
+    rir: ['RIR · ripetizioni in riserva', 'Quante ripetizioni avresti ancora potuto fare prima di non farcela più. RIR 2 vuol dire che ti fermi quando ne avresti ancora 2 nel serbatoio.'],
+    block: ['Blocco di 7 settimane', 'Settimane 1–2: adattamento (RIR 2–3). Settimane 3–6: progressione (RIR 1–2). Settimana 7: scarico, con metà delle serie per recuperare. Poi si ricomincia.'],
+    progressione: ['Doppia progressione', 'Prima aumenti le ripetizioni fino al massimo del range (per esempio 3×10), poi aumenti il peso e riparti dal minimo. L’app ti dice quando salire.'],
+    volume: ['Volume', 'La somma di kg × ripetizioni di tutte le serie allenanti (il riscaldamento non conta). Se nel tempo sale, stai progredendo.'],
+    '1rm': ['1RM stimato', 'Il peso massimo che potresti sollevare una volta sola, calcolato dalle tue serie con la formula di Epley: kg × (1 + ripetizioni/30). Serve a confrontare serie con pesi e ripetizioni diversi.'],
+    superserie: ['Superserie', 'Due esercizi fatti uno dopo l’altro senza pausa (per esempio bicipiti e poi tricipiti), poi recuperi. Risparmi tempo senza togliere lavoro ai muscoli.'],
+    serie: ['Tipi di serie', 'Numero = serie normale. R = riscaldamento (non conta per volume e record). D = drop set (abbassi il peso e continui subito). C = serie a cedimento. Tocca il numero della serie per cambiarlo.'],
+    media: ['Media 7 giorni', 'Il peso del singolo giorno oscilla di mezzo chilo o più per acqua, sale e cibo. La media della settimana mostra la tendenza vera: è quella che conta.'],
+    tdee: ['TDEE', 'Le calorie che consumi in un giorno: metabolismo a riposo + movimento + allenamento + digestione. Il tuo è circa 2450 kcal nei giorni ON e 2100 nei giorni OFF.'],
+  };
+  const tip = (k) => `<button type="button" class="tip" data-act="tip" data-k="${k}" aria-label="Cos’è: ${esc(GLOSSARIO[k][0])}">i</button>`;
+
+  /* ---------------- pannello dal basso (fuori da main: non si perde quando la pagina si ridisegna) ---------------- */
+  const sheetEl = document.createElement('div');
+  sheetEl.className = 'gsheet'; sheetEl.hidden = true;
+  sheetEl.innerHTML = '<div class="gsheet-bg" data-act="sheet-close"></div><div class="gsheet-in" role="dialog" aria-modal="true"><div class="gsheet-grab" aria-hidden="true"></div><div class="gsheet-body"></div></div>';
+  document.body.appendChild(sheetEl);
+  let sheetOnClose = null;
+  function openSheet(html, onClose) {
+    sheetEl.querySelector('.gsheet-body').innerHTML = html;
+    sheetEl.hidden = false; sheetOnClose = onClose || null;
+    requestAnimationFrame(() => requestAnimationFrame(() => sheetEl.classList.add('open')));
+    document.documentElement.classList.add('no-scroll');
+  }
+  function closeSheet() {
+    if (sheetEl.hidden) return;
+    sheetEl.classList.remove('open');
+    document.documentElement.classList.remove('no-scroll');
+    setTimeout(() => { if (!sheetEl.classList.contains('open')) { sheetEl.hidden = true; sheetEl.querySelector('.gsheet-body').innerHTML = ''; } }, 280);
+    const cb = sheetOnClose; sheetOnClose = null; if (cb) cb();
+  }
+  function showTip(k) {
+    const [t, d] = GLOSSARIO[k] || ['', ''];
+    openSheet(`<div class="stack"><h2>${esc(t)}</h2><p>${esc(d)}</p><button type="button" class="btn" data-act="sheet-close">Ho capito</button></div>`);
+  }
+
+  /* ---------------- mini-guida al primo avvio ---------------- */
+  const GUIDA_SLIDES = [
+    ['M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z', 'Benvenuto in Recomp', 'Il tuo piano per perdere la pancia e mettere muscolo: pasti calcolati al grammo, scheda di allenamento e progressi, tutto in un posto.'],
+    ['M12 3a9 9 0 1 0 9 9M12 7v5l3 2', 'Oggi', 'Trovi la giornata con gli orari. La card «Adesso» ti dice cosa viene dopo. Segna i pasti con ✓ oppure scorrendoli verso destra, e guarda gli anelli riempirsi.'],
+    ['M3 4.5h18v16.5H3zM8 2.5v4M16 2.5v4M3 10h18', 'Piano e spesa', 'Tocca un pasto per vedere ingredienti e preparazione e per scambiarlo con un’alternativa equivalente. In «Lista spesa» hai le quantità esatte della settimana.'],
+    ['M6.5 7v10M17.5 7v10M3.5 9.5v5M20.5 9.5v5M6.5 12h11', 'Scheda', 'Premi «Inizia» e segui l’allenamento: vedi cosa hai fatto la volta scorsa, spunti le serie e parte il recupero. Alla fine ti mostra i record battuti.'],
+    ['M3 3v18h18M7 14l4-4 3 3 6-7', 'Progressi e Profilo', 'Pesati 4 mattine a settimana: l’app ti dice se il ritmo è giusto. In Profilo trovi impostazioni, sincronizzazione e la guida. Tocca il pallino «i» quando un termine non è chiaro.'],
+  ];
+  let slide = 0;
+  function onboardHtml() {
+    const [path, t, d] = GUIDA_SLIDES[slide];
+    const last = slide === GUIDA_SLIDES.length - 1;
+    return `<div class="onboard stack">
+      <div class="ob-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${path}"/></svg></div>
+      <h2>${esc(t)}</h2><p>${esc(d)}</p>
+      <div class="ob-dots" aria-label="Pagina ${slide + 1} di ${GUIDA_SLIDES.length}">${GUIDA_SLIDES.map((_, i) => `<i class="${i === slide ? 'on' : ''}"></i>`).join('')}</div>
+      <div class="row">${slide ? '<button type="button" class="btn ghost" data-act="ob-prev">Indietro</button>' : '<button type="button" class="chip" data-act="ob-skip">Salta</button>'}<span class="spacer"></span>
+        <button type="button" class="btn" data-act="${last ? 'ob-done' : 'ob-next'}">${last ? 'Inizia' : 'Avanti'}</button></div>
+    </div>`;
+  }
+  function showOnboarding() { slide = 0; openSheet(onboardHtml(), () => store.set('onboarded', true)); }
 
   function guidaTarget() {
     const kv = [['Età', '18 anni'], ['Altezza', '173 cm'], ['Peso', '64,70 kg'], ['BMI', '21,6'], ['Grasso (BIA)', '17,7%'], ['Massa magra', '53,26 kg'], ['Grasso viscerale', '3'], ['Acqua', '55,7%']];
@@ -772,7 +961,7 @@
             <tr><td class="muted">Bilancia BIA (esclusa, sottostima)</td><td class="r muted">1449</td></tr>
           </tbody><tfoot><tr><td>BMR di lavoro (media)</td><td class="r">≈ 1625</td></tr></tfoot></table></div>
         </section>
-        <section class="card stack"><h2>Dispendio giornaliero</h2>
+        <section class="card stack"><div class="row"><h2>Dispendio giornaliero</h2>${tip('tdee')}</div>
           <div class="tbl-wrap"><table><thead><tr><th></th><th class="r">ON</th><th class="r">OFF</th></tr></thead><tbody>
             <tr><td>BMR</td><td class="r">1625</td><td class="r">1625</td></tr>
             <tr><td>NEAT (scuola, passi)</td><td class="r">300</td><td class="r">300</td></tr>
@@ -847,12 +1036,12 @@
   }
 
   /* ================= ROUTER & EVENTI ================= */
-  const routes = { oggi: viewOggi, piano: viewPiano, scheda: () => (window.RCW ? window.RCW.view() : ''), progressi: viewProgressi, guida: viewGuida };
-  const titles = { oggi: 'Oggi', piano: 'Piano', scheda: 'Scheda', progressi: 'Progressi', guida: 'Guida' };
+  const routes = { oggi: viewOggi, piano: viewPiano, scheda: () => (window.RCW ? window.RCW.view() : ''), progressi: viewProgressi, profilo: viewProfilo, guida: viewProfilo };
+  const titles = { oggi: 'Oggi', piano: 'Piano', scheda: 'Scheda', progressi: 'Progressi', profilo: 'Profilo', guida: 'Profilo' };
   let current = '';
   function render(scrollTop) {
     const name = (location.hash.replace(/^#\/?/, '').split('/')[0]) || 'oggi';
-    const r = routes[name] ? name : 'oggi';
+    const r = name === 'guida' ? 'profilo' : routes[name] ? name : 'oggi';
     if (r !== 'scheda' && wake.want) wakeOff();
     $$('.nav a').forEach((a, i) => {
       if (a.dataset.route === r) { a.setAttribute('aria-current', 'page'); a.parentElement.style.setProperty('--i', i); } else a.removeAttribute('aria-current');
@@ -861,6 +1050,7 @@
     main.classList.remove('page-in'); // l'animazione di comparsa solo quando si cambia sezione, non a ogni aggiornamento
     main.innerHTML = (r !== 'scheda' && window.RCW ? window.RCW.banner() : '') + routes[r]();
     document.title = `${titles[r]} · Recomp`;
+    watchTitle(titles[r]);
     if (r !== current && current) main.classList.add('page-in');
     if (scrollTop || r !== current) { window.scrollTo(0, 0); if (r !== current && current) main.focus({ preventScroll: true }); }
     else window.scrollTo(0, y);
@@ -874,16 +1064,10 @@
     const t = ev.target.closest('[data-act]');
     if (!t) return;
     const act = t.dataset.act;
-    if (act === 'eat') {
-      const key = dkey(new Date());
-      const all = store.get('eaten', {});
-      const arr = new Set(all[key] || []);
-      const si = Number(t.dataset.si);
-      if (arr.has(si)) arr.delete(si); else arr.add(si);
-      all[key] = Array.from(arr);
-      Object.keys(all).forEach((k) => { if ((fromKey(key) - fromKey(k)) / 86400000 > 10) delete all[k]; });
-      store.set('eaten', all); buzz(); render();
-    } else if (act === 'ptab') { ui.pianoTab = t.dataset.tab; render(); }
+    if (commonAct(t, act)) return;
+    if (act === 'eat') { toggleEaten(Number(t.dataset.si)); render(); }
+    else if (act === 'meal-open') { openMeal(Number(t.dataset.di), Number(t.dataset.si)); }
+    else if (act === 'ptab') { ui.pianoTab = t.dataset.tab; render(); }
     else if (act === 'gtab') { ui.guidaTab = t.dataset.tab; render(); }
     else if (act === 'pday') { ui.pianoDay = Number(t.dataset.di); render(); }
     else if (act === 'resetday') {
@@ -1079,15 +1263,89 @@
     nav.addEventListener('click', (e) => { if (swallowClick) e.preventDefault(); });
   })();
 
+  /* ---------------- scorri a destra per segnare un pasto ---------------- */
+  (function swipeRows() {
+    let sw = null;
+    let blockClick = false;
+    main.addEventListener('pointerdown', (e) => {
+      const row = e.target.closest('[data-swipe="eat"]');
+      if (!row || e.target.closest('.check') || (e.pointerType === 'mouse' && e.button !== 0)) return;
+      sw = { row, fg: row.querySelector('.mrow-fg'), id: e.pointerId, x0: e.clientX, y0: e.clientY, dx: 0, on: false };
+    });
+    main.addEventListener('pointermove', (e) => {
+      if (!sw || e.pointerId !== sw.id) return;
+      const dx = e.clientX - sw.x0, dy = e.clientY - sw.y0;
+      if (!sw.on) {
+        if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { sw = null; return; } // sta scorrendo la pagina
+        if (dx > 10 && dx > Math.abs(dy) * 1.2) { sw.on = true; sw.row.classList.add('swiping'); try { sw.row.setPointerCapture(e.pointerId); } catch (err) { /* ignora */ } }
+        else return;
+      }
+      sw.dx = Math.max(0, Math.min(140, dx));
+      sw.fg.style.transform = `translate3d(${sw.dx}px, 0, 0)`;
+      sw.row.classList.toggle('armed', sw.dx > 80);
+    });
+    function end() {
+      if (!sw) return;
+      const s0 = sw; sw = null;
+      if (!s0.on) return;
+      blockClick = true; setTimeout(() => { blockClick = false; }, 350);
+      s0.row.classList.remove('swiping', 'armed');
+      s0.fg.style.transform = '';
+      if (s0.dx > 80) { toggleEaten(Number(s0.row.dataset.si)); setTimeout(render, 180); }
+    }
+    main.addEventListener('pointerup', end);
+    main.addEventListener('pointercancel', () => { if (sw && sw.on) { sw.row.classList.remove('swiping', 'armed'); sw.fg.style.transform = ''; } sw = null; });
+    main.addEventListener('click', (e) => { if (blockClick) { e.stopPropagation(); e.preventDefault(); } }, true);
+  })();
+
+  /* ---------------- azioni comuni (pagina + pannello dal basso) ---------------- */
+  function commonAct(t, act) {
+    switch (act) {
+      case 'tip': showTip(t.dataset.k); return true;
+      case 'sheet-close': closeSheet(); return true;
+      case 'onboard': showOnboarding(); return true;
+      case 'ob-next': slide = Math.min(GUIDA_SLIDES.length - 1, slide + 1); sheetEl.querySelector('.gsheet-body').innerHTML = onboardHtml(); return true;
+      case 'ob-prev': slide = Math.max(0, slide - 1); sheetEl.querySelector('.gsheet-body').innerHTML = onboardHtml(); return true;
+      case 'ob-skip': case 'ob-done': closeSheet(); return true;
+      case 'ptabp': ui.profTab = t.dataset.tab; render(); return true;
+      case 'theme': setTheme(t.dataset.v); render(); return true;
+      default: return false;
+    }
+  }
+  sheetEl.addEventListener('click', (ev) => {
+    const t = ev.target.closest('[data-act]');
+    if (!t) return;
+    if (commonAct(t, t.dataset.act)) return;
+    if (window.RC && window.RC.sheetAct) window.RC.sheetAct(t, t.dataset.act);
+  });
+  document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') closeSheet(); });
+
+  /* ---------------- titolo grande che si compatta nella barra in alto (come iOS) ---------------- */
+  const topTitle = document.getElementById('topTitle');
+  const topbar = document.querySelector('.topbar');
+  let titleObs = null;
+  function watchTitle(text) {
+    if (!topTitle) return;
+    topTitle.textContent = text;
+    topbar.classList.remove('compact');
+    if (titleObs) titleObs.disconnect();
+    const h1 = main.querySelector('h1');
+    if (!h1 || !('IntersectionObserver' in window)) return;
+    titleObs = new IntersectionObserver(([e]) => topbar.classList.toggle('compact', !e.isIntersecting && e.boundingClientRect.top < 80), { rootMargin: '-64px 0px 0px 0px' });
+    titleObs.observe(h1);
+  }
+
   /* ---------------- tema ---------------- */
   const themeBtn = $('#themeBtn');
   const mq = window.matchMedia('(prefers-color-scheme: dark)');
   function effectiveTheme() { const t = document.documentElement.getAttribute('data-theme'); return t || (mq.matches ? 'dark' : 'light'); }
   function paintThemeBtn() { const dark = effectiveTheme() === 'dark'; themeBtn.innerHTML = dark ? I.sun : I.moon; themeBtn.setAttribute('aria-label', dark ? 'Passa al tema chiaro' : 'Passa al tema scuro'); }
-  themeBtn.addEventListener('click', () => {
-    const next = effectiveTheme() === 'dark' ? 'light' : 'dark';
-    document.documentElement.setAttribute('data-theme', next); store.set('theme', next); paintThemeBtn();
-  });
+  function setTheme(v) {
+    if (v === 'light' || v === 'dark') { document.documentElement.setAttribute('data-theme', v); store.set('theme', v); }
+    else { document.documentElement.removeAttribute('data-theme'); store.set('theme', 'auto'); }
+    paintThemeBtn();
+  }
+  themeBtn.addEventListener('click', () => { setTheme(effectiveTheme() === 'dark' ? 'light' : 'dark'); if (current === 'profilo') render(); });
   if (mq.addEventListener) mq.addEventListener('change', paintThemeBtn);
   paintThemeBtn();
 
@@ -1095,7 +1353,24 @@
   // I dati arrivati dall'altro dispositivo ridisegnano la pagina, ma non mentre stai scrivendo in un campo.
   let pendingRefresh = false;
   const typing = () => { const a = document.activeElement; return !!(a && main.contains(a) && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName)); };
+  function setSwap(di, si, code) {
+    const sw = store.get('swaps', {});
+    const k = di + ':' + si;
+    if (code === D.week[di].pick[si]) delete sw[k]; else sw[k] = code;
+    store.set('swaps', sw);
+  }
   window.RC = {
+    sheetAct(t, act) {
+      const body = sheetEl.querySelector('.gsheet-body');
+      if (act === 'sheet-swap') {
+        const di = Number(t.dataset.di), si = Number(t.dataset.si);
+        setSwap(di, si, t.dataset.code); buzz();
+        body.innerHTML = mealSheetHtml(di, si); render();
+      } else if (act === 'sheet-eat') {
+        const si = Number(t.dataset.si);
+        toggleEaten(si); render(); closeSheet();
+      }
+    },
     refresh(force) { if (!force && typing()) { pendingRefresh = true; return; } pendingRefresh = false; render(); },
   };
   main.addEventListener('focusout', () => { if (pendingRefresh) setTimeout(() => { if (!typing()) { pendingRefresh = false; render(); } }, 0); });
@@ -1103,12 +1378,13 @@
   /* ---------------- ponte con allenamento.js ---------------- */
   window.RCK = {
     D, store, esc, f0, f1, f2, sign, r1, num, dkey, fromKey, shortDate, dayIdx, I, cap, restTxt, fmtKg,
-    startTimer, buzz, blockWeek, wakeChip, render: (top) => render(top),
+    startTimer, buzz, blockWeek, wakeChip, tip, openSheet, closeSheet, render: (top) => render(top),
   };
   if (window.RCW) window.RCW.migrate();
 
   /* ---------------- avvio ---------------- */
   render(true);
+  if (!store.get('onboarded', false)) setTimeout(showOnboarding, 400);
   if (isNative) {
     scheduleReminders();
     let remT = 0;

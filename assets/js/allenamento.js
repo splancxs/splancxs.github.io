@@ -154,11 +154,11 @@
           <button type="button" class="x-btn" data-w="remove" data-i="${i}" aria-label="Togli ${k.esc(e.n)}">${k.I.trash}</button>
         </div>
       </div>
-      ${next ? `<p class="sup-note">Superserie: dopo ogni serie passa subito a ${k.esc(exOf(next.ex).n)}.</p>` : ''}
-      <p class="sugg ${sg.cls}" style="margin:0 14px 8px">${k.esc(sg.txt)}</p>
+      ${next ? `<p class="sup-note">Superserie ${k.tip('superserie')} dopo ogni serie passa subito a ${k.esc(exOf(next.ex).n)}.</p>` : ''}
+      <p class="sugg ${sg.cls}" style="margin:0 14px 8px">${k.esc(sg.txt)} ${k.tip('progressione')}</p>
       ${it.showNote || it.note ? `<textarea class="wnote" data-wi="note" data-i="${i}" rows="2" placeholder="Nota (sedile, impugnatura, sensazioni…)">${k.esc(it.note || '')}</textarea>` : ''}
       <div class="wsets">
-        <div class="wset head"><span>Serie</span><span>Precedente</span><span>${e.unit === 'sec' ? '' : 'kg'}</span><span>${e.unit === 'sec' ? 'sec' : 'Rip'}</span><span>✓</span></div>
+        <div class="wset head"><span>Serie ${k.tip('serie')}</span><span>Precedente</span><span>${e.unit === 'sec' ? '' : 'kg'}</span><span>${e.unit === 'sec' ? 'sec' : 'Rip'}</span><span>✓</span></div>
         ${it.sets.map((s, j) => setRow(it, i, j, s, nums)).join('')}
       </div>
       <div class="ex-f"><button type="button" class="chip" data-w="addset" data-i="${i}">+ Serie</button>${it.sets.length > 1 ? `<button type="button" class="chip" data-w="delset" data-i="${i}">− Serie</button>` : ''}
@@ -176,7 +176,7 @@
       <section class="card wo-head">
         <div class="row"><div><p class="eyebrow">Allenamento in corso</p><h1>${k.esc(a.name)}</h1></div><span class="spacer"></span>
           <button type="button" class="btn" data-w="finish">Termina</button></div>
-        <div class="wo-stats"><div><span>Durata</span><b id="woElapsed">${elapsed(a)}</b></div><div><span>Volume</span><b>${k.f0(vol)} kg</b></div><div><span>Serie</span><b>${doneWork}/${all.filter(isWork).length}</b></div></div>
+        <div class="wo-stats"><div><span>Durata</span><b id="woElapsed">${elapsed(a)}</b></div><div><span>Volume ${k.tip('volume')}</span><b>${k.f0(vol)} kg</b></div><div><span>Serie</span><b>${doneWork}/${all.filter(isWork).length}</b></div></div>
         ${k.wakeChip()}
       </section>
       ${a.items.length ? a.items.map((it, i) => itemCard(a, it, i)).join('') : '<p class="card small muted">Nessun esercizio: aggiungine uno qui sotto.</p>'}
@@ -266,8 +266,8 @@
       <aside class="stack sticky-col">
         <section class="card stack">
           <p class="eyebrow">Blocco ${wk.cycle} · settimana ${wk.n} di 7</p>
-          <h2>${wk.deload ? 'Settimana di scarico' : wk.n <= 2 ? 'Adattamento' : 'Progressione'}</h2>
-          <p class="small">${k.esc(wk.phase)}</p>
+          <div class="row"><h2>${wk.deload ? 'Settimana di scarico' : wk.n <= 2 ? 'Adattamento' : 'Progressione'}</h2>${k.tip('block')}</div>
+          <p class="small">${k.esc(wk.phase)} ${k.tip('rir')}</p>
           <div class="field"><label for="blockStart">Inizio del blocco (un lunedì)</label><input type="date" id="blockStart" data-act="blockstart" value="${wk.start}"></div>
         </section>
         <section class="card flat small"><strong>Riscaldamento (5′):</strong> 5 minuti leggeri, poi 1–2 serie di riscaldamento sul primo esercizio di ogni muscolo (segnale come "R" toccando il numero della serie).</section>
@@ -473,7 +473,7 @@
         ${pts.map((p) => `<circle class="pt" cx="${x(p.t)}" cy="${y(p.v)}" r="3.5"/>`).join('')}
       </svg></div><p class="tiny muted">${e.unit === 'sec' ? 'Tempo migliore per seduta' : '1RM stimato per seduta (formula di Epley: kg × (1 + ripetizioni/30))'}</p>`;
     }
-    const tiles = e.unit === 'sec' ? [['Tempo massimo', `${r.sec}″`]] : [['Carico massimo', `${k.fmtKg(r.kg)} kg`], ['1RM stimato', `${k.fmtKg(k.r1(r.e1))} kg`], ['Ripetizioni max', `${r.reps}`], ['Volume max', `${k.f0(r.vol)} kg`]];
+    const tiles = e.unit === 'sec' ? [['Tempo massimo', `${r.sec}″`]] : [['Carico massimo', `${k.fmtKg(r.kg)} kg`], ['1RM stimato ' + k.tip('1rm'), `${k.fmtKg(k.r1(r.e1))} kg`], ['Ripetizioni max', `${r.reps}`], ['Volume max', `${k.f0(r.vol)} kg`]];
     return `<div class="stack">
       <div class="row"><button type="button" class="chip" data-w="exdetail-close">← Indietro</button></div>
       <div><p class="eyebrow">${k.esc(e.m)}${e.sec && e.sec.length ? ' · ' + e.sec.map(k.esc).join(', ') : ''}</p><h1>${k.esc(e.n)}</h1></div>
@@ -503,6 +503,9 @@
     }
     return body + (ui.picker ? viewPicker() : '');
   };
+
+  W.isActive = () => !!getActive();
+  W.doneToday = (rid) => { const k = K(); const today = k.dkey(new Date()); return history().some((w) => w.rid === rid && k.dkey(new Date(w.start)) === today); };
 
   // barra "allenamento in corso" nelle altre sezioni
   W.banner = function () {
