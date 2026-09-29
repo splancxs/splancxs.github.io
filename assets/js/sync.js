@@ -7,7 +7,7 @@
 import { firebaseConfig } from './firebase-config.js';
 
 const V = '11.0.2';
-const SKIP = new Set(['rc._meta', 'rc.theme', 'rc.installHidden', 'rc.health', 'rc.reminders']); // preferenze del singolo dispositivo
+const SKIP = new Set(['rc._meta', 'rc.theme', 'rc.installHidden', 'rc.health', 'rc.reminders', 'rc.active', 'rc.logMigrated']); // preferenze del singolo dispositivo
 const S = {
   state: { status: 'loading' },
   login: () => {}, signup: () => {}, logout: () => {}, now: () => {},
@@ -73,6 +73,19 @@ function mergeKey(k, L, R) {
   if (k === 'rc.weights') {
     const v = mergeItems(parse(L.v, []), parse(R.v, []), (x) => x.d).sort((x, y) => (x.d < y.d ? -1 : 1));
     return { v: JSON.stringify(v), t };
+  }
+  if (k === 'rc.workouts') { // cronologia allenamenti: uno per id, vince il più recente (anche le eliminazioni)
+    const v = mergeItems(parse(L.v, []), parse(R.v, []), (x) => x.id).sort((x, y) => (x.start || 0) - (y.start || 0));
+    return { v: JSON.stringify(v), t };
+  }
+  if (k === 'rc.routines' || k === 'rc.exlib') { // routine modificate ed esercizi creati: uno per id
+    const a = parse(L.v, {}), b = parse(R.v, {});
+    const out = {};
+    for (const id of new Set([...Object.keys(a), ...Object.keys(b)])) {
+      const x = a[id], y = b[id];
+      out[id] = !x ? y : !y ? x : ((y.t || 0) > (x.t || 0) ? y : x);
+    }
+    return { v: JSON.stringify(out), t };
   }
   if (k === 'rc.log') {
     const a = parse(L.v, {}), b = parse(R.v, {});

@@ -543,6 +543,86 @@ WORKOUTS = [
     ]),
 ]
 
+# ---------------------------------------------------------------------------
+# LIBRERIA ESERCIZI (allenamento live stile Hevy)
+# id: (nome, muscolo principale, muscoli secondari, incremento kg, unità, attrezzo)
+# ---------------------------------------------------------------------------
+EXLIB_BASE = {
+    'chest_press': ('Chest Press', 'Petto', ['Tricipiti', 'Deltoidi anteriori'], 2.5, 'reps', 'Macchina'),
+    'lat_pulldown_wide': ('Lat Pulldown · presa larga prona', 'Dorsali', ['Bicipiti'], 2.5, 'reps', 'Cavo'),
+    'pec_deck': ('Pec Deck', 'Petto', [], 2.5, 'reps', 'Macchina'),
+    'low_row': ('Low Row · presa neutra', 'Dorsali', ['Bicipiti', 'Deltoidi posteriori'], 2.5, 'reps', 'Cavo'),
+    'lateral_raise_cable': ('Alzate laterali al cavo', 'Deltoidi laterali', [], 1.25, 'reps', 'Cavo'),
+    'reverse_pec_deck': ('Reverse Pec Deck', 'Deltoidi posteriori', ['Dorsali'], 2.5, 'reps', 'Macchina'),
+    'leg_press': ('Leg Press', 'Quadricipiti', ['Glutei'], 5, 'reps', 'Macchina'),
+    'leg_curl': ('Leg Curl', 'Femorali', [], 5, 'reps', 'Macchina'),
+    'leg_extension': ('Leg Extension', 'Quadricipiti', [], 2.5, 'reps', 'Macchina'),
+    'bayesian_curl': ('Bayesian Curl al cavo', 'Bicipiti', [], 1.25, 'reps', 'Cavo'),
+    'triceps_pushdown': ('Triceps Pushdown', 'Tricipiti', [], 2.5, 'reps', 'Cavo'),
+    'hammer_curl_rope': ('Hammer Curl con corda', 'Bicipiti', [], 2.5, 'reps', 'Cavo'),
+    'overhead_ext_rope': ('Overhead Extension con corda', 'Tricipiti', [], 2.5, 'reps', 'Cavo'),
+    'cable_crunch': ('Cable Crunch', 'Addome', [], 2.5, 'reps', 'Cavo'),
+    'plank': ('Plank frontale', 'Addome', [], 10, 'sec', 'Corpo libero'),
+    'incline_db_press': ('Panca inclinata 30° con manubri', 'Petto', ['Deltoidi anteriori', 'Tricipiti'], 2, 'reps', 'Manubri'),
+    'tbar_row': ('T-Bar Row con petto in appoggio', 'Dorsali', ['Bicipiti', 'Deltoidi posteriori'], 2.5, 'reps', 'Macchina'),
+    'shoulder_press_machine': ('Shoulder Press Machine', 'Deltoidi anteriori', ['Tricipiti', 'Deltoidi laterali'], 2.5, 'reps', 'Macchina'),
+    'lat_pulldown_neutral': ('Lat Pulldown · presa neutra stretta', 'Dorsali', ['Bicipiti'], 2.5, 'reps', 'Cavo'),
+    'lateral_raise_machine': ('Alzate laterali alla macchina', 'Deltoidi laterali', [], 2.5, 'reps', 'Macchina'),
+    'leg_press_high': ('Leg Press · piedi alti e larghi', 'Glutei', ['Femorali', 'Quadricipiti'], 5, 'reps', 'Macchina'),
+    'preacher_curl_machine': ('Preacher Curl alla macchina', 'Bicipiti', [], 2.5, 'reps', 'Macchina'),
+    'crunch_machine': ('Crunch Machine', 'Addome', [], 2.5, 'reps', 'Macchina'),
+    'side_plank': ('Side Plank', 'Addome', [], 10, 'sec', 'Corpo libero'),
+    # esercizi in più, da aggiungere alle routine quando vuoi
+    'bench_press_bb': ('Panca piana con bilanciere', 'Petto', ['Tricipiti', 'Deltoidi anteriori'], 2.5, 'reps', 'Bilanciere'),
+    'db_bench': ('Panca piana con manubri', 'Petto', ['Tricipiti'], 2, 'reps', 'Manubri'),
+    'cable_fly': ('Croci ai cavi', 'Petto', [], 2.5, 'reps', 'Cavo'),
+    'pullup': ('Trazioni alla sbarra', 'Dorsali', ['Bicipiti'], 2.5, 'reps', 'Corpo libero'),
+    'db_row': ('Rematore con manubrio', 'Dorsali', ['Bicipiti'], 2, 'reps', 'Manubri'),
+    'straight_arm_pulldown': ('Pulldown a braccia tese', 'Dorsali', [], 2.5, 'reps', 'Cavo'),
+    'face_pull': ('Face Pull', 'Deltoidi posteriori', [], 2.5, 'reps', 'Cavo'),
+    'db_shoulder_press': ('Military press con manubri', 'Deltoidi anteriori', ['Tricipiti'], 2, 'reps', 'Manubri'),
+    'db_lateral_raise': ('Alzate laterali con manubri', 'Deltoidi laterali', [], 1, 'reps', 'Manubri'),
+    'squat_bb': ('Squat con bilanciere', 'Quadricipiti', ['Glutei'], 2.5, 'reps', 'Bilanciere'),
+    'hack_squat': ('Hack Squat', 'Quadricipiti', ['Glutei'], 5, 'reps', 'Macchina'),
+    'rdl_db': ('Stacco rumeno con manubri', 'Femorali', ['Glutei'], 2, 'reps', 'Manubri'),
+    'hip_thrust': ('Hip Thrust', 'Glutei', ['Femorali'], 5, 'reps', 'Bilanciere'),
+    'lunges_db': ('Affondi con manubri', 'Quadricipiti', ['Glutei'], 2, 'reps', 'Manubri'),
+    'calf_leg_press': ('Calf alla Leg Press', 'Polpacci', [], 5, 'reps', 'Macchina'),
+    'calf_standing': ('Calf in piedi', 'Polpacci', [], 5, 'reps', 'Macchina'),
+    'db_curl': ('Curl con manubri', 'Bicipiti', [], 1, 'reps', 'Manubri'),
+    'incline_db_curl': ('Curl su panca inclinata', 'Bicipiti', [], 1, 'reps', 'Manubri'),
+    'dips': ('Dip alle parallele', 'Tricipiti', ['Petto'], 2.5, 'reps', 'Corpo libero'),
+    'ez_skullcrusher': ('French press con bilanciere EZ', 'Tricipiti', [], 2.5, 'reps', 'Bilanciere'),
+}
+# esercizio della scheda → voce della libreria
+EX_MAP = {
+    'TA1': 'chest_press', 'TA2': 'lat_pulldown_wide', 'TA3': 'pec_deck', 'TA4': 'low_row', 'TA5': 'lateral_raise_cable',
+    'TA6': 'reverse_pec_deck', 'LA1': 'leg_press', 'LA2': 'leg_curl', 'LA3': 'leg_extension', 'LA4': 'bayesian_curl',
+    'LA5': 'triceps_pushdown', 'LA6': 'hammer_curl_rope', 'LA7': 'overhead_ext_rope', 'LA8': 'cable_crunch', 'LA9': 'plank',
+    'TB1': 'incline_db_press', 'TB2': 'tbar_row', 'TB3': 'shoulder_press_machine', 'TB4': 'lat_pulldown_neutral',
+    'TB5': 'pec_deck', 'TB6': 'lateral_raise_machine', 'TB7': 'reverse_pec_deck', 'LB1': 'leg_curl', 'LB2': 'leg_press_high',
+    'LB3': 'leg_extension', 'LB4': 'preacher_curl_machine', 'LB5': 'overhead_ext_rope', 'LB6': 'hammer_curl_rope',
+    'LB7': 'triceps_pushdown', 'LB8': 'crunch_machine', 'LB9': 'side_plank',
+}
+# serie dirette a settimana previste dalla scheda (per le statistiche)
+MUSCLE_TARGETS = {'Petto': 11, 'Dorsali': 12, 'Deltoidi laterali': 7, 'Deltoidi posteriori': 5, 'Quadricipiti': 12,
+                  'Femorali': 7, 'Bicipiti': 10, 'Tricipiti': 10, 'Addome': 6}
+
+
+def build_exlib():
+    cues = {}
+    for w in WORKOUTS:
+        for e in w['ex']:
+            e['lib'] = EX_MAP[e['id']]
+            cues.setdefault(e['lib'], e['cue'])
+    lib = {}
+    for k, (n, m, sec, inc, unit, eq) in EXLIB_BASE.items():
+        lib[k] = dict(id=k, n=n, m=m, sec=sec, inc=inc, unit=unit, eq=eq, cue=cues.get(k, ''))
+    return lib
+
+
+EXLIB = build_exlib()
+
 TARGETS = dict(ON=dict(k=2200, p=140, c=275, f=60), OFF=dict(k=1900, p=140, c=191, f=64))
 
 
@@ -559,6 +639,8 @@ def build_data():
         daytypes={k: dict(label=v['label'], target=v['target'], slots=v['slots']) for k, v in DAYTYPES.items()},
         week=WEEK,
         workouts=WORKOUTS,
+        exlib=EXLIB,
+        muscleTargets=MUSCLE_TARGETS,
         targets=TARGETS,
         equivalents=equivalents(),
     )

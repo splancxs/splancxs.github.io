@@ -32,7 +32,6 @@
       window.dispatchEvent(new CustomEvent('rc-change', { detail: 'rc.' + k }));
     },
   };
-  const hasSetData = (rec) => rec && (rec.sets || []).some((s) => s && (s[0] != null || s[1] != null));
 
   const pad = (n) => String(n).padStart(2, '0');
   const dkey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -57,6 +56,7 @@
     up: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21V9M7 14l5-5 5 5M5 3h14"/></svg>',
     sun: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
     moon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/></svg>',
+    play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>',
     arrow: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
   };
 
@@ -386,7 +386,7 @@
       events.push({ time: '07:40', html: '<strong>Scuola</strong> fino alle 14:05 · merende 1 e 2 già nello zaino.' });
     }
     const w = plan.day.wo ? D.workouts.find((x) => x.id === plan.day.wo) : null;
-    if (w) events.push({ time: '16:30', gym: true, html: `<strong>Palestra · ${esc(w.name)}</strong> — ${esc(w.focus)}. Pesi ~60′ + tapis 15–20′ al 14%. <a href="#/scheda" data-act="openwo" data-wo="${w.id}">Apri la scheda →</a>` });
+    if (w) events.push({ time: '16:30', gym: true, html: `<strong>Palestra · ${esc(w.name)}</strong> — ${esc(w.focus)}. Pesi ~60′ + tapis 15–20′ al 14%. <a href="#/scheda">Apri la scheda →</a>` });
 
     const rows = [
       ...events.map((ev) => ({ time: ev.time, html: `<li class="tl event${ev.gym ? ' gym' : ''}"><div class="tl-time"><span>${ev.time}</span></div><div class="tl-body"><b class="tl-t">${ev.time}</b>${ev.html}</div></li>` })),
@@ -442,7 +442,7 @@
       <h2>${esc(w.name)} <span class="muted" style="font-weight:600">· ${esc(w.focus)}</span></h2>
       <p class="small"><strong>Settimana ${wk.n} del blocco</strong> · ${esc(wk.phase)}</p>
       <ol class="small" style="margin:0;padding-left:20px">${w.ex.map((e) => `<li>${esc(e.n)} <span class="muted">${e.s}×${e.lo}–${e.hi}${e.unit === 'sec' ? '″' : ''}</span></li>`).join('')}</ol>
-      <a class="btn" href="#/scheda" data-act="openwo" data-wo="${w.id}">Apri la scheda ${I.arrow}</a>
+      <div class="row"><button type="button" class="btn" data-w="start" data-rid="${w.id}">${I.play} Inizia l'allenamento</button><a class="chip" href="#/scheda">Apri la scheda</a></div>
     </section>`;
   }
 
@@ -612,116 +612,10 @@
     return 'TA';
   }
 
-  function logFor(id) {
-    const log = store.get('log', {});
-    return (log[id] || []).filter(hasSetData).sort((a, b) => (a.d < b.d ? 1 : -1));
-  }
-  const setsTxt = (e, rec) => rec.sets.map((s) => (!s ? '–' : e.unit === 'sec' ? `${s[1] ?? '–'}″` : `${s[0] != null ? fmtKg(s[0]) : '–'}×${s[1] ?? '–'}`)).join(' · ');
-
-  function suggestion(e, last) {
-    const u = e.unit === 'sec' ? '″' : '';
-    if (!last) {
-      if (e.unit === 'sec') return { cls: '', txt: `Tieni ${e.lo}${u} su ogni serie, poi aumenta fino a ${e.hi}${u}.` };
-      return { cls: '', txt: e.kg != null ? `Parti da ${fmtKg(e.kg)} kg: cerca ${e.lo}–${e.hi} ripetizioni lasciandone 1–2 in riserva.` : `Carico da testare: trova il peso con cui chiudi ${e.lo}–${e.hi} ripetizioni lasciandone 1–2 in riserva.` };
-    }
-    const sets = (last.sets || []).filter((s) => s && s[1] != null);
-    if (!sets.length) return { cls: '', txt: 'Ultima sessione senza ripetizioni registrate.' };
-    if (e.unit === 'sec') {
-      const all = sets.length >= e.s && sets.every((s) => s[1] >= e.hi);
-      const best = Math.max(...sets.map((s) => s[1]));
-      return all ? { cls: 'up', txt: `Hai tenuto ${e.hi}″ su tutte le serie: oggi prova ${e.hi + e.inc}″.` } : { cls: '', txt: `Punta a ${Math.min(e.hi, best + 5)}″ su ogni serie.` };
-    }
-    const kg = Math.max(...sets.map((s) => s[0] || 0));
-    const allTop = sets.length >= e.s && sets.every((s) => s[1] >= e.hi);
-    const anyLow = sets.some((s) => s[1] < e.lo);
-    if (!kg) return { cls: '', txt: 'Registra anche il carico per avere il consiglio.' };
-    if (allTop) return { cls: 'up', txt: `Tutte le serie a ${e.hi}: oggi sali a ${fmtKg(r1(kg + e.inc))} kg.` };
-    if (anyLow) return { cls: '', txt: `Qualche serie sotto le ${e.lo}: resta a ${fmtKg(kg)} kg. Se ricapita, scendi del 5–10%.` };
-    return { cls: '', txt: `Resta a ${fmtKg(kg)} kg e aggiungi 1 ripetizione dove riesci.` };
-  }
-
-  function exCard(w, e, idx) {
-    const today = dkey(new Date());
-    const hist = logFor(e.id);
-    const todayRec = hist.find((h) => h.d === today);
-    const last = hist.find((h) => h.d !== today);
-    const sg = suggestion(e, last);
-    const isSup = !!e.sup;
-    const label = e.sup || String(idx + 1);
-    const isTime = e.unit === 'sec';
-    const sets = Array.from({ length: e.s }, (_, i) => {
-      const cur = (todayRec && todayRec.sets[i]) || [];
-      const ls = (last && last.sets[i]) || [];
-      const kgPh = ls[0] != null ? fmtKg(ls[0]) : e.kg != null ? fmtKg(e.kg) : '';
-      const kgIn = isTime ? '' : `<label><input inputmode="decimal" autocomplete="off" data-ex="${e.id}" data-i="${i}" data-k="0" value="${cur[0] != null ? fmtKg(cur[0]) : ''}" placeholder="${kgPh}" aria-label="${esc(e.n)}, serie ${i + 1}, chili"><i>kg</i></label>`;
-      const rIn = `<label><input inputmode="numeric" autocomplete="off" data-ex="${e.id}" data-i="${i}" data-k="1" value="${cur[1] != null ? cur[1] : ''}" placeholder="${ls[1] != null ? ls[1] : ''}" aria-label="${esc(e.n)}, serie ${i + 1}, ${isTime ? 'secondi' : 'ripetizioni'}"><i>${isTime ? 'sec' : 'rip'}</i></label>`;
-      return `<div class="set"${isTime ? ' style="grid-template-columns:58px 1fr"' : ''}><span>Serie ${i + 1}</span>${kgIn}${rIn}</div>`;
-    }).join('');
-    const next = isSup && e.sup.endsWith('a') ? w.ex.find((x) => x.sup === e.sup.replace('a', 'b')) : null;
-    const restBtn = e.rest > 0 ? `<button type="button" class="chip solid" data-act="rest" data-s="${e.rest}">${I.timer} Recupero ${restTxt(e.rest)}</button>` : '';
-    return `<article class="card ex${isSup ? ' sup' : ''}" id="ex-${e.id}">
-      <div class="ex-h"><span class="ex-n">${label}</span>
-        <div><h3>${esc(e.n)}</h3>
-        <div class="ex-meta"><span><b>${e.s} × ${e.lo}–${e.hi}</b>${isTime ? '″' : ''}</span><span>Rec. <b>${e.rest > 0 ? restTxt(e.rest) : 'nessuno'}</b></span><span>Partenza <b>${esc(e.start)}</b></span></div></div>
-      </div>
-      ${next ? `<p class="sup-note">Superserie: finita la serie passa subito a ${esc(next.n)} (${next.sup}).</p>` : ''}
-      <div class="ex-info">
-        ${last ? `<p class="last">Ultima volta (${shortDate(last.d)}): <strong>${setsTxt(e, last)}</strong></p>` : ''}
-        <p class="sugg ${sg.cls}">${esc(sg.txt)}</p>
-      </div>
-      <div class="sets">${sets}</div>
-      <div class="ex-f">${restBtn}
-        <button type="button" class="chip" data-act="toggle" data-t="cue-${e.id}" aria-expanded="false">Tecnica</button>
-        ${hist.length ? `<button type="button" class="chip" data-act="toggle" data-t="hist-${e.id}" aria-expanded="false">Storico (${hist.length})</button>` : ''}
-      </div>
-      <p class="cue hidden" id="cue-${e.id}">${esc(e.cue)}</p>
-      ${hist.length ? `<div class="hist hidden" id="hist-${e.id}"><ul>${hist.slice(0, 8).map((h) => `<li><span class="muted">${shortDate(h.d)}</span> · ${setsTxt(e, h)}</li>`).join('')}</ul></div>` : ''}
-    </article>`;
-  }
-
-  function viewScheda() {
-    if (!ui.wo) ui.wo = defaultWo();
-    const w = D.workouts.find((x) => x.id === ui.wo);
-    const wk = blockWeek();
-    const tabs = D.workouts.map((x) => `<button type="button" class="wo-tab" role="tab" data-act="wo" data-wo="${x.id}" aria-selected="${x.id === w.id}">${esc(x.name)}<small>${esc(x.day.slice(0, 3))}</small></button>`).join('');
-    const sets = w.ex.reduce((a, e) => a + e.s, 0);
-    return `<div class="stack">
-      <div><p class="eyebrow">Allenamento · Torso/Limbs 4x</p><h1>${esc(w.name)}</h1><p class="muted">${esc(w.day)} 16:30 · ${esc(w.focus)} · ${sets} serie</p></div>
-      <div class="wo-tabs" role="tablist" aria-label="Allenamenti">${tabs}</div>
-      <div class="grid-main">
-        <div class="stack">
-          ${'wakeLock' in navigator ? `<div class="row"><button type="button" class="chip${wake.want ? ' accent' : ''}" data-act="wake" aria-pressed="${wake.want}">${wake.want ? 'Schermo sempre acceso: attivo' : 'Tieni lo schermo acceso'}</button><span class="tiny muted">utile in palestra, si spegne quando esci dalla scheda</span></div>` : ''}
-          <section class="card flat small"><strong>Riscaldamento (5′):</strong> 5 minuti leggeri, poi 2 serie di avvicinamento sul primo esercizio di ogni muscolo (10 ripetizioni al 50% del carico, 5 al 75%). I dati si salvano da soli mentre scrivi.</section>
-          ${w.ex.map((e, i) => exCard(w, e, i)).join('')}
-          <section class="card stack">
-            <h3>Cardio finale · tapis roulant</h3>
-            <p class="small"><strong>15–20′ al 14% di pendenza, 4,0–4,5 km/h</strong> (≈ 115–170 kcal). Non tenerti ai corrimano: consumeresti il 20–30% in meno. Nei giorni Limbs, se hai le gambe distrutte, bastano 15′ al 12%.</p>
-          </section>
-        </div>
-        <aside class="stack sticky-col">
-          <section class="card stack">
-            <p class="eyebrow">Blocco ${wk.cycle} · settimana ${wk.n} di 7</p>
-            <h2>${wk.deload ? 'Settimana di scarico' : wk.n <= 2 ? 'Adattamento' : 'Progressione'}</h2>
-            <p class="small">${esc(wk.phase)}</p>
-            <div class="field"><label for="blockStart">Inizio del blocco (un lunedì)</label><input type="date" id="blockStart" data-act="blockstart" value="${wk.start}"></div>
-          </section>
-          <details class="card">
-            <summary>Regole di progressione</summary>
-            <div class="prose small">
-              <p><strong>Doppia progressione.</strong> Ogni esercizio ha un range di ripetizioni. Quando chiudi <strong>tutte le serie al massimo del range</strong> con tecnica pulita, la volta dopo aumenti il carico:</p>
-              <ul><li>+5 kg su Leg Press e Leg Curl</li><li>+2,5 kg su macchine e cavi della parte alta (+1,25 kg sulle alzate al cavo)</li><li>manubri: arrivi a 3×12, poi +2 kg</li></ul>
-              <p>Se una serie finisce sotto il minimo del range resti allo stesso carico. Se ti succede due volte di fila, scendi del 5–10%.</p>
-              <p><strong>Settimane 1–2:</strong> RIR 2–3 · <strong>3–6:</strong> RIR 1–2 · <strong>7:</strong> scarico. Poi riparte il blocco.</p>
-              <p><strong>Obiettivi a fine blocco 1:</strong> Leg Press 128–133 kg · Chest Press 32–34 kg · Lat Pulldown 39–41 kg · Shoulder Press 18 kg · Pushdown 15–17 kg · Panca inclinata 10 kg per manubrio.</p>
-            </div>
-          </details>
-          <section class="card stack">
-            <h3>Volume settimanale (serie dirette)</h3>
-            <p class="small muted">Petto 11 · Schiena 12 (+5 Reverse Pec Deck) · Deltoidi laterali 7 · Posteriori 5 · Quadricipiti 12 · Femorali 7 · Bicipiti 10 · Tricipiti 10 · Addome 6 + plank</p>
-          </section>
-        </aside>
-      </div>
-    </div>`;
+  // pulsante "schermo sempre acceso" usato dall'allenamento live (allenamento.js)
+  function wakeChip() {
+    if (!('wakeLock' in navigator)) return '';
+    return `<div class="row"><button type="button" class="chip${wake.want ? ' accent' : ''}" data-act="wake" aria-pressed="${wake.want}">${wake.want ? 'Schermo sempre acceso: attivo' : 'Tieni lo schermo acceso'}</button></div>`;
   }
 
   /* ---------------- timer recupero ---------------- */
@@ -1014,7 +908,7 @@
   }
 
   /* ================= ROUTER & EVENTI ================= */
-  const routes = { oggi: viewOggi, piano: viewPiano, scheda: viewScheda, progressi: viewProgressi, guida: viewGuida };
+  const routes = { oggi: viewOggi, piano: viewPiano, scheda: () => (window.RCW ? window.RCW.view() : ''), progressi: viewProgressi, guida: viewGuida };
   const titles = { oggi: 'Oggi', piano: 'Piano', scheda: 'Scheda', progressi: 'Progressi', guida: 'Guida' };
   let current = '';
   function render(scrollTop) {
@@ -1025,7 +919,7 @@
       if (a.dataset.route === r) { a.setAttribute('aria-current', 'page'); a.parentElement.style.setProperty('--i', i); } else a.removeAttribute('aria-current');
     });
     const y = window.scrollY;
-    main.innerHTML = routes[r]();
+    main.innerHTML = (r !== 'scheda' && window.RCW ? window.RCW.banner() : '') + routes[r]();
     document.title = `${titles[r]} · Recomp`;
     if (scrollTop || r !== current) { window.scrollTo(0, 0); if (r !== current && current) main.focus({ preventScroll: true }); }
     else window.scrollTo(0, y);
@@ -1034,6 +928,8 @@
   window.addEventListener('hashchange', () => render(true));
 
   main.addEventListener('click', (ev) => {
+    const tw = ev.target.closest('[data-w]');
+    if (tw && window.RCW && window.RCW.click(tw)) { ev.preventDefault(); return; }
     const t = ev.target.closest('[data-act]');
     if (!t) return;
     const act = t.dataset.act;
@@ -1054,8 +950,6 @@
       Object.keys(sw).forEach((k) => { if (k.split(':')[0] === di) delete sw[k]; });
       store.set('swaps', sw); render();
     } else if (act === 'shopreset') { store.set('shop', {}); render(); }
-    else if (act === 'wo') { ui.wo = t.dataset.wo; render(true); }
-    else if (act === 'openwo') { ui.wo = t.dataset.wo; }
     else if (act === 'rest') { startTimer(Number(t.dataset.s)); }
     else if (act === 'toggle') {
       const el = document.getElementById(t.dataset.t);
@@ -1130,18 +1024,8 @@
 
   main.addEventListener('input', (ev) => {
     const t = ev.target;
-    if (t.dataset.ex) {
-      const id = t.dataset.ex, i = Number(t.dataset.i), k = Number(t.dataset.k);
-      const log = store.get('log', {});
-      const today = dkey(new Date());
-      const arr = log[id] || (log[id] = []);
-      let rec = arr.find((r) => r.d === today);
-      if (!rec) { rec = { d: today, sets: [] }; arr.push(rec); }
-      for (let j = 0; j <= i; j++) if (!rec.sets[j]) rec.sets[j] = [null, null];
-      rec.sets[i][k] = num(t.value);
-      rec.t = Date.now(); // una sessione svuotata resta come record vuoto, così lo svuotamento si sincronizza
-      store.set('log', log);
-    } else if (t.id === 'foodSearch') {
+    if (t.dataset.wi && window.RCW) { window.RCW.input(t); return; }
+    if (t.id === 'foodSearch') {
       const q = t.value.trim().toLowerCase();
       $$('#foodTable tbody tr').forEach((tr) => { tr.classList.toggle('hidden', !!q && !tr.dataset.n.includes(q)); });
     }
@@ -1194,6 +1078,13 @@
     refresh(force) { if (!force && typing()) { pendingRefresh = true; return; } pendingRefresh = false; render(); },
   };
   main.addEventListener('focusout', () => { if (pendingRefresh) setTimeout(() => { if (!typing()) { pendingRefresh = false; render(); } }, 0); });
+
+  /* ---------------- ponte con allenamento.js ---------------- */
+  window.RCK = {
+    D, store, esc, f0, f1, f2, sign, r1, num, dkey, fromKey, shortDate, dayIdx, I, cap, restTxt, fmtKg,
+    startTimer, buzz, blockWeek, wakeChip, render: (top) => render(top),
+  };
+  if (window.RCW) window.RCW.migrate();
 
   /* ---------------- avvio ---------------- */
   render(true);

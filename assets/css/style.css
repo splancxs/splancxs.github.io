@@ -447,3 +447,76 @@ details.card[open] > summary::after { content: "–"; }
 details.card[open] > summary { margin-bottom: 12px; }
 .note { font-size: 13px; color: var(--muted); padding: 10px 12px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line); }
 .hidden { display: none !important; }
+
+/* ============ Allenamento live (stile Hevy) ============ */
+.wo-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
+.wo-stats div { background: var(--surface-2); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; }
+.wo-stats span { display: block; font-size: 11.5px; font-weight: 700; color: var(--muted); }
+.wo-stats b { font-size: 20px; font-weight: 800; letter-spacing: -0.02em; }
+.wo-head .chip { margin-top: 12px; }
+.wx { padding: 0; overflow: hidden; }
+.wx.sup { border-left: 4px solid var(--accent); border-radius: 0 var(--radius) var(--radius) 0; }
+.wx-h { display: flex; gap: 10px; align-items: flex-start; padding: 14px 14px 8px; }
+.wx-t { flex: 1; min-width: 0; }
+.wx-t h3 { display: inline; font-size: 16px; }
+.wx-menu { display: flex; gap: 6px; flex: none; }
+.wx-menu .chip { padding: 6px 10px; font-size: 12px; }
+.wsets { padding: 0 10px 6px; }
+.wset { display: grid; grid-template-columns: 38px minmax(0, 1fr) 72px 60px 42px; gap: 6px; align-items: center; padding: 4px; border-radius: 12px; }
+.wset.head { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; padding-top: 0; padding-bottom: 2px; }
+.wset.head span:nth-child(n+3) { text-align: center; }
+.wset input { width: 100%; min-width: 0; min-height: 40px; border-radius: 10px; border: 1px solid var(--line-2); background: var(--surface-2); text-align: center; font-size: 16px; font-weight: 750; padding: 6px 4px; }
+.wset input:focus { outline: none; border-color: var(--ink); background: var(--surface); }
+.wset.done { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.wset.done input { background: transparent; border-color: transparent; }
+.wprev { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wdash { text-align: center; color: var(--faint); }
+.wtype { width: 34px; height: 34px; border-radius: 10px; border: 0; background: var(--surface-3); font-weight: 800; font-size: 14px; display: inline-grid; place-items: center; color: var(--ink); }
+.wtype.t-w { background: color-mix(in srgb, var(--c) 25%, transparent); color: var(--warn); }
+.wtype.t-d { background: color-mix(in srgb, var(--g) 22%, transparent); color: var(--g); }
+.wtype.t-f { background: color-mix(in srgb, var(--p) 22%, transparent); color: var(--bad); }
+.wchk { width: 40px; height: 40px; border-radius: 12px; border: 2px solid var(--line-2); background: var(--surface); display: grid; place-items: center; color: transparent; }
+.wchk svg { width: 20px; height: 20px; stroke-width: 3; }
+.wchk[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.wnote { display: block; width: calc(100% - 28px); margin: 0 14px 8px; border-radius: 12px; border: 1px solid var(--line-2); background: var(--surface-2); padding: 8px 10px; font-size: 14px; resize: vertical; }
+.summary h1 { margin-top: 4px; }
+.prs { list-style: none; margin: 0; padding: 0; }
+.prs li { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.routine h2 { font-size: 1.1rem; }
+.redit .rgrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.redit label { display: grid; gap: 4px; font-size: 11px; font-weight: 700; color: var(--muted); }
+.redit input { width: 100%; min-width: 0; min-height: 40px; border-radius: 10px; border: 1px solid var(--line-2); background: var(--surface-2); text-align: center; font-size: 16px; font-weight: 750; }
+.x-btn[disabled] { opacity: .35; }
+
+/* foglio per scegliere un esercizio */
+.sheet { position: fixed; inset: 0; z-index: 60; background: rgba(0, 0, 0, .45); display: flex; align-items: flex-end; justify-content: center; }
+.sheet-in { background: var(--bg); width: 100%; max-width: 640px; max-height: 88vh; overflow-y: auto; border-radius: 22px 22px 0 0; padding: 18px 16px calc(24px + var(--sab)); -webkit-overflow-scrolling: touch; }
+@media (min-width: 700px) { .sheet { align-items: center; } .sheet-in { border-radius: 22px; } }
+.picklist { list-style: none; margin: 0; padding: 0; }
+.picklist li + li { border-top: 1px solid var(--line); }
+.picklist button { width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 11px 4px; border: 0; background: none; text-align: left; font-size: 15px; }
+.picklist button:hover { background: var(--surface-2); }
+
+/* cronologia e calendario */
+.whlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.whist { width: 100%; text-align: left; display: block; }
+.cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
+.cal-h { font-size: 11px; font-weight: 700; color: var(--muted); padding-bottom: 4px; }
+.cal-d { aspect-ratio: 1; display: grid; place-items: center; border-radius: 10px; font-size: 13px; font-weight: 650; border: 0; background: none; color: var(--muted); }
+.cal-d.has { background: var(--accent); color: var(--accent-ink); font-weight: 800; }
+.cal-d.today { box-shadow: inset 0 0 0 2px var(--ink); color: var(--ink); }
+.dsets { list-style: none; margin: 0; padding: 0; }
+.dsets li { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); font-size: 14px; font-weight: 650; }
+.dsets .wtype { width: 28px; height: 28px; font-size: 12px; }
+.dsets .tiny { margin-left: auto; }
+
+/* statistiche */
+.wbars { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; align-items: end; height: 150px; }
+.wbar { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 4px; }
+.wbar i { display: block; width: 100%; max-width: 34px; background: var(--ink); border-radius: 8px 8px 3px 3px; }
+
+/* barra "allenamento in corso" nelle altre sezioni */
+.wo-banner { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; padding: 12px 14px; border-radius: 16px; background: var(--ink); color: var(--bg); text-decoration: none; font-size: 14px; }
+.wo-banner b { color: var(--accent); }
+.dot-live { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .35; } }

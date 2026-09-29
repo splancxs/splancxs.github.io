@@ -8,7 +8,8 @@ Sito statico (GitHub Pages) con piano alimentare calcolato al grammo, scheda Tor
 |---|---|
 | `index.html` | Pagina unica (sezioni: Oggi, Piano, Scheda, Progressi, Guida) |
 | `assets/js/data.js` | **Generato**: alimenti, ricette, grammature, settimana tipo, scheda |
-| `assets/js/app.js` | Logica del sito (calcoli, scambi, diario, timer, grafico) |
+| `assets/js/app.js` | Logica del sito (calcoli, scambi, timer, progressi, grafico) |
+| `assets/js/allenamento.js` | Allenamento stile Hevy: routine modificabili, allenamento live con "Precedente", recupero automatico, cronologia, record e statistiche |
 | `assets/css/style.css` | Stile (tema chiaro/scuro, mobile first) |
 | `tools/genera_piano.py` | Database alimenti, ricette, target, ottimizzazione e verifica |
 | `tools/genera_icone.py` | Genera le icone PNG |
