@@ -1017,43 +1017,60 @@
       const dx = Math.max(0, Math.min((links.length - 1) * drag.w, drag.x - drag.left - PAD - drag.w / 2));
       bubble.style.transform = `translate3d(${dx}px, 0, 0) scale(1.14, 1.2)`;
       const idx = Math.round(dx / drag.w);
-      if (idx !== drag.idx) {
-        if (drag.idx >= 0) links[drag.idx].classList.remove('lens');
-        links[idx].classList.add('lens');
-        if (drag.idx >= 0 && N.haptics) safe(N.haptics.selectionChanged());
+      if (idx !== drag.idx || !links[idx].classList.contains('lens')) {
+        links.forEach((a, k) => a.classList.toggle('lens', k === idx));
+        if (idx !== drag.idx && N.haptics) safe(N.haptics.selectionChanged());
         drag.idx = idx;
       }
     }
     const schedule = () => { if (drag && !drag.raf) drag.raf = requestAnimationFrame(frame); };
-    nav.addEventListener('pointerdown', (e) => {
-      if (!mobile.matches || (e.pointerType === 'mouse' && e.button !== 0) || !e.target.closest('a')) return;
-      const r = nav.getBoundingClientRect();
-      drag = { id: e.pointerId, x0: e.clientX, x: e.clientX, left: r.left, w: (r.width - 2 * PAD) / links.length, idx: -1, raf: 0 };
-      try { nav.setPointerCapture(e.pointerId); } catch (err) { /* ignora */ }
+    function beginDrag() {
+      if (!drag || drag.active) return;
+      clearTimeout(drag.hold);
+      drag.active = true;
       nav.classList.add('dragging');
       frame();
       if (N.haptics) safe(N.haptics.selectionStart());
+    }
+    // apre la sezione dopo che la bolla ha iniziato a muoversi: la pagina nuova si disegna al fotogramma successivo
+    function go(idx) {
+      swallowClick = true; setTimeout(() => { swallowClick = false; }, 400);
+      nav.style.setProperty('--i', idx);
+      bubble.style.transform = '';
+      const href = links[idx].getAttribute('href');
+      if (location.hash === href) return;
+      buzz();
+      requestAnimationFrame(() => setTimeout(() => { location.hash = href; }, 0));
+    }
+    nav.addEventListener('pointerdown', (e) => {
+      if (!mobile.matches || (e.pointerType === 'mouse' && e.button !== 0)) return;
+      const a = e.target.closest('a');
+      if (!a) return;
+      const r = nav.getBoundingClientRect();
+      drag = { id: e.pointerId, x0: e.clientX, x: e.clientX, left: r.left, w: (r.width - 2 * PAD) / links.length, idx: links.indexOf(a), raf: 0, active: false };
+      try { nav.setPointerCapture(e.pointerId); } catch (err) { /* ignora */ }
+      // tenendo premuto un attimo la bolla si "stacca" e segue il dito anche senza muoverlo
+      drag.hold = setTimeout(beginDrag, 220);
     });
     nav.addEventListener('pointermove', (e) => {
       if (!drag || e.pointerId !== drag.id) return;
       drag.x = e.clientX;
-      schedule();
+      if (!drag.active && Math.abs(drag.x - drag.x0) > 8) beginDrag();
+      if (drag.active) schedule();
     });
-    function end(e, go) {
+    function end(e, ok) {
       if (!drag || (e && e.pointerId !== drag.id)) return;
+      clearTimeout(drag.hold);
       if (drag.raf) cancelAnimationFrame(drag.raf);
-      const idx = drag.idx;
+      const { idx, active } = drag;
       drag = null;
-      nav.classList.remove('dragging');
-      links.forEach((a) => a.classList.remove('lens'));
-      if (N.haptics) safe(N.haptics.selectionEnd());
-      if (go && idx >= 0) nav.style.setProperty('--i', idx);
-      bubble.style.transform = ''; // torna alla posizione di --i con il rimbalzo del CSS
-      if (!go || idx < 0) return;
-      swallowClick = true; setTimeout(() => { swallowClick = false; }, 400);
-      const href = links[idx].getAttribute('href');
-      if (location.hash !== href) location.hash = href;
-      buzz();
+      if (active) {
+        nav.classList.remove('dragging');
+        links.forEach((a) => a.classList.remove('lens'));
+        if (N.haptics) safe(N.haptics.selectionEnd());
+      }
+      if (!ok || idx < 0) { bubble.style.transform = ''; return; }
+      go(idx);
     }
     nav.addEventListener('pointerup', (e) => end(e, true));
     nav.addEventListener('pointercancel', (e) => end(e, false));
