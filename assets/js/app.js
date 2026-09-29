@@ -858,8 +858,10 @@
       if (a.dataset.route === r) { a.setAttribute('aria-current', 'page'); a.parentElement.style.setProperty('--i', i); } else a.removeAttribute('aria-current');
     });
     const y = window.scrollY;
+    main.classList.remove('page-in'); // l'animazione di comparsa solo quando si cambia sezione, non a ogni aggiornamento
     main.innerHTML = (r !== 'scheda' && window.RCW ? window.RCW.banner() : '') + routes[r]();
     document.title = `${titles[r]} · Recomp`;
+    if (r !== current && current) main.classList.add('page-in');
     if (scrollTop || r !== current) { window.scrollTo(0, 0); if (r !== current && current) main.focus({ preventScroll: true }); }
     else window.scrollTo(0, y);
     current = r;
@@ -996,53 +998,61 @@
 
   /* ---------------- barra in basso: tieni premuto e trascina (come iOS 26) ---------------- */
   // La bolla segue il dito, la sezione sotto il dito si "ingrandisce" e al rilascio si apre.
-  // Un tocco semplice funziona come prima; da tastiera i link restano normali.
+  // Per restare fluida: la barra si misura una volta a inizio gesto, la bolla si muove solo con transform
+  // (lavoro della GPU) e la posizione si aggiorna al massimo una volta per fotogramma.
   (function navDrag() {
     const nav = $('.nav');
     const links = $$('.nav a');
+    const bubble = document.createElement('span');
+    bubble.className = 'nav-bubble';
+    bubble.setAttribute('aria-hidden', 'true');
+    nav.prepend(bubble);
     const mobile = window.matchMedia('(max-width: 899px)');
+    const PAD = 6;
     let drag = null;
     let swallowClick = false;
-    const PAD = 6;
-    function place(x) {
-      const r = nav.getBoundingClientRect();
-      const w = (r.width - 2 * PAD) / links.length;
-      const dx = Math.max(0, Math.min((links.length - 1) * w, x - r.left - PAD - w / 2));
-      nav.style.setProperty('--dx', `${dx}px`);
-      const idx = Math.round(dx / w);
+    function frame() {
+      if (!drag) return;
+      drag.raf = 0;
+      const dx = Math.max(0, Math.min((links.length - 1) * drag.w, drag.x - drag.left - PAD - drag.w / 2));
+      bubble.style.transform = `translate3d(${dx}px, 0, 0) scale(1.14, 1.2)`;
+      const idx = Math.round(dx / drag.w);
       if (idx !== drag.idx) {
+        if (drag.idx >= 0) links[drag.idx].classList.remove('lens');
+        links[idx].classList.add('lens');
+        if (drag.idx >= 0 && N.haptics) safe(N.haptics.selectionChanged());
         drag.idx = idx;
-        links.forEach((a, i) => a.classList.toggle('lens', i === idx));
-        if (drag.moved && N.haptics) safe(N.haptics.selectionChanged());
       }
     }
+    const schedule = () => { if (drag && !drag.raf) drag.raf = requestAnimationFrame(frame); };
     nav.addEventListener('pointerdown', (e) => {
-      if (!mobile.matches || (e.pointerType === 'mouse' && e.button !== 0)) return;
-      if (!e.target.closest('a')) return;
-      drag = { id: e.pointerId, x0: e.clientX, idx: -1, moved: false };
+      if (!mobile.matches || (e.pointerType === 'mouse' && e.button !== 0) || !e.target.closest('a')) return;
+      const r = nav.getBoundingClientRect();
+      drag = { id: e.pointerId, x0: e.clientX, x: e.clientX, left: r.left, w: (r.width - 2 * PAD) / links.length, idx: -1, raf: 0 };
       try { nav.setPointerCapture(e.pointerId); } catch (err) { /* ignora */ }
       nav.classList.add('dragging');
-      place(e.clientX);
+      frame();
       if (N.haptics) safe(N.haptics.selectionStart());
     });
     nav.addEventListener('pointermove', (e) => {
       if (!drag || e.pointerId !== drag.id) return;
-      if (Math.abs(e.clientX - drag.x0) > 4) drag.moved = true;
-      place(e.clientX);
-      e.preventDefault();
+      drag.x = e.clientX;
+      schedule();
     });
     function end(e, go) {
       if (!drag || (e && e.pointerId !== drag.id)) return;
+      if (drag.raf) cancelAnimationFrame(drag.raf);
       const idx = drag.idx;
       drag = null;
       nav.classList.remove('dragging');
       links.forEach((a) => a.classList.remove('lens'));
       if (N.haptics) safe(N.haptics.selectionEnd());
+      if (go && idx >= 0) nav.style.setProperty('--i', idx);
+      bubble.style.transform = ''; // torna alla posizione di --i con il rimbalzo del CSS
       if (!go || idx < 0) return;
       swallowClick = true; setTimeout(() => { swallowClick = false; }, 400);
-      nav.style.setProperty('--i', idx); // la bolla rimbalza sulla sezione scelta
       const href = links[idx].getAttribute('href');
-      if (location.hash !== href) location.hash = href; else render(true);
+      if (location.hash !== href) location.hash = href;
       buzz();
     }
     nav.addEventListener('pointerup', (e) => end(e, true));

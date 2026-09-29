@@ -129,41 +129,40 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
   background: linear-gradient(180deg, var(--glass-shine) 0%, rgba(255, 255, 255, 0) 42%, rgba(255, 255, 255, 0) 78%, rgba(255, 255, 255, .06) 100%);
   opacity: .55;
 }
-/* bolla della sezione attiva, scivola con un rimbalzo elastico */
-.nav::after {
-  content: ""; position: absolute; top: 6px; bottom: 6px; left: 6px; width: calc((100% - 12px) / 5);
+/* bolla della sezione attiva: elemento .nav-bubble spostato solo con transform, quindi fluido (lavora la GPU).
+   A riposo segue --i con un rimbalzo; mentre trascini, app.js la muove direttamente a ogni fotogramma. */
+.nav-bubble {
+  position: absolute; top: 6px; bottom: 6px; left: 6px; width: calc((100% - 12px) / 5);
   border-radius: 26px; pointer-events: none; z-index: -1;
   background: var(--glass-pill);
   box-shadow: inset 0 1px 0 var(--glass-shine), inset 0 0 0 .5px rgba(255, 255, 255, .18);
-  transform: translateX(calc(var(--i, 0) * 100%));
-  transition: transform .5s cubic-bezier(.34, 1.4, .5, 1);
+  transform: translate3d(calc(var(--i, 0) * 100%), 0, 0);
+  transition: transform .45s cubic-bezier(.34, 1.4, .5, 1), background .2s ease, box-shadow .2s ease;
+  will-change: transform;
+}
+.nav.dragging .nav-bubble {
+  transition: background .2s ease, box-shadow .2s ease;
+  background: color-mix(in srgb, var(--glass-pill) 60%, rgba(255, 255, 255, .22));
+  box-shadow: inset 0 1px 0 var(--glass-shine), inset 0 0 0 1px rgba(255, 255, 255, .28), 0 6px 18px rgba(0, 0, 0, .18);
 }
 .nav a {
   position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 7px 0 6px;
   text-decoration: none; font-size: 11px; font-weight: 600; color: var(--muted); border-radius: 26px;
-  transition: color .25s ease, transform .2s ease;
+  transition: color .2s ease;
 }
-.nav a:active { transform: scale(.92); }
-.nav a svg { width: 23px; height: 23px; transition: transform .35s cubic-bezier(.34, 1.4, .5, 1); }
+.nav a svg { width: 23px; height: 23px; transition: transform .3s cubic-bezier(.34, 1.4, .5, 1); }
+.nav a:active svg { transform: scale(.9); }
 .nav a[aria-current="page"] { color: var(--ink); font-weight: 700; }
 .nav a[aria-current="page"] svg { color: var(--accent-text); transform: translateY(-1px) scale(1.06); }
-/* tieni premuto e trascina: la bolla segue il dito come una lente (posizione in --dx, impostata da app.js) */
-.nav { touch-action: none; transition: transform .35s cubic-bezier(.34, 1.4, .5, 1); }
-.nav.dragging { transform: scale(1.03); }
-.nav.dragging::after {
-  transition: transform .08s linear, background .2s ease;
-  transform: translateX(var(--dx, 0px)) scale(1.14, 1.2);
-  background: color-mix(in srgb, var(--glass-pill) 60%, rgba(255, 255, 255, .22));
-  box-shadow: inset 0 1px 0 var(--glass-shine), inset 0 0 0 1px rgba(255, 255, 255, .28), 0 6px 18px rgba(0, 0, 0, .18);
-}
-.nav.dragging a { transform: none; }
+/* tieni premuto e trascina: la sezione sotto il dito si ingrandisce come sotto una lente */
+.nav { touch-action: none; }
 .nav.dragging a[aria-current="page"] { color: var(--muted); font-weight: 600; }
 .nav.dragging a[aria-current="page"] svg { color: inherit; transform: none; }
 .nav.dragging a.lens { color: var(--ink); font-weight: 700; }
 .nav.dragging a.lens svg { color: var(--accent-text); transform: translateY(-2px) scale(1.22); }
 @media (min-width: 900px) {
   .nav { position: static; display: flex; gap: 4px; background: none; border: 0; padding: 0; backdrop-filter: none; -webkit-backdrop-filter: none; margin: 0 0 0 12px; max-width: none; box-shadow: none; border-radius: 0; isolation: auto; }
-  .nav::before, .nav::after { display: none; }
+  .nav::before, .nav-bubble { display: none; }
   .nav a[aria-current="page"] svg { transform: none; }
   .nav a { flex-direction: row; gap: 8px; font-size: 14px; padding: 8px 14px; }
   .nav a svg { width: 18px; height: 18px; }
@@ -173,6 +172,9 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 }
 
 /* ============ Layout ============ */
+/* cambio pagina: comparsa breve e leggera (solo opacità e spostamento, fluidi anche su iPhone) */
+main.page-in > * { animation: pageIn .22s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes pageIn { from { opacity: 0; transform: translate3d(0, 8px, 0); } }
 main { max-width: 1120px; margin: 0 auto; padding: 18px 16px 8px; outline: none; }
 @media (min-width: 900px) { main { padding-bottom: 24px; padding-top: 28px; } }
 .stack > * + * { margin-top: 16px; }
