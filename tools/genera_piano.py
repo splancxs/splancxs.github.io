@@ -604,6 +604,18 @@ EX_MAP = {
     'LB3': 'leg_extension', 'LB4': 'preacher_curl_machine', 'LB5': 'overhead_ext_rope', 'LB6': 'hammer_curl_rope',
     'LB7': 'triceps_pushdown', 'LB8': 'crunch_machine', 'LB9': 'side_plank',
 }
+# illustrazioni Everkinetic (CC BY-SA 4.0) in assets/esercizi/<id>-relaxation.svg e <id>-tension.svg
+EX_IMG = {
+    'chest_press': '0066', 'lat_pulldown_wide': '0093', 'pec_deck': '0056', 'low_row': '0025', 'lateral_raise_cable': '0018',
+    'reverse_pec_deck': '0035', 'leg_press': '0127', 'leg_curl': '0117', 'leg_extension': '0142', 'bayesian_curl': '0247',
+    'triceps_pushdown': '0205', 'hammer_curl_rope': '0216', 'overhead_ext_rope': '0199', 'cable_crunch': '0288',
+    'incline_db_press': '0061', 'tbar_row': '0029', 'shoulder_press_machine': '0004', 'lat_pulldown_neutral': '0096',
+    'lateral_raise_machine': '0018', 'leg_press_high': '0127', 'preacher_curl_machine': '0236', 'crunch_machine': '0288',
+    'side_plank': '0113', 'bench_press_bb': '0042', 'db_bench': '0055', 'cable_fly': '0048', 'pullup': '0090',
+    'straight_arm_pulldown': '0092', 'db_shoulder_press': '0031', 'db_lateral_raise': '0018', 'squat_bb': '0122',
+    'hack_squat': '0123', 'lunges_db': '0115', 'calf_leg_press': '0273', 'calf_standing': '0282', 'db_curl': '0224',
+    'incline_db_curl': '0214', 'dips': '0054', 'ez_skullcrusher': '0183',
+}
 # serie dirette a settimana previste dalla scheda (per le statistiche)
 MUSCLE_TARGETS = {'Petto': 11, 'Dorsali': 12, 'Deltoidi laterali': 7, 'Deltoidi posteriori': 5, 'Quadricipiti': 12,
                   'Femorali': 7, 'Bicipiti': 10, 'Tricipiti': 10, 'Addome': 6}
@@ -618,6 +630,8 @@ def build_exlib():
     lib = {}
     for k, (n, m, sec, inc, unit, eq) in EXLIB_BASE.items():
         lib[k] = dict(id=k, n=n, m=m, sec=sec, inc=inc, unit=unit, eq=eq, cue=cues.get(k, ''))
+        if k in EX_IMG:
+            lib[k]['img'] = EX_IMG[k]
     return lib
 
 

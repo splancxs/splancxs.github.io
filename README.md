@@ -2,6 +2,8 @@
 
 Sito statico (GitHub Pages) con piano alimentare calcolato al grammo, scheda Torso/Limbs con diario dei carichi, lista della spesa e monitoraggio del peso. Nessun framework, nessuna build: HTML, CSS e JavaScript.
 
+Illustrazioni degli esercizi in `assets/esercizi/`: [Everkinetic](https://github.com/everkinetic/data), licenza CC BY-SA 4.0.
+
 ## Struttura
 
 | Percorso | Contenuto |

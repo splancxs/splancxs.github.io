@@ -13,6 +13,23 @@
   const lib = () => ({ ...K().D.exlib, ...K().store.get('exlib', {}) });
   const exOf = (id) => lib()[id] || { id, n: id, m: 'Altro', sec: [], inc: 2.5, unit: 'reps', eq: '', cue: '' };
   const isWork = (s) => s.type !== 'w';
+  // omino che esegue l'esercizio: due disegni Everkinetic (rilassato / in tensione) in dissolvenza continua
+  const IMG = (id, f) => `assets/esercizi/${id}-${f}.svg`;
+  function anim(e, size) {
+    if (!e.img) return size === 'sm' ? '<span class="exanim sm none" aria-hidden="true"></span>' : '';
+    const tag = size === 'lg' ? 'div' : 'button';
+    const attrs = size === 'lg' ? 'role="img" aria-label="Esecuzione di ' + K().esc(e.n) + '"' : `type="button" data-w="exanim" data-ex="${e.id}" aria-label="Guarda l'esecuzione di ${K().esc(e.n)}"`;
+    return `<${tag} class="exanim ${size}" ${attrs}><img src="${IMG(e.img, 'relaxation')}" alt="" loading="lazy" decoding="async"><img class="t" src="${IMG(e.img, 'tension')}" alt="" loading="lazy" decoding="async"></${tag}>`;
+  }
+  function showAnim(id) {
+    const k = K();
+    const e = exOf(id);
+    k.openSheet(`<div class="stack"><div><p class="eyebrow">${k.esc(e.m)}${e.sec && e.sec.length ? ' · ' + e.sec.map(k.esc).join(', ') : ''}</p><h2>${k.esc(e.n)}</h2></div>
+      ${anim(e, 'lg')}
+      ${e.cue ? `<p><strong>Tecnica:</strong> ${k.esc(e.cue)}</p>` : ''}
+      <p class="tiny muted">Illustrazione: Everkinetic (CC BY-SA 4.0)${e.img && /Pec Deck|Lat Pulldown · presa larga|Shoulder Press|Alzate laterali al cavo|Alzate laterali alla macchina|Bayesian|Reverse Pec Deck/.test(e.n) ? ' · movimento equivalente: sulla tua macchina la posizione può essere diversa' : ''}</p>
+      <button type="button" class="btn" data-act="sheet-close">Chiudi</button></div>`);
+  }
   const e1rm = (kg, r) => (kg > 0 && r > 0 ? kg * (1 + r / 30) : 0); // formula di Epley
   const volOf = (sets) => sets.filter(isWork).reduce((a, s) => a + (s.kg > 0 && s.r > 0 ? s.kg * s.r : 0), 0);
   const uid = (p) => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -146,6 +163,7 @@
     const next = it.sup && it.sup.endsWith('a') ? a.items.find((x) => x.sup === it.sup.replace('a', 'b')) : null;
     return `<article class="card wx${it.sup ? ' sup' : ''}" id="wx-${i}">
       <div class="wx-h">
+        ${anim(e, 'sm')}
         <div class="wx-t">${it.sup ? `<span class="badge on">${k.esc(it.sup)}</span> ` : ''}<h3>${k.esc(e.n)}</h3>
           <div class="ex-meta"><span>${k.esc(e.m)}</span><span><b>${it.sets.length} × ${it.lo}–${it.hi}</b>${e.unit === 'sec' ? '″' : ''}</span><span>Rec. <b>${it.rest > 0 ? k.restTxt(it.rest) : 'superserie'}</b></span></div></div>
         <div class="wx-menu">
@@ -160,12 +178,12 @@
       <p class="sugg ${sg.cls}" style="margin:0 14px 8px">${k.esc(sg.txt)} ${k.tip('progressione')}</p>
       ${it.showNote || it.note ? `<textarea class="wnote" data-wi="note" data-i="${i}" rows="2" placeholder="Nota (sedile, impugnatura, sensazioni…)">${k.esc(it.note || '')}</textarea>` : ''}
       <div class="wsets">
-        <div class="wset head"><span>Serie ${k.tip('serie')}</span><span>Precedente</span><span>${e.unit === 'sec' ? '' : 'kg'}</span><span>${e.unit === 'sec' ? 'sec' : 'Rip'}</span><span>✓</span></div>
+        <div class="wset head"><span>Serie</span><span>Precedente</span><span>${e.unit === 'sec' ? '' : 'kg'}</span><span>${e.unit === 'sec' ? 'sec' : 'Rip'}</span><span>✓</span></div>
         ${it.sets.map((s, j) => setRow(it, i, j, s, nums)).join('')}
       </div>
       <div class="ex-f"><button type="button" class="chip" data-w="addset" data-i="${i}">+ Serie</button>${it.sets.length > 1 ? `<button type="button" class="chip" data-w="delset" data-i="${i}">− Serie</button>` : ''}
         ${plateable(e) ? `<button type="button" class="chip" data-w="plates" data-i="${i}">Dischi</button>` : ''}
-        ${e.cue ? `<button type="button" class="chip" data-act="toggle" data-t="wcue-${i}" aria-expanded="false">Tecnica</button>` : ''}</div>
+        ${e.cue ? `<button type="button" class="chip" data-act="toggle" data-t="wcue-${i}" aria-expanded="false">Tecnica</button>` : ''}<span class="spacer"></span><span class="tiny muted">Tipi di serie ${k.tip('serie')}</span></div>
       ${e.cue ? `<p class="cue hidden" id="wcue-${i}">${k.esc(e.cue)}</p>` : ''}
     </article>`;
   }
@@ -411,7 +429,7 @@
       <div class="row"><h2>Scegli esercizio</h2><span class="spacer"></span><button type="button" class="chip" data-w="pick-close">Chiudi</button></div>
       <input id="pickSearch" class="search" type="search" placeholder="Cerca esercizio…" autocomplete="off" data-wi="pick-search">
       <div class="pill-list">${['', ...muscles].map((m) => `<button type="button" class="chip${ui.muscle === m ? ' solid' : ''}" data-w="pick-muscle" data-m="${k.esc(m)}">${m ? k.esc(m) : 'Tutti'}</button>`).join('')}</div>
-      <ul class="picklist">${ids.map((id) => `<li data-n="${k.esc(L[id].n.toLowerCase())}"><button type="button" data-w="pick" data-ex="${id}"><b>${k.esc(L[id].n)}</b><span class="tiny muted">${k.esc(L[id].m)} · ${k.esc(L[id].eq || '')}</span></button></li>`).join('')}</ul>
+      <ul class="picklist">${ids.map((id) => `<li data-n="${k.esc(L[id].n.toLowerCase())}"><button type="button" data-w="pick" data-ex="${id}" class="pick-row">${L[id].img ? `<img class="pick-img" src="${IMG(L[id].img, 'relaxation')}" alt="" loading="lazy" decoding="async">` : '<span class="pick-img none"></span>'}<span class="pick-t"><b>${k.esc(L[id].n)}</b><span class="tiny muted">${k.esc(L[id].m)} · ${k.esc(L[id].eq || '')}</span></span></button></li>`).join('')}</ul>
       <details class="card flat"><summary>Crea un esercizio nuovo</summary>
         <div class="stack">
           <div class="field"><label for="nxName">Nome</label><input id="nxName" autocomplete="off"></div>
@@ -569,6 +587,7 @@
     return `<div class="stack">
       <div class="row"><button type="button" class="chip" data-w="exdetail-close">← Indietro</button></div>
       <div><p class="eyebrow">${k.esc(e.m)}${e.sec && e.sec.length ? ' · ' + e.sec.map(k.esc).join(', ') : ''}</p><h1>${k.esc(e.n)}</h1></div>
+      ${e.img ? `<section class="card exanim-card">${anim(e, 'lg')}</section>` : ''}
       <div class="stats">${tiles.map(([l, v]) => `<div class="stat"><div class="lbl">${l}</div><div class="v">${v}</div></div>`).join('')}</div>
       <section class="card stack"><h2>Progressi</h2>${chart}</section>
       <section class="card stack"><h2>Sedute (${sessions.length})</h2>
@@ -648,6 +667,7 @@
         const kg = it ? (it.sets.find((x) => !x.done && x.kg != null) || {}).kg ?? placeholder(it, 0).kg : null;
         openPlates(kg, it ? exOf(it.ex).n : ''); return true;
       }
+      case 'exanim': showAnim(t.dataset.ex); return true;
       case 'pick-add': ui.picker = { ctx: 'add' }; ui.muscle = ''; k.render(); return true;
       case 'pick-swap': ui.picker = { ctx: 'swap', i }; ui.muscle = exOf(a.items[i].ex).m; k.render(); return true;
       case 'pick-edit': ui.picker = { ctx: 'edit' }; ui.muscle = ''; k.render(); return true;
