@@ -22,6 +22,14 @@ Sito statico (GitHub Pages) con piano alimentare calcolato al grammo, scheda Tor
 
 I dati dell'app installata sono separati da quelli di Safari: per spostarli usa Progressi → Esporta / Importa backup. Il timer di recupero suona solo se l'iPhone non è in modalità silenziosa; in ogni caso la barra del timer diventa lime allo scadere.
 
+## App iPhone nativa (Capacitor)
+
+`app-ios/` contiene il guscio nativo: il sito viene copiato dentro l'app (funziona offline) e in più ci sono notifiche locali (promemoria, fine recupero), vibrazione e Apple Salute (scrive i pesi; legge peso, grasso corporeo e passi). Le funzioni native si attivano solo dentro l'app (`window.Capacitor`), sul sito restano spente.
+
+- Compilazione: `.github/workflows/app-iphone.yml` gira su un Mac di GitHub a ogni modifica di sito o `app-ios/` e produce l'artefatto **Recomp-ipa** (Actions → App iPhone → ultima esecuzione → Artifacts).
+- Installazione: **Sideloadly** sul PC con il proprio Apple ID gratuito. L'app firmata con un Apple ID gratuito scade dopo 7 giorni: basta reinstallarla (i dati restano, e comunque sono sincronizzati con Firebase).
+- `app-ios/patch-ios.mjs` adatta il progetto generato (permessi Salute, entitlement HealthKit, solo verticale, icona e splash da `app-ios/resources/`).
+
 ## Sincronizzazione PC ↔ telefono (Firebase)
 
 `assets/js/sync.js` salva tutti i dati dell'app in Firestore (documento `users/{uid}`) e li tiene allineati tra i dispositivi. Si attiva quando `assets/js/firebase-config.js` contiene la configurazione del progetto.

@@ -53,4 +53,10 @@ icon(512).save(os.path.join(OUT, 'icon-512.png'))
 icon(512, pad_ratio=0.12).save(os.path.join(OUT, 'icon-maskable-512.png'))
 icon(180, pad_ratio=0.0, radius_ratio=0).save(os.path.join(OUT, 'apple-touch-icon.png'))
 splash(1170, 2532).save(os.path.join(OUT, 'splash-1170x2532.png'), optimize=True)
+
+# App nativa iOS (app-ios/resources): icona 1024 quadrata senza trasparenza (iOS arrotonda da sé) e splash 2732
+RES = os.path.join(ROOT, 'app-ios', 'resources')
+os.makedirs(RES, exist_ok=True)
+icon(1024, radius_ratio=0).convert('RGB').save(os.path.join(RES, 'icon-1024.png'))
+splash(2732, 2732).save(os.path.join(RES, 'splash-2732.png'), optimize=True)
 print('icone generate in', OUT)

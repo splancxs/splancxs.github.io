@@ -1,0 +1,14 @@
+{
+  "appId": "io.github.splancxs.recomp",
+  "appName": "Recomp",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#0d0e0f"
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "iconColor": "#c4f031"
+    }
+  }
+}

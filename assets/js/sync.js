@@ -7,7 +7,7 @@
 import { firebaseConfig } from './firebase-config.js';
 
 const V = '11.0.2';
-const SKIP = new Set(['rc._meta', 'rc.theme', 'rc.installHidden']); // preferenze del singolo dispositivo
+const SKIP = new Set(['rc._meta', 'rc.theme', 'rc.installHidden', 'rc.health', 'rc.reminders']); // preferenze del singolo dispositivo
 const S = {
   state: { status: 'loading' },
   login: () => {}, signup: () => {}, logout: () => {}, now: () => {},
