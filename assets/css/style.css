@@ -701,3 +701,109 @@ html.no-scroll, html.no-scroll body { overflow: hidden; }
 .pcmp-l, .pcmp-r { position: absolute; top: 10px; background: rgba(0, 0, 0, .55); color: #fff; font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 8px; }
 .pcmp-l { left: 10px; } .pcmp-r { right: 10px; }
 #pcmpRange { width: 100%; accent-color: var(--ink); }
+
+/* =====================================================================
+   STILE SPORTIVO — titoli e numeri condensati, lime come colore guida.
+   Regola d'oro: il lime è un RIEMPIMENTO con testo scuro sopra, mai
+   testo su sfondo chiaro (in tema chiaro il testo "accento" è verde oliva).
+   ===================================================================== */
+:root {
+  --display: 'Barlow Condensed', 'Avenir Next Condensed', 'AvenirNextCondensed-Bold', 'HelveticaNeue-CondensedBold', 'Arial Narrow', system-ui, sans-serif;
+  --accent-text: #3d5700;
+  --accent-line: #9fca1f;
+  --block: #0d0e0f;
+  --block-text: #f2f2ee;
+  --radius: 20px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #090909; --surface: #141414; --surface-2: #1b1b1b; --surface-3: #242424; --line: #232323; --line-2: #343434; --accent-text: #c4f031; --accent-line: #c4f031; --block: #1c1c1c; }
+}
+:root[data-theme="dark"] { --bg: #090909; --surface: #141414; --surface-2: #1b1b1b; --surface-3: #242424; --line: #232323; --line-2: #343434; --accent-text: #c4f031; --accent-line: #c4f031; --block: #1c1c1c; }
+
+/* tipografia */
+h1, h2, .brand, .kcal-big, .rings-c b, .stat .v, .tot .v, .wo-stats b, .timer-time, .meal-k b, .mrow-k b, .leg b, .wsum-g b, .mtot b,
+.ex-n, .mrow-t, .tl-time, .day, .wo-tab, .kv dd, .wtype, .avatar, .alt-c, .cal-d { font-family: var(--display); }
+h1 { font-size: clamp(2.3rem, 10vw, 3.1rem); font-weight: 800; text-transform: uppercase; letter-spacing: 0; line-height: .92; }
+h2 { font-size: 1.45rem; font-weight: 800; text-transform: uppercase; letter-spacing: .01em; line-height: 1; }
+.eyebrow { letter-spacing: .14em; font-size: 11.5px; }
+.brand { font-size: 1.55rem; font-weight: 900; text-transform: uppercase; letter-spacing: .01em; }
+.top-title { font-family: var(--display); font-weight: 800; text-transform: uppercase; font-size: 19px; letter-spacing: .02em; }
+.rings-c b { font-size: 36px; font-weight: 800; color: var(--accent-text); letter-spacing: 0; }
+.stat .v, .tot .v, .wsum-g b { font-size: 30px; font-weight: 800; letter-spacing: 0; }
+.wo-stats b { font-size: 28px; font-weight: 800; letter-spacing: 0; }
+.mrow-k b, .meal-k b { font-size: 22px; font-weight: 800; }
+.mrow-t { font-size: 17px; font-weight: 800; }
+.leg b { font-size: 21px; font-weight: 800; }
+.mtot b { font-size: 22px; }
+.kv dd { font-size: 22px; font-weight: 800; }
+.timer-time { font-size: 30px; font-weight: 800; }
+
+/* carte */
+.card { border-radius: 22px; }
+
+/* pulsante principale: lime pieno, testo scuro, in entrambi i temi */
+.btn { background: var(--accent); color: var(--accent-ink); border-color: var(--accent-line); font-weight: 800; text-transform: uppercase; letter-spacing: .05em; font-size: 14px; border-radius: 14px; }
+.btn svg { stroke-width: 2.4; }
+.btn.ghost { background: transparent; color: var(--ink); border-color: var(--line-2); text-transform: none; letter-spacing: 0; font-weight: 700; font-size: 15px; }
+.chip.solid { background: var(--block); color: var(--block-text); border-color: var(--block); }
+
+/* badge ON: lime pieno (prima in tema scuro era scritta lime su fondo chiaro) */
+.badge { font-family: var(--display); font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; padding: 4px 11px; }
+.badge.on { background: var(--accent); color: var(--accent-ink); }
+.badge.off { background: var(--surface-3); color: var(--muted); }
+
+/* card «Adesso»: lime pieno con testo scuro */
+.adesso, .adesso.gym { background: var(--accent); color: var(--accent-ink); border: 0; }
+.adesso .eyebrow, .adesso.gym .eyebrow { color: rgba(27, 36, 0, .72); }
+.adesso h2 { font-size: 1.7rem; }
+.adesso .small { color: var(--accent-ink); }
+.adesso .btn, .adesso.gym .btn { background: var(--block); color: #c4f031; border-color: var(--block); }
+.adesso .chip { background: transparent; color: var(--accent-ink); border-color: rgba(27, 36, 0, .35); }
+.adesso.done { background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
+.adesso.done .eyebrow { color: var(--muted); }
+
+/* riga palestra, barra allenamento in corso, mini-guida: lime pieno */
+.evrow.gym, .tl.gym .tl-body { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.evrow.gym b, .tl.gym .tl-body strong, .tl.gym a { color: var(--accent-ink); }
+.wo-banner { background: var(--accent); color: var(--accent-ink); }
+.wo-banner b { color: var(--accent-ink); }
+.dot-live { background: var(--accent-ink); }
+.ob-ic { background: var(--accent); color: var(--accent-ink); }
+.ob-dots i.on { background: var(--accent-text); }
+
+/* schede selezionate */
+.day[aria-selected="true"], .wo-tab[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent-line); }
+.day[aria-selected="true"] small, .wo-tab[aria-selected="true"] small { color: rgba(27, 36, 0, .7); }
+.day[aria-selected="true"] .tp.on { background: var(--accent-ink); }
+.day.today { box-shadow: inset 0 0 0 2px var(--accent-line); }
+.day { font-size: 16px; font-weight: 800; text-transform: uppercase; }
+.wo-tab { font-size: 16px; font-weight: 800; text-transform: uppercase; }
+
+/* anelli più spessi */
+.rings circle { stroke-width: 14; }
+.rings .rg.k { stroke: var(--accent-line); }
+
+/* barra in basso: bolla lime con icona scura */
+.nav-bubble { background: var(--accent); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35); }
+.nav.dragging .nav-bubble { background: var(--accent); box-shadow: 0 6px 18px rgba(0, 0, 0, .25), inset 0 1px 0 rgba(255, 255, 255, .45); }
+.nav a[aria-current="page"], .nav a[aria-current="page"] svg { color: var(--accent-ink); }
+.nav.dragging a[aria-current="page"], .nav.dragging a[aria-current="page"] svg { color: var(--muted); }
+.nav.dragging a.lens, .nav.dragging a.lens svg { color: var(--accent-ink); }
+.nav a { font-family: var(--display); font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }
+@media (min-width: 900px) {
+  .nav a { font-size: 15px; }
+  .nav a[aria-current="page"] { background: var(--accent); color: var(--accent-ink); }
+  .nav a[aria-current="page"] svg { color: var(--accent-ink); }
+}
+
+/* timer: blocco sempre scuro con anello lime (prima in tema scuro diventava chiaro) */
+.timer-in { background: var(--block); color: var(--block-text); border: 1px solid var(--line-2); }
+.t-btn { background: rgba(255, 255, 255, .1); color: var(--block-text); }
+.t-ring .t-bg { stroke: rgba(255, 255, 255, .14); }
+.timer.done .timer-in { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+
+/* allenamento */
+.wx-t h3 { font-family: var(--display); font-size: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: .01em; }
+.wset input { font-family: var(--display); font-size: 20px; font-weight: 700; }
+.wchk[aria-pressed="true"], .check[aria-pressed="true"] { background: var(--accent); border-color: var(--accent-line); }
+.sugg.up { background: var(--accent); color: var(--accent-ink); }
