@@ -296,12 +296,12 @@ rec('F-E', 'frutto', 'Fragole', '', [('fragole', 250, 220, 280, 10)])
 SLOTS = {
     'm1':          dict(kind='m1', t=(440, 27, 52, 13)),
     'm2':          dict(kind='m2', t=(300, 18, 36, 9)),
-    'pranzo_on':   dict(kind='pranzo', t=(660, 35, 95, 16)),
-    'pranzo_off':  dict(kind='pranzo', t=(510, 36, 48, 18)),
-    'pranzo_we':   dict(kind='pranzo', t=(620, 40, 62, 21)),
+    'pranzo_on':   dict(kind='pranzo', t=(590, 35, 80, 15)),
+    'pranzo_off':  dict(kind='pranzo', t=(440, 36, 36, 16)),
+    'pranzo_we':   dict(kind='pranzo', t=(550, 40, 50, 19)),
     'pw':          dict(kind='pw', t=None),
-    'cena':        dict(kind='cena', t=(580, 35, 62, 24)),
-    'cena_light':  dict(kind='cena', t=(480, 42, 34, 19)),
+    'cena':        dict(kind='cena', t=(500, 35, 48, 21)),
+    'cena_light':  dict(kind='cena', t=(400, 42, 22, 16)),
     'spuntino':    dict(kind='spuntino', t=(170, 18, 14, 6)),
     'colazione':   dict(kind='colazione', t=(450, 32, 50, 13)),
     'frutto':      dict(kind='frutto', t=(80, 1, 18, 0)),
@@ -357,18 +357,18 @@ for slot, s in SLOTS.items():
 # SETTIMANA TIPO (scelte di default; nel sito ogni pasto si può scambiare)
 # ---------------------------------------------------------------------------
 DAYTYPES = {
-    'ON':  dict(label='Giorno ON · scuola + palestra', target=(2200, 140, 275, 60), slots=[
+    'ON':  dict(label='Giorno ON · scuola + palestra', target=(2050, 140, 249, 55), slots=[
         ('09:30', 'Merenda 1 (intervallo)', 'm1'), ('12:10', 'Merenda 2 (intervallo)', 'm2'),
         ('14:30', 'Pranzo · pre-workout', 'pranzo_on'), ('18:00', 'Post-workout', 'pw'),
         ('19:00', 'Cena', 'cena')]),
-    'OFF_S': dict(label='Giorno OFF · scuola', target=(1900, 140, 191, 64), slots=[
+    'OFF_S': dict(label='Giorno OFF · scuola', target=(1750, 140, 167, 58), slots=[
         ('09:30', 'Merenda 1 (intervallo)', 'm1'), ('12:10', 'Merenda 2 (intervallo)', 'm2'),
         ('14:30', 'Pranzo', 'pranzo_off'), ('17:30', 'Merenda', 'spuntino'),
         ('19:00', 'Cena', 'cena_light')]),
-    'OFF_W': dict(label='Giorno OFF · weekend', target=(1900, 140, 191, 64), slots=[
+    'OFF_W': dict(label='Giorno OFF · weekend', target=(1750, 140, 167, 58), slots=[
         ('09:30', 'Colazione', 'colazione'), ('11:30', 'Spuntino', 'frutto'),
         ('13:30', 'Pranzo', 'pranzo_we'), ('17:30', 'Merenda', 'spuntino'), ('20:00', 'Cena', 'cena')]),
-    'FREE': dict(label='Giorno OFF · pasto libero', target=(1900, 140, 191, 64), slots=[
+    'FREE': dict(label='Giorno OFF · pasto libero', target=(1750, 140, 167, 58), slots=[
         ('09:30', 'Colazione', 'colazione'), ('13:30', 'Pranzo LIBERO', 'free'),
         ('17:30', 'Merenda', 'spuntino'), ('20:00', 'Cena leggera', 'cena_light')]),
 }
@@ -647,7 +647,7 @@ def build_exlib():
 
 EXLIB = build_exlib()
 
-TARGETS = dict(ON=dict(k=2200, p=140, c=275, f=60), OFF=dict(k=1900, p=140, c=191, f=64))
+TARGETS = dict(ON=dict(k=2050, p=140, c=249, f=55), OFF=dict(k=1750, p=140, c=167, f=58))
 
 
 def build_data():

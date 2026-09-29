@@ -572,7 +572,7 @@
         <tbody>${rows}</tbody>
         <tfoot><tr><td colspan="2">Media</td><td class="r">${f0(sk / 7)}</td><td colspan="3" class="muted small">con pasto libero stimato ${FREE_EST} kcal</td></tr></tfoot>
       </table></div>
-      <p class="tiny muted">* Domenica: solo i pasti pianificati, senza il pasto libero. Target: ON 2200 · OFF 1900 · media 2071.</p>
+      <p class="tiny muted">* Domenica: solo i pasti pianificati, senza il pasto libero. Target: ON 2050 · OFF 1750 · media 1921.</p>
     </section>`;
   }
 
@@ -1009,9 +1009,9 @@
 
   /* ---------------- spiegazioni ⓘ ---------------- */
   const GLOSSARIO = {
-    on: ['Giorno ON', 'Giorno con la palestra (lunedì, martedì, giovedì, venerdì). Mangi di più, 2200 kcal, soprattutto carboidrati, per allenarti bene e recuperare.'],
-    off: ['Giorno OFF', 'Giorno senza palestra (mercoledì, sabato, domenica). 1900 kcal, meno carboidrati e un po’ più di grassi per saziarti.'],
-    kcal: ['Calorie', 'L’energia del cibo. Il piano ti tiene circa 230 kcal sotto il tuo consumo medio: perdi grasso piano piano senza svuotarti e senza avere fame.'],
+    on: ['Giorno ON', 'Giorno con la palestra (lunedì, martedì, giovedì, venerdì). Mangi di più, 2050 kcal, soprattutto carboidrati, per allenarti bene e recuperare.'],
+    off: ['Giorno OFF', 'Giorno senza palestra (mercoledì, sabato, domenica). 1750 kcal, meno carboidrati per stare in deficit.'],
+    kcal: ['Calorie', 'L’energia del cibo. Il piano ti tiene circa 380 kcal sotto il tuo consumo medio: perdi circa 0,35 kg di grasso a settimana tenendo le proteine alte per non perdere muscolo.'],
     macro: ['P · C · G', 'Proteine (P): costruiscono e proteggono il muscolo, obiettivo 140 g al giorno. Carboidrati (C): benzina per l’allenamento, più alti nei giorni ON. Grassi (G): servono agli ormoni e saziano, circa 60–64 g.'],
     scambio: ['Scambiare un pasto', 'Tutte le opzioni della stessa fascia (per esempio le merende delle 9:30) hanno quasi le stesse calorie, ±10 kcal: puoi scambiarle quando vuoi senza sballare la giornata.'],
     rir: ['RIR · ripetizioni in riserva', 'Quante ripetizioni avresti ancora potuto fare prima di non farcela più. RIR 2 vuol dire che ti fermi quando ne avresti ancora 2 nel serbatoio.'],
@@ -1102,9 +1102,9 @@
       </div>
       <section class="card stack"><h2>Target</h2>
         <div class="tbl-wrap"><table><thead><tr><th></th><th class="r">kcal</th><th class="r">Proteine</th><th class="r">Carboidrati</th><th class="r">Grassi</th></tr></thead><tbody>
-          <tr><td><span class="badge on">ON</span> Lun Mar Gio Ven</td><td class="r">2200</td><td class="r">140 g</td><td class="r">275 g</td><td class="r">60 g</td></tr>
-          <tr><td><span class="badge off">OFF</span> Mer Sab Dom</td><td class="r">1900</td><td class="r">140 g</td><td class="r">191 g</td><td class="r">64 g</td></tr>
-        </tbody><tfoot><tr><td>Media settimanale</td><td class="r">2071</td><td colspan="3" class="small muted">−10% dal TDEE, circa −230 kcal al giorno</td></tr></tfoot></table></div>
+          <tr><td><span class="badge on">ON</span> Lun Mar Gio Ven</td><td class="r">2050</td><td class="r">140 g</td><td class="r">249 g</td><td class="r">55 g</td></tr>
+          <tr><td><span class="badge off">OFF</span> Mer Sab Dom</td><td class="r">1750</td><td class="r">140 g</td><td class="r">167 g</td><td class="r">58 g</td></tr>
+        </tbody><tfoot><tr><td>Media settimanale</td><td class="r">1921</td><td colspan="3" class="small muted">−16% dal TDEE, circa −380 kcal al giorno</td></tr></tfoot></table></div>
         <div class="prose small">
           <p>Proteine a 2,2 g/kg per proteggere e costruire muscolo mentre perdi grasso. Carboidrati concentrati nei giorni in cui ti alleni, grassi un po' più alti nei giorni OFF per saziarti. Per il grasso conta la media della settimana.</p>
           <p><strong>Perché non 1850 fisse:</strong> con 4 allenamenti più la scuola sarebbero −450 kcal al giorno (−20%). Scenderesti più in fretta sulla bilancia, ma i carichi si fermerebbero (soprattutto la schiena, che devi costruire) e arriveresti affamato alle 14:30.</p>
@@ -1148,7 +1148,7 @@
         <ul><li>1 a settimana, sabato o domenica a pranzo (nel piano è domenica: puoi scambiare i giorni).</li>
         <li>Una porzione normale: pizza, hamburger con patatine piccole, sushi da 12–16 pezzi.</li>
         <li>Niente antipasto + dolce + bis, e non diventa una giornata libera.</li>
-        <li>Il resto della giornata è già più leggero (circa 1100 kcal) per lasciargli spazio.</li></ul></section>
+        <li>Il resto della giornata è già più leggero (circa 1020 kcal) per lasciargli spazio.</li></ul></section>
       <section class="card prose small"><h2>Recupero</h2>
         <ul><li><strong>Sonno:</strong> 8 ore (22:30 → 6:30). È metà della ricomposizione.</li>
         <li><strong>Acqua:</strong> 2,5–3 litri al giorno, +0,5 litri nei giorni di palestra.</li>
