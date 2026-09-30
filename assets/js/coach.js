@@ -1,8 +1,8 @@
 'use strict';
-// Coach: un riepilogo calcolato dai dati registrati nell'app e, se colleghi Claude con la tua chiave API,
-// risposte a domande libere. Claude riceve solo i dati dell'app (peso, pasti spuntati, allenamenti) e ha
-// l'istruzione di non inventare niente che non sia lì. Usa le utilità di app.js (window.RCK) e di
-// allenamento.js (window.RCW.data).
+// Coach: un riepilogo calcolato dai dati registrati nell'app e, se colleghi un'AI con la tua chiave,
+// risposte a domande libere. Tre servizi a scelta: Google Gemini e Groq (gratuiti) oppure Claude (a consumo).
+// L'AI riceve solo i dati dell'app (peso, pasti spuntati, allenamenti) e ha l'istruzione di non inventare
+// niente che non sia lì. Usa le utilità di app.js (window.RCK) e di allenamento.js (window.RCW.data).
 (function () {
   const C = {};
   window.RCC = C;
@@ -11,7 +11,27 @@
 
   // SDK ufficiale di Anthropic, caricato solo quando fai la prima domanda a Claude
   const SDK_URL = 'https://cdn.jsdelivr.net/npm/@anthropic-ai/sdk@0.129.0/+esm';
-  const MODELS = { 'claude-opus-5-5': 'Claude Opus 5.5 · il più capace', 'claude-sonnet-5-5': 'Claude Sonnet 5.5 · circa metà prezzo' };
+  // Servizi collegabili. «short» = il piano gratuito accetta richieste piccole: invio solo le ultime 4 settimane.
+  const PROVIDERS = {
+    gemini: {
+      name: 'Google Gemini', tag: 'gratis', keyUrl: 'https://aistudio.google.com/apikey', keyHint: 'AIza…',
+      models: { 'gemini-3.8-flash': 'Gemini 3.8 Flash' },
+      how: 'Gratis con un account Google (servono 18 anni). Apri aistudio.google.com/apikey, tocca «Create API key» e incolla qui la chiave. Non serve una carta.',
+      privacy: 'Con il piano gratuito Google può usare domande e risposte per migliorare i suoi servizi, e dei revisori possono leggerle. Al coach arrivano peso, pasti spuntati e allenamenti; non il tuo nome né la tua email.',
+    },
+    groq: {
+      name: 'Groq', tag: 'gratis', keyUrl: 'https://console.groq.com/keys', keyHint: 'gsk_…', short: true,
+      models: { 'openai/gpt-oss-120b': 'GPT-OSS 120B', 'llama-3.3-70b-versatile': 'Llama 3.3 70B' },
+      how: 'Gratis con un account Groq. Apri console.groq.com/keys, crea una chiave e incollala qui. Non serve una carta.',
+      privacy: 'Groq dichiara di non conservare il contenuto delle richieste. I limiti gratuiti sono più stretti: invio solo le ultime 4 settimane di dati. I modelli sono un po’ meno precisi in italiano.',
+    },
+    claude: {
+      name: 'Claude', tag: 'a pagamento', keyUrl: 'https://console.anthropic.com/settings/keys', keyHint: 'sk-ant-…',
+      models: { 'claude-opus-5-5': 'Claude Opus 5.5 · il più capace', 'claude-sonnet-5-5': 'Claude Sonnet 5.5 · circa metà prezzo' },
+      how: 'Servizio a consumo di Anthropic, separato dall’abbonamento a Claude: qualche centesimo di dollaro a domanda. La chiave si crea su console.anthropic.com.',
+      privacy: 'I dati dell’app vengono inviati ad Anthropic solo quando premi Invia.',
+    },
+  };
   const DAY = 86400000;
   const GIORNI = ['lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato', 'domenica'];
   const PRESETS = [
@@ -22,10 +42,12 @@
     ['today', 'L’allenamento di oggi è stato sufficiente?'],
     ['stall', 'Il peso è fermo: cosa conviene fare?'],
   ];
-  const ui = { busy: false, draft: '', err: '', live: '' };
+  const ui = { busy: false, draft: '', err: '', live: '', prov: '' };
 
   const getKey = () => K().store.get('aiKey', '');
-  const getModel = () => { const m = K().store.get('aiModel', ''); return MODELS[m] ? m : 'claude-opus-5-5'; };
+  // servizio collegato; chi aveva già salvato una chiave prima di questa scelta usava Claude
+  const getProv = () => { const p = K().store.get('aiProv', ''); return PROVIDERS[p] ? p : getKey() ? 'claude' : 'gemini'; };
+  const getModel = () => { const P = PROVIDERS[getProv()]; const m = K().store.get('aiModel', ''); return P.models[m] ? m : Object.keys(P.models)[0]; };
   const getChat = () => K().store.get('coachChat', []);
   const setChat = (c) => K().store.set('coachChat', c.slice(-30));
 
@@ -165,7 +187,7 @@
   }
 
   /* ---------------- dati dell'app in forma di testo per Claude ---------------- */
-  function context() {
+  function context(short) {
     const k = K();
     const D = k.D;
     const f = facts();
@@ -191,12 +213,12 @@
 
     L.push('', `PESO (${f.ws.length} pesate registrate; data, kg, girovita in cm se misurato)`);
     if (!f.ws.length) L.push('Nessuna pesata registrata.');
-    f.ws.slice(-60).forEach((w) => L.push(`${w.d} ${w.kg}${w.w != null ? ` vita ${w.w}` : ''}`));
+    f.ws.slice(short ? -28 : -60).forEach((w) => L.push(`${w.d} ${w.kg}${w.w != null ? ` vita ${w.w}` : ''}`));
     if (f.wk.length) L.push('Medie settimanali (lunedì della settimana, numero di pesate, media kg): ' + f.wk.slice(-10).map((w) => `${w.wk} n=${w.n} ${w.kg.toFixed(2)}`).join('; '));
 
     const dlog = k.store.get('dlog', {});
-    const dkeys = Object.keys(dlog).sort().slice(-28);
-    L.push('', 'DIETA - diario dei pasti spuntati (ultimi 28 giorni). Un giorno assente significa che non è stato spuntato niente nell\'app, non che non ha mangiato.');
+    const dkeys = Object.keys(dlog).sort().slice(short ? -14 : -28);
+    L.push('', `DIETA - diario dei pasti spuntati (ultimi ${short ? 14 : 28} giorni). Un giorno assente significa che non è stato spuntato niente nell'app, non che non ha mangiato.`);
     if (!dkeys.length) L.push('Nessun pasto spuntato finora.');
     dkeys.forEach((d) => { const x = dlog[d]; L.push(`${d} ${x.on ? 'ON' : 'OFF'}${x.free ? ' (con pasto libero non conteggiato)' : ''}: pasti ${x.n}/${x.of}, kcal ${x.k}/${x.tk}, P ${x.p} C ${x.c} G ${x.f}`); });
 
@@ -204,8 +226,9 @@
     const cDays = Object.keys(crea).filter((d) => crea[d].on).sort();
     L.push('', 'CREATINA', cDays.length ? `Prima spunta ${cDays[0]}; presa ${f.creaDays} giorni negli ultimi ${f.span}.` : 'Nessuna spunta registrata.');
 
-    const hist = f.hist.filter((w) => w.start >= now.getTime() - 56 * DAY).slice().reverse();
-    L.push('', `ALLENAMENTI registrati nelle ultime 8 settimane: ${hist.length} (serie: kg x ripetizioni; R = riscaldamento)`);
+    const weeks = short ? 4 : 8;
+    const hist = f.hist.filter((w) => w.start >= now.getTime() - weeks * 7 * DAY).slice().reverse();
+    L.push('', `ALLENAMENTI registrati nelle ultime ${weeks} settimane: ${hist.length} (serie: kg x ripetizioni; R = riscaldamento)`);
     if (!hist.length) L.push('Nessun allenamento registrato.');
     hist.forEach((w) => {
       const vol = w.items.reduce((a, it) => a + it.sets.filter((s) => s.type !== 'w').reduce((b, s) => b + (s.kg > 0 && s.r > 0 ? s.kg * s.r : 0), 0), 0);
@@ -231,15 +254,99 @@ Regole:
 - Non sei un medico: per dolori, infortuni o problemi di salute suggerisci di sentire un professionista.
 - Rispondi in breve: lo leggerà sul telefono. Frasi corte o un elenco puntato di pochi punti, niente tabelle. Se serve, chiudi con 1-3 cose concrete da fare.`;
 
-  /* ---------------- chiamata a Claude ---------------- */
+  /* ---------------- chiamate all'AI ---------------- */
+  const showLive = () => { const el = document.getElementById('coLive'); if (el) { el.innerHTML = fmt(ui.live); el.parentElement.classList.remove('wait'); } };
+  // cronologia della conversazione: solo il testo dei turni con l'AI (le risposte calcolate dall'app restano fuori)
+  function turns(question) {
+    const m = getChat().filter((x) => x.src !== 'dati').map((x) => ({ role: x.role === 'user' ? 'user' : 'assistant', content: x.text }));
+    if (!m.length || m[m.length - 1].role !== 'user') m.push({ role: 'user', content: question });
+    return m;
+  }
+  // legge una risposta «a flusso» (una riga "data: {...}" per ogni pezzo) e passa ogni pezzo a onData
+  async function readStream(res, onData) {
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i;
+      while ((i = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, i).trim();
+        buf = buf.slice(i + 1);
+        if (!line.startsWith('data:')) continue;
+        const d = line.slice(5).trim();
+        if (!d || d === '[DONE]') continue;
+        try { onData(JSON.parse(d)); } catch (e) { /* riga incompleta: ignoro */ }
+      }
+    }
+  }
+  // richiesta con tempo massimo e messaggi d'errore comprensibili
+  async function post(url, headers, body, name) {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 90000);
+    let res;
+    try {
+      res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body), signal: ctl.signal });
+    } catch (e) {
+      clearTimeout(timer);
+      throw new Error(e.name === 'AbortError' ? `${name} non ha risposto in tempo: riprova.` : 'Connessione non riuscita: controlla la rete e riprova.');
+    }
+    if (!res.ok) {
+      clearTimeout(timer);
+      let msg = '';
+      try { const j = await res.json(); msg = (j.error && (j.error.message || j.error.status)) || ''; } catch (e) { /* risposta senza dettagli */ }
+      if (res.status === 401 || res.status === 403 || /api key/i.test(msg)) throw new Error('La chiave non è valida: controllala in fondo alla pagina.');
+      if (res.status === 429) throw new Error(`Hai raggiunto il limite gratuito di ${name}: riprova tra un minuto (o domani, se è il limite giornaliero).`);
+      if (res.status === 413) throw new Error(`La richiesta è troppo grande per il piano gratuito di ${name}.`);
+      if (res.status >= 500) throw new Error(`${name} è sovraccarico in questo momento: riprova tra poco.`);
+      throw new Error(`Richiesta rifiutata da ${name}${msg ? ': ' + msg : ''}`);
+    }
+    return { res, done: () => clearTimeout(timer) };
+  }
+  async function askGemini(question) {
+    const { res, done } = await post(`https://generativelanguage.googleapis.com/v1beta/models/${getModel()}:streamGenerateContent?alt=sse`, { 'x-goog-api-key': getKey() }, {
+      system_instruction: { parts: [{ text: `${SYSTEM}\n\n<dati_app>\n${context()}\n</dati_app>` }] },
+      contents: turns(question).map((m) => ({ role: m.role === 'user' ? 'user' : 'model', parts: [{ text: m.content }] })),
+    }, 'Gemini');
+    let blocked = '', finish = '';
+    await readStream(res, (j) => {
+      if (j.promptFeedback && j.promptFeedback.blockReason) blocked = j.promptFeedback.blockReason;
+      const cand = j.candidates && j.candidates[0];
+      if (!cand) return;
+      if (cand.finishReason) finish = cand.finishReason;
+      ((cand.content && cand.content.parts) || []).forEach((p) => { if (p.text && !p.thought) { ui.live += p.text; showLive(); } });
+    });
+    done();
+    if (!ui.live.trim()) return blocked || finish === 'SAFETY' ? 'Gemini non ha potuto rispondere a questa domanda. Prova a riformularla.' : 'Gemini non ha dato una risposta: riprova.';
+    return ui.live.trim() + (finish === 'MAX_TOKENS' ? '\n\n(risposta interrotta: era troppo lunga)' : '');
+  }
+  async function askGroq(question) {
+    const { res, done } = await post('https://api.groq.com/openai/v1/chat/completions', { Authorization: `Bearer ${getKey()}` }, {
+      model: getModel(), stream: true,
+      messages: [{ role: 'system', content: `${SYSTEM}\n\n<dati_app>\n${context(true)}\n</dati_app>` }].concat(turns(question)),
+    }, 'Groq');
+    let finish = '';
+    await readStream(res, (j) => {
+      const ch = j.choices && j.choices[0];
+      if (!ch) return;
+      if (ch.finish_reason) finish = ch.finish_reason;
+      if (ch.delta && ch.delta.content) { ui.live += ch.delta.content; showLive(); }
+    });
+    done();
+    if (!ui.live.trim()) return 'Groq non ha dato una risposta: riprova.';
+    return ui.live.trim() + (finish === 'length' ? '\n\n(risposta interrotta: era troppo lunga)' : '');
+  }
+  const ask = (question) => ({ gemini: askGemini, groq: askGroq, claude: askClaude })[getProv()](question);
+
   let sdk = null;
   async function askClaude(question) {
     let Anthropic;
     try { Anthropic = sdk || (sdk = (await import(SDK_URL)).default); } catch (e) { throw new Error('Non riesco a caricare il componente di Claude: controlla la connessione e riprova.'); }
     const client = new Anthropic({ apiKey: getKey(), dangerouslyAllowBrowser: true }); // la chiave è dell'utente e resta sul suo dispositivo
-    // cronologia: solo il testo dei turni precedenti; i dati dell'app viaggiano nel prompt di sistema (in cache tra una domanda e l'altra)
-    const messages = getChat().filter((m) => m.src !== 'dati').map((m) => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text }));
-    if (!messages.length || messages[messages.length - 1].role !== 'user') messages.push({ role: 'user', content: question });
+    // i dati dell'app viaggiano nel prompt di sistema (in cache tra una domanda e l'altra)
+    const messages = turns(question);
     try {
       const stream = client.beta.messages.stream({
         model: getModel(),
@@ -254,11 +361,7 @@ Regole:
         ],
         messages,
       });
-      stream.on('text', (delta) => {
-        ui.live += delta;
-        const el = document.getElementById('coLive');
-        if (el) { el.innerHTML = fmt(ui.live); el.parentElement.classList.remove('wait'); }
-      });
+      stream.on('text', (delta) => { ui.live += delta; showLive(); });
       const msg = await stream.finalMessage();
       if (msg.stop_reason === 'refusal') return 'Claude non ha potuto rispondere a questa domanda. Prova a riformularla.';
       const text = msg.content.filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim();
@@ -282,9 +385,9 @@ Regole:
     chat.push({ role: 'user', text: q, t: Date.now() });
     ui.err = ''; ui.draft = '';
     if (!getKey()) {
-      // senza Claude: alle domande pronte rispondo con i calcoli sui dati, alle altre spiego come collegarlo
+      // senza AI collegata: alle domande pronte rispondo con i calcoli sui dati, alle altre spiego come collegarla
       chat.push(preset ? { role: 'coach', src: 'dati', text: localAnswer(preset), t: Date.now() }
-        : { role: 'coach', src: 'dati', text: 'Alle domande libere risponde Claude: collegalo in fondo alla pagina. Senza, posso rispondere alle domande pronte qui sopra, calcolate dai tuoi dati.', t: Date.now() });
+        : { role: 'coach', src: 'dati', text: 'Alle domande libere risponde un’AI: puoi collegarne una gratuita in fondo alla pagina. Senza, posso rispondere alle domande pronte qui sopra, calcolate dai tuoi dati.', t: Date.now() });
       setChat(chat); k.render(); scrollChat();
       return;
     }
@@ -292,8 +395,8 @@ Regole:
     ui.busy = true; ui.live = '';
     k.render(); scrollChat();
     try {
-      const answer = await askClaude(q);
-      const c = getChat(); c.push({ role: 'coach', src: 'ai', text: answer, t: Date.now() }); setChat(c);
+      const answer = await ask(q);
+      const c = getChat(); c.push({ role: 'coach', src: 'ai', by: PROVIDERS[getProv()].name, text: answer, t: Date.now() }); setChat(c);
     } catch (e) {
       ui.err = e.message || 'Qualcosa non ha funzionato: riprova.';
       const c = getChat(); if (c.length && c[c.length - 1].role === 'user') { ui.draft = c.pop().text; setChat(c); } // la domanda torna nel campo
@@ -326,20 +429,27 @@ Regole:
     const key = getKey();
     const chat = getChat();
     const f = facts();
-    const bubble = (m) => `<div class="co-msg ${m.role === 'user' ? 'me' : 'co'}">${m.role === 'user' ? `<p>${k.esc(m.text)}</p>` : `${fmt(m.text)}<span class="co-src">${m.src === 'ai' ? 'Claude, dai tuoi dati' : 'calcolato dai tuoi dati'}</span>`}</div>`;
+    const bubble = (m) => `<div class="co-msg ${m.role === 'user' ? 'me' : 'co'}">${m.role === 'user' ? `<p>${k.esc(m.text)}</p>` : `${fmt(m.text)}<span class="co-src">${m.src === 'ai' ? `${k.esc(m.by || 'Claude')}, dai tuoi dati` : 'calcolato dai tuoi dati'}</span>`}</div>`;
+    const prov = getProv();
+    const P = PROVIDERS[prov];
+    const modelSel = (pid) => `<div class="field"><label for="coModel">Modello</label><select id="coModel" class="search" data-c="model">${Object.entries(PROVIDERS[pid].models).map(([id, l]) => `<option value="${id}"${key && id === getModel() ? ' selected' : ''}>${l}</option>`).join('')}</select></div>`;
+    const pick = PROVIDERS[ui.prov] ? ui.prov : prov; // servizio scelto nel modulo (non ancora salvato)
+    const Q = PROVIDERS[pick];
     const setup = key
-      ? `<section class="card stack"><div class="row"><h2>Claude collegato</h2><span class="spacer"></span><span class="badge sync-ok">Attivo</span></div>
-          <div class="field"><label for="coModel">Modello</label><select id="coModel" class="search" data-c="model">${Object.entries(MODELS).map(([id, l]) => `<option value="${id}"${id === getModel() ? ' selected' : ''}>${l}</option>`).join('')}</select></div>
-          <p class="tiny muted">La chiave API resta solo su questo dispositivo (niente sincronizzazione, niente backup). I dati dell’app vengono inviati ad Anthropic solo quando premi Invia.</p>
-          <div class="row"><button type="button" class="chip" data-c="copy">Copia i miei dati</button><button type="button" class="chip" data-c="unlink">Scollega Claude</button></div></section>`
-      : `<section class="card stack"><h2>Collega Claude · facoltativo</h2>
-          <p class="small">Per le domande libere il coach usa Claude tramite l’API di Anthropic. Serve una tua chiave API, che crei su <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>: è un servizio a consumo, separato dall’abbonamento a Claude. Costo indicativo: qualche centesimo di dollaro a domanda.</p>
-          <div class="field"><label for="coKey">Chiave API</label><input id="coKey" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="sk-ant-…"></div>
-          <div class="field"><label for="coModel">Modello</label><select id="coModel" class="search" data-c="model">${Object.entries(MODELS).map(([id, l]) => `<option value="${id}"${id === getModel() ? ' selected' : ''}>${l}</option>`).join('')}</select></div>
+      ? `<section class="card stack"><div class="row"><h2>${k.esc(P.name)} collegato</h2><span class="spacer"></span><span class="badge sync-ok">${P.tag === 'gratis' ? 'Gratis' : 'Attivo'}</span></div>
+          ${Object.keys(P.models).length > 1 ? modelSel(prov) : `<p class="small muted">Modello: ${k.esc(Object.values(P.models)[0])}</p>`}
+          <p class="tiny muted">La chiave resta solo su questo dispositivo (niente sincronizzazione, niente backup). ${k.esc(P.privacy)}</p>
+          <div class="row"><button type="button" class="chip" data-c="copy">Copia i miei dati</button><button type="button" class="chip" data-c="unlink">Scollega o cambia servizio</button><span class="tiny muted" id="coCopied" role="status"></span></div></section>`
+      : `<section class="card stack"><h2>Collega un’AI · facoltativo</h2>
+          <p class="small">Per le domande libere il coach usa un’intelligenza artificiale esterna. Scegli il servizio, crea la tua chiave e incollala qui sotto.</p>
+          <div class="field"><label for="coProv">Servizio</label><select id="coProv" class="search" data-c="prov">${Object.entries(PROVIDERS).map(([id, x]) => `<option value="${id}"${id === pick ? ' selected' : ''}>${x.name} · ${x.tag}</option>`).join('')}</select></div>
+          <p class="small">${k.esc(Q.how)} <a href="${Q.keyUrl}" target="_blank" rel="noopener">Apri la pagina delle chiavi</a></p>
+          <div class="field"><label for="coKey">Chiave di ${k.esc(Q.name)}</label><input id="coKey" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${Q.keyHint}"></div>
+          ${Object.keys(Q.models).length > 1 ? modelSel(pick) : ''}
           <div class="row"><button type="button" class="btn" data-c="save-key">Salva su questo dispositivo</button></div>
-          <p class="tiny muted">La chiave resta solo su questo dispositivo: non viene sincronizzata né messa nel backup. I dati dell’app vengono inviati ad Anthropic solo quando premi Invia.</p>
-          <h3>Alternativa gratuita</h3>
-          <p class="small">Copia il riepilogo dei tuoi dati e incollalo nell’app Claude, poi fai lì la tua domanda.</p>
+          <p class="tiny muted">${k.esc(Q.privacy)} La chiave resta solo su questo dispositivo: non viene sincronizzata né messa nel backup. I dati partono solo quando premi Invia.</p>
+          <h3>Senza nessuna chiave</h3>
+          <p class="small">Copia il riepilogo dei tuoi dati e incollalo in un’app di AI che usi già (Claude, ChatGPT, Gemini), poi fai lì la tua domanda.</p>
           <div class="row"><button type="button" class="chip" data-c="copy">Copia i miei dati</button><span class="tiny muted" id="coCopied" role="status"></span></div></section>`;
     return `<div class="stack coach">
       <div><p class="eyebrow">Solo sui dati che hai registrato</p><h1>Coach</h1></div>
@@ -354,9 +464,9 @@ Regole:
         ${chat.length || ui.busy ? `<div class="co-chat" aria-live="polite">${chat.map(bubble).join('')}${ui.busy ? `<div class="co-msg co${ui.live ? '' : ' wait'}"><div id="coLive">${ui.live ? fmt(ui.live) : '<p>Sto leggendo i tuoi dati…</p>'}</div></div>` : ''}</div>` : ''}
         ${ui.err ? `<p class="err" role="alert">${k.esc(ui.err)}</p>` : ''}
         <form id="coForm" class="co-form" novalidate><label class="sr" for="coQ">La tua domanda</label>
-          <textarea id="coQ" rows="2" placeholder="${key ? 'Scrivi la tua domanda…' : 'Domande libere: serve Claude collegato (sotto)'}">${k.esc(ui.draft)}</textarea>
+          <textarea id="coQ" rows="2" placeholder="${key ? 'Scrivi la tua domanda…' : 'Domande libere: collega un’AI qui sotto'}">${k.esc(ui.draft)}</textarea>
           <button type="submit" class="btn"${ui.busy ? ' disabled' : ''}>Invia</button></form>
-        <p class="tiny muted">${key ? `Risponde ${MODELS[getModel()].split(' · ')[0]}, solo in base ai dati dell’app.` : 'Senza Claude collegato rispondo alle domande pronte con calcoli sui tuoi dati.'}</p>
+        <p class="tiny muted">${key ? `Risponde ${k.esc(P.models[getModel()].split(' · ')[0])}, solo in base ai dati dell’app.` : 'Senza un’AI collegata rispondo alle domande pronte con calcoli sui tuoi dati.'}</p>
       </section>
       ${setup}
     </div>`;
@@ -370,20 +480,25 @@ Regole:
     if (c === 'save-key') {
       const v = (document.getElementById('coKey').value || '').trim();
       if (!v) { document.getElementById('coKey').focus(); return true; }
-      k.store.set('aiKey', v); k.store.set('aiModel', document.getElementById('coModel').value);
-      ui.err = ''; k.buzz('MEDIUM'); k.render(); return true;
+      const pid = document.getElementById('coProv').value;
+      const ms = document.getElementById('coModel');
+      k.store.set('aiProv', pid); k.store.set('aiKey', v); k.store.set('aiModel', ms ? ms.value : Object.keys(PROVIDERS[pid].models)[0]);
+      ui.err = ''; ui.prov = ''; k.buzz('MEDIUM'); k.render(); return true;
     }
-    if (c === 'unlink') { if (confirm('Scollegare Claude da questo dispositivo? La chiave salvata qui verrà cancellata.')) { k.store.set('aiKey', ''); k.render(); } return true; }
+    if (c === 'unlink') { if (confirm(`Scollegare ${PROVIDERS[getProv()].name} da questo dispositivo? La chiave salvata qui verrà cancellata.`)) { ui.prov = getProv(); k.store.set('aiKey', ''); k.render(); } return true; }
     if (c === 'copy') {
       const txt = `${SYSTEM}\n\n<dati_app>\n${context()}\n</dati_app>\n\nLa mia domanda: `;
-      const done = () => { const el = document.getElementById('coCopied'); if (el) el.textContent = 'Copiato: incollalo nell’app Claude.'; else alert('Copiato: incollalo nell’app Claude.'); };
+      const done = () => { const el = document.getElementById('coCopied'); if (el) el.textContent = 'Copiato: incollalo nell’app di AI.'; else alert('Copiato: incollalo nell’app di AI.'); };
       if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done, () => alert('Copia non riuscita.'));
       else { const ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); done(); } catch (e) { alert('Copia non riuscita.'); } ta.remove(); }
       return true;
     }
     return false;
   };
-  C.change = function (t) { if (t.dataset.c === 'model' && getKey()) { K().store.set('aiModel', t.value); K().render(); } };
+  C.change = function (t) {
+    if (t.dataset.c === 'prov') { ui.prov = t.value; K().render(); }
+    else if (t.dataset.c === 'model' && getKey()) { K().store.set('aiModel', t.value); K().render(); }
+  };
   C.draft = (v) => { ui.draft = v; };
   C.submit = function () { const el = document.getElementById('coQ'); send(el ? el.value : ui.draft, null); };
   // usato da altre pagine (per esempio l'analisi di un allenamento): prepara la domanda e apre il Coach

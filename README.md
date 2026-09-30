@@ -12,7 +12,7 @@ Foto degli esercizi in `assets/esercizi/`: [free-exercise-db](https://github.com
 | `assets/js/data.js` | **Generato**: alimenti, ricette, grammature, settimana tipo, scheda |
 | `assets/js/app.js` | Logica del sito (calcoli, scambi, timer, progressi, grafico) |
 | `assets/js/allenamento.js` | Allenamento stile Hevy: routine modificabili, allenamento live con "Precedente", recupero automatico, cronologia, record e statistiche |
-| `assets/js/coach.js` | Coach: riepilogo calcolato dai dati e domande libere a Claude (facoltativo, con chiave API dell'utente; SDK ufficiale caricato al bisogno) |
+| `assets/js/coach.js` | Coach: riepilogo calcolato dai dati e domande libere a un'AI a scelta con la chiave dell'utente: Google Gemini o Groq (gratuiti, chiamata diretta) oppure Claude (a consumo, SDK ufficiale caricato al bisogno) |
 | `assets/css/style.css` | Stile (tema chiaro/scuro, mobile first) |
 | `tools/genera_piano.py` | Database alimenti, ricette, target, ottimizzazione e verifica |
 | `tools/genera_icone.py` | Genera le icone PNG |
@@ -74,7 +74,7 @@ Dopo aver creato il proprio account dall'app, conviene disattivare la creazione 
 | `dlog` | diario: kcal e macro spuntati ogni giorno rispetto al piano (200 giorni) | sì, per giorno |
 | `creatina` | spunta giornaliera della creatina | sì, per giorno |
 | `dayov` | giorni modificati: palestra saltata o recupero, con il tipo di piano scelto | sì, per giorno |
-| `aiKey`, `aiModel`, `coachChat` | chiave API di Claude, modello, conversazione del Coach | no: solo sul dispositivo, la chiave è esclusa anche dal backup |
+| `aiProv`, `aiKey`, `aiModel`, `coachChat` | servizio AI scelto, chiave, modello, conversazione del Coach | no: solo sul dispositivo, la chiave è esclusa anche dal backup |
 | `theme`, `reminders`, `gymMode`, `active` | preferenze e allenamento in corso | no |
 
 Numeri delle notifiche locali (app iPhone): 100–126 promemoria settimanali, 140–153 creatina (una al giorno per 14 giorni, saltando i giorni già spuntati), 9001 fine recupero.
