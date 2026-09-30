@@ -124,7 +124,8 @@
       D.week.forEach((d, di) => {
         if (!d.wo) return;
         const w = D.workouts.find((x) => x.id === d.wo);
-        list.push({ id: 120 + di, title: `Alle 16:30: ${w.name}`, body: `${w.focus}. Borraccia, asciugamano e shaker con 30 g di whey.`, schedule: { on: { weekday: wd(di), hour: 16, minute: 0 }, allowWhileIdle: true } });
+        const whey = dayPlan(di).meals.some((m) => m.slot === 'pw' && m.code === 'PW-A');
+        list.push({ id: 120 + di, title: `Alle 16:30: ${w.name}`, body: `${w.focus}. Borraccia e asciugamano${whey ? ', shaker con 30 g di whey' : ''}.`, schedule: { on: { weekday: wd(di), hour: 16, minute: 0 }, allowWhileIdle: true } });
       });
     }
     if (list.length) await safe(N.notif.schedule({ notifications: list }));
@@ -220,23 +221,35 @@
     return Math.abs(d) <= 15 ? ['ok', `OK (${diff})`] : ['warn', `Da sistemare (${diff})`];
   }
 
+  // nomi delle unità pratiche: confezioni, fette e pezzi (il peso di una unità è f.u nel database)
   const UNITS = {
     uovo: ['uovo', 'uova'], sottiletta: ['fetta', 'fette'], kiwi: ['kiwi', 'kiwi'], crackers: ['pacchetto', 'pacchetti'],
     fette_bisc: ['fetta', 'fette'], pancarre: ['fetta', 'fette'], barretta: ['barretta', 'barrette'], gallette: ['galletta', 'gallette'],
+    bresaola: ['vaschetta', 'vaschette'], cotto: ['vaschetta', 'vaschette'], tacchino_arrosto: ['vaschetta', 'vaschette'],
+    tonno_nat: ['scatoletta da 80 g', 'scatolette da 80 g'], mozz_light: ['mozzarella', 'mozzarelle'],
+    pane_int: ['fetta', 'fette'], pane_segale: ['fetta', 'fette'], banana: ['banana', 'banane'], mela: ['mela', 'mele'], pera: ['pera', 'pere'],
   };
-  function unitHint(fid, g) {
+  const YOGURT_PACK = { 100: '⅔ di vasetto da 150 g', 150: '1 vasetto da 150 g', 170: '1 vasetto da 170 g', 200: '1 vasetto da 200 g', 250: 'mezza confezione da 500 g', 300: '2 vasetti da 150 g', 340: '2 vasetti da 170 g' };
+  const SPOONS = { avena: [10, 'cucchiaio', 'cucchiai'], miele: [5, 'cucchiaino', 'cucchiaini'], parmigiano: [5, 'cucchiaino', 'cucchiaini'], pesto: [20, 'cucchiaio', 'cucchiai'], phila: [15, 'cucchiaio', 'cucchiai'], marmellata0: [10, 'cucchiaino', 'cucchiaini'], crema_proteica: [15, 'cucchiaino colmo', 'cucchiaini colmi'] };
+  const PIECES = { mandorle: [1.2, 'mandorle'], nocciole: [1.3, 'nocciole'], noci: [5, 'noci'], cioccolato85: [10, 'quadratini'] };
+  // shop = lista della spesa: lì servono le confezioni intere da comprare, non i cucchiai
+  function unitHint(fid, g, shop) {
     if (fid === 'whey') {
-      const s = g / 30;
-      const t = Math.abs(s - Math.round(s)) < 0.05 ? f0(Math.round(s)) : '≈ ' + f1(s);
-      return `${t} scoop`;
+      const n = g / 30;
+      return Math.abs(n - 0.5) < 0.05 ? 'mezzo scoop' : `${Math.abs(n - Math.round(n)) < 0.05 ? f0(Math.round(n)) : '≈ ' + f1(n)} scoop`;
     }
-    if (fid === 'olio') return g <= 7 ? '≈ 1 cucchiaino' : `≈ ${f1(g / 10)} cucchiai`;
+    if (fid === 'olio') return shop ? '' : g < 4 ? 'un filo' : g % 10 === 0 ? `${g / 10} ${g === 10 ? 'cucchiaio' : 'cucchiai'}` : `${f0(g / 5)} ${g <= 7 ? 'cucchiaino' : 'cucchiaini'}`;
+    if (fid === 'yogurt') return shop ? `≈ ${Math.ceil(g / 170)} vasetti da 170 g` : (YOGURT_PACK[g] || '');
+    if (!shop && SPOONS[fid]) { const [u, one, many] = SPOONS[fid]; const n = Math.max(1, Math.round(g / u)); return `${Math.abs(g / u - n) < 0.1 ? '' : '≈ '}${n} ${n === 1 ? one : many}`; }
+    if (!shop && PIECES[fid]) return `≈ ${Math.round(g / PIECES[fid][0])} ${PIECES[fid][1]}`;
     const f = D.foods[fid];
     if (!f.u || !UNITS[fid]) return '';
     const n = g / f.u;
-    const rn = Math.max(1, Math.round(n));
-    const exact = Math.abs(n - rn) < 0.08;
-    return `${exact ? '' : '≈ '}${rn} ${rn === 1 ? UNITS[fid][0] : UNITS[fid][1]}`;
+    if (shop) { const c = Math.max(1, Math.ceil(n - 0.1)); return `≈ ${c} ${c === 1 ? UNITS[fid][0] : UNITS[fid][1]}`; }
+    if (/^(mela|pera|banana)$/.test(fid) && n > 1.15 && n < 1.45) return `1 ${UNITS[fid][0]} grande`;
+    const h = Math.max(0.5, Math.round(n * 2) / 2); // mezze unità: ½ vaschetta, 1 e ½ fette…
+    const txt = h === 0.5 ? '½' : h % 1 ? `${Math.floor(h)} e ½` : String(h);
+    return `${Math.abs(n - h) < 0.08 ? '' : '≈ '}${txt} ${h <= 1 ? UNITS[fid][0] : UNITS[fid][1]}`;
   }
 
   /* ---------------- componenti ---------------- */
@@ -306,15 +319,15 @@
     profTab: 'impostazioni',
   };
 
-  // anelli stile Apple: esterno calorie, interno proteine
-  function rings(k, kt, p, pt) {
-    const ring = (r, v, t, cls) => {
-      const c = 2 * Math.PI * r;
-      const pct = Math.max(0, Math.min(1, t ? v / t : 0));
-      return `<circle class="rg-bg" cx="70" cy="70" r="${r}"/><circle class="rg ${cls}" cx="70" cy="70" r="${r}" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${(c * (1 - pct)).toFixed(1)}" transform="rotate(-90 70 70)"/>`;
-    };
-    return `<svg class="rings" viewBox="0 0 140 140" role="img" aria-label="Calorie ${f0(k)} di ${f0(kt)}, proteine ${f1(p)} di ${f0(pt)} grammi">${ring(60, k, kt, 'k')}${ring(44, p, pt, 'p')}</svg>`;
+  // Oggi: anello grande delle calorie e tre anelli piccoli per proteine, carboidrati e grassi
+  function arc(r, c0, v, t, cls) {
+    const c = 2 * Math.PI * r;
+    const pct = Math.max(0, Math.min(1, t ? v / t : 0));
+    return `<circle class="rg-bg" cx="${c0}" cy="${c0}" r="${r}"/><circle class="rg ${cls}" cx="${c0}" cy="${c0}" r="${r}" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${(c * (1 - pct)).toFixed(1)}" transform="rotate(-90 ${c0} ${c0})"/>`;
   }
+  const rings = (k, kt) => `<svg class="rings" viewBox="0 0 140 140" role="img" aria-label="Calorie ${f0(k)} di ${f0(kt)}">${arc(60, 70, k, kt, 'k')}</svg>`;
+  const macroRing = (cls, name, v, t) => `<div class="mring"><svg viewBox="0 0 44 44" role="img" aria-label="${name}: ${f0(v)} di ${f0(t)} grammi">${arc(17, 22, v, t, cls)}</svg>
+    <div class="mring-t"><span>${name}</span><b>${f0(v)}<small> / ${f0(t)} g</small></b></div></div>`;
   const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
   const inMin = (d) => (d <= 0 ? (d > -15 ? 'adesso' : `${Math.abs(d)} min fa`) : d < 60 ? `tra ${d} min` : `tra ${Math.floor(d / 60)} h ${String(d % 60).padStart(2, '0')}`);
 
@@ -428,7 +441,6 @@
     plan.meals.forEach((m) => rows.push({ t: m.time, html: mealRow(plan, m, eaten) }));
     rows.sort((a, b) => (a.t < b.t ? -1 : a.t > b.t ? 1 : 0));
 
-    const bar = (cls, name, v, t) => `<div class="leg"><span class="leg-n"><i class="dot ${cls}"></i>${name}</span><b>${f1(v)}<small> / ${f0(t)} g</small></b><div class="bar ${cls}"><i style="width:${Math.min(100, (v / t) * 100)}%"></i></div></div>`;
     const tomorrow = (di + 1) % 7;
     return `
       <div class="grid-main">
@@ -440,14 +452,10 @@
               <span class="row" style="gap:6px">${typeBadge(plan.day)}${tip(plan.day.type === 'ON' ? 'on' : 'off')}</span>
             </div>
             <div class="dash">
-              <div class="rings-wrap">${rings(e.k, planned, e.p, T[1])}<div class="rings-c"><b>${f0(e.k)}</b><span>di ${f0(planned)} kcal</span></div></div>
-              <div class="legend">
-                <div class="leg"><span class="leg-n"><i class="dot kk"></i>Calorie ${tip('kcal')}</span><b>${f0(Math.max(0, planned - e.k))}<small> kcal rimaste</small></b></div>
-                <div class="leg"><span class="leg-n"><i class="dot p"></i>Proteine</span><b>${f1(e.p)}<small> / ${f0(T[1])} g</small></b></div>
-                ${bar('c', 'Carboidrati', e.c, T[2])}
-                ${bar('g', 'Grassi', e.fa, T[3])}
-              </div>
+              <div class="rings-wrap">${rings(e.k, planned)}<div class="rings-c"><b>${f0(e.k)}</b><span>di ${f0(planned)} kcal</span></div></div>
+              <div class="mrings">${macroRing('p', 'Proteine', e.p, T[1])}${macroRing('c', 'Carboidrati', e.c, T[2])}${macroRing('g', 'Grassi', e.fa, T[3])}</div>
             </div>
+            <p class="dash-left"><b>${f0(Math.max(0, planned - e.k))} kcal</b> ancora da mangiare oggi ${tip('kcal')}</p>
             ${plan.hasFree ? '<p class="tiny muted" style="margin-top:10px">Il pasto libero non è conteggiato negli anelli.</p>' : ''}
           </section>
           ${adessoCard(plan, eaten, w)}
@@ -592,7 +600,7 @@
       return `<div class="shop-cat"><p class="eyebrow">${esc(cat)}</p><ul class="shop">${ids.map((id) => {
         const g = tot[id];
         const unit = id === 'latte_ps' || id === 'spremuta' ? 'ml' : 'g';
-        const h = unitHint(id, g);
+        const h = unitHint(id, g, true);
         return `<li class="${got[id] ? 'got' : ''}"><label><input type="checkbox" data-act="shop" data-id="${id}"${got[id] ? ' checked' : ''}><span class="n">${esc(D.foods[id].n)}</span></label>
           <span class="q">${f0(g)} ${unit}${h ? `<small>${h}</small>` : ''}</span></li>`;
       }).join('')}</ul></div>`;
@@ -621,7 +629,7 @@
       <section class="card prose">
         <h2>Come sostituire senza sbagliare</h2>
         <ul>
-          <li><strong>Un pasto intero:</strong> usa il menu "scambia" sotto ogni pasto. Le opzioni della stessa fascia sono già calcolate sulle stesse kcal (±10), quindi il totale del giorno resta giusto.</li>
+          <li><strong>Un pasto intero:</strong> usa il menu "scambia" sotto ogni pasto. Le opzioni della stessa fascia sono già calcolate su calorie quasi uguali (entro 25 kcal circa), quindi il totale del giorno resta giusto.</li>
           <li><strong>Un singolo alimento:</strong> usa le tabelle qui sotto. Le fonti proteiche sono equivalenti per proteine e i carboidrati per carboidrati. Guarda la colonna kcal: se l'alimento nuovo ha più calorie, togline un po' dal condimento.</li>
           <li><strong>Verdura cruda:</strong> libera. Lattuga, pomodori, cetrioli, peperoni, carote e cipolla si scambiano tra loro senza pesarli.</li>
           <li><strong>Frutta:</strong> circa 80 kcal equivalgono a una mela (150 g), una pera (140 g), 2 kiwi (130 g), un'arancia (170 g) o 250 g di fragole.</li>
@@ -733,25 +741,29 @@
   }
   function advice(wk) {
     const full = wk.filter((w) => w.n >= 3);
+    const crea = Object.keys(store.get('creatina', {})).sort()[0];
+    const creaNew = crea && (fromKey(dkey(new Date())) - fromKey(crea)) / 86400000 <= 21;
+    const water = creaNew ? ' Hai iniziato la creatina da poco: 0,5–1 kg in più nelle prime 2–3 settimane è acqua nei muscoli, non grasso.' : '';
     if (full.length < 2) {
-      return 'Pesati almeno 4 mattine a settimana, a digiuno e dopo il bagno. Dopo 2 settimane complete ti dico se il ritmo è giusto. Nelle prime 1–2 settimane un +0,3/+0,8 kg è normale: sono glicogeno e acqua dei carboidrati in più, non grasso.';
+      return 'Pesati almeno 4 mattine a settimana, a digiuno e dopo il bagno. Dopo 2 settimane complete ti dico se il ritmo è giusto: l’obiettivo è scendere di 0,2–0,5 kg a settimana.' + water;
     }
     const a = full[full.length - 1], b = full[full.length - 2];
     const d = a.kg - b.kg;
     const c = full.length >= 3 ? full[full.length - 3] : null;
     const d2 = c ? b.kg - c.kg : null;
     const waistDown = a.waist != null && b.waist != null && a.waist < b.waist;
-    if (d <= -0.4 && d2 != null && d2 <= -0.4) return `Stai scendendo troppo in fretta (${sign(r1(d * 10) / 10, f2)} kg e ${sign(r1(d2 * 10) / 10, f2)} kg nelle ultime due settimane). Aggiungi circa 150 kcal: +40 g di pasta o riso al pranzo dei giorni ON.`;
-    if (d <= -0.4) return `Calo di ${f2(Math.abs(d))} kg in una settimana: un po' veloce. Se si ripete la prossima settimana, aggiungi 150 kcal.`;
-    if (d <= -0.1) return `Perfetto: ${sign(Math.round(d * 100) / 100, f2)} kg rispetto alla settimana prima. È il ritmo giusto per una ricomposizione: non cambiare niente.`;
+    const dd = (x) => sign(Math.round(x * 100) / 100, f2);
+    if (d <= -0.6 && d2 != null && d2 <= -0.6) return `Stai scendendo troppo in fretta (${dd(d)} kg e ${dd(d2)} kg nelle ultime due settimane): così rischi di perdere muscolo. Aggiungi circa 150 kcal: +40 g di pasta o riso al pranzo dei giorni ON.`;
+    if (d <= -0.6) return `Calo di ${f2(Math.abs(d))} kg in una settimana: un po' veloce. Se si ripete la prossima settimana, aggiungi 150 kcal.`;
+    if (d <= -0.15) return `Perfetto: ${dd(d)} kg rispetto alla settimana prima. È il ritmo giusto (0,2–0,5 kg a settimana): non cambiare niente.`;
     if (d < 0.2) {
-      if (d2 != null && Math.abs(d2) < 0.1 && !waistDown) return 'Peso fermo da 3 settimane e girovita che non scende: togli 100–150 kcal (es. −30 g di pasta o riso a cena) oppure aggiungi 2000 passi al giorno.';
-      return `Peso stabile (${sign(r1(d * 100) / 100, f2)} kg). Se il girovita scende e i carichi salgono, stai facendo ricomposizione: va benissimo.`;
+      if (d2 != null && d2 > -0.15 && !waistDown) return 'Peso fermo da 2 settimane e girovita che non scende: togli 100–150 kcal (per esempio −30 g di pasta o riso a cena) oppure aggiungi 2000 passi al giorno. Prima controlla il pasto libero e i condimenti «a occhio».' + water;
+      return `Peso stabile (${dd(d)} kg). Una settimana ferma capita (acqua, sale, intestino): se i carichi salgono e il girovita scende va bene. Se resta fermo anche la prossima settimana, si tolgono 100–150 kcal.` + water;
     }
-    return `Peso in salita (${sign(r1(d * 100) / 100, f2)} kg). Se sei nelle prime 2 settimane è glicogeno. Altrimenti controlla le porzioni del pasto libero e i condimenti "a occhio".`;
+    return `Peso in salita (${dd(d)} kg). Controlla le porzioni del pasto libero e i condimenti «a occhio».` + water;
   }
   // grafico del peso interattivo: punti = pesate, linea = media 7 giorni, tratteggio verde = percorso ideale verso l'obiettivo
-  const GOAL = { d: '2027-01-18', kg: 63 };
+  const GOAL = { d: '2026-11-23', kg: 62.5 }; // 8 settimane a circa −0,3 kg: intorno al 14% di grasso
   function chart(ws) {
     if (ws.length < 2) return '<p class="small muted">Il grafico compare dal secondo peso registrato.</p>';
     const data = ws.slice(-90);
@@ -902,7 +914,7 @@
     const waists = ws.filter((w) => w.w != null);
     const stat = (lbl, v, cls = '') => `<div class="stat"><div class="lbl">${lbl}</div><div class="v ${cls}">${v}</div></div>`;
     return `<div class="stack">
-      <div><p class="eyebrow">Monitoraggio</p><h1>Progressi</h1><p class="muted">Punto di partenza: ${f2(START.kg)} kg · ${f1(START.bf)}% di grasso (bilancia) · ${shortDate(START.d)}/2026 · obiettivo ≈ ${f0(GOAL.kg)} kg a metà gennaio</p></div>
+      <div><p class="eyebrow">Monitoraggio</p><h1>Progressi</h1><p class="muted">Punto di partenza: ${f2(START.kg)} kg · ${f1(START.bf)}% di grasso (bilancia) · ${shortDate(START.d)}/2026 · obiettivo ≈ ${f1(GOAL.kg)} kg a fine novembre</p></div>
       ${weekSummary(ws)}
       <section class="card stack">
         <h2>Nuova misurazione</h2>
@@ -1001,7 +1013,7 @@
         <div class="row"><span class="avatar" aria-hidden="true">R</span><div><h2>Il tuo percorso</h2><p class="small muted">Ricomposizione corporea · dal 28/09/2026</p></div></div>
         <dl class="kv" style="margin:0">
           <div><dt>Peso attuale</dt><dd>${last ? f2(last.kg) : '64,70'} kg</dd></div>
-          <div><dt>Obiettivo gennaio</dt><dd>≈ 63 kg</dd></div>
+          <div><dt>Obiettivo fine novembre</dt><dd>≈ 62,5 kg</dd></div>
           <div><dt>Blocco scheda</dt><dd>Sett. ${wk.n}/7</dd></div>
           <div><dt>Allenamenti</dt><dd>4 a settimana</dd></div>
         </dl>
@@ -1029,8 +1041,8 @@
     on: ['Giorno ON', 'Giorno con la palestra (lunedì, martedì, giovedì, venerdì). Mangi di più, 2050 kcal, soprattutto carboidrati, per allenarti bene e recuperare.'],
     off: ['Giorno OFF', 'Giorno senza palestra (mercoledì, sabato, domenica). 1750 kcal, meno carboidrati per stare in deficit.'],
     kcal: ['Calorie', 'L’energia del cibo. Il piano ti tiene circa 380 kcal sotto il tuo consumo medio: perdi circa 0,35 kg di grasso a settimana tenendo le proteine alte per non perdere muscolo.'],
-    macro: ['P · C · G', 'Proteine (P): costruiscono e proteggono il muscolo, obiettivo 140 g al giorno. Carboidrati (C): benzina per l’allenamento, più alti nei giorni ON. Grassi (G): servono agli ormoni e saziano, circa 60–64 g.'],
-    scambio: ['Scambiare un pasto', 'Tutte le opzioni della stessa fascia (per esempio le merende delle 9:30) hanno quasi le stesse calorie, ±10 kcal: puoi scambiarle quando vuoi senza sballare la giornata.'],
+    macro: ['P · C · G', 'Proteine (P): costruiscono e proteggono il muscolo, obiettivo 140 g al giorno. Carboidrati (C): benzina per l’allenamento, più alti nei giorni ON. Grassi (G): servono agli ormoni e saziano, circa 55–58 g.'],
+    scambio: ['Scambiare un pasto', 'Tutte le opzioni della stessa fascia (per esempio le merende delle 9:30) hanno quasi le stesse calorie (differenze entro 25 kcal circa): puoi scambiarle quando vuoi senza sballare la giornata.'],
     rir: ['RIR · ripetizioni in riserva', 'Quante ripetizioni avresti ancora potuto fare prima di non farcela più. RIR 2 vuol dire che ti fermi quando ne avresti ancora 2 nel serbatoio.'],
     block: ['Blocco di 7 settimane', 'Settimane 1–2: adattamento (RIR 2–3). Settimane 3–6: progressione (RIR 1–2). Settimana 7: scarico, con metà delle serie per recuperare. Poi si ricomincia.'],
     progressione: ['Doppia progressione', 'Prima aumenti le ripetizioni fino al massimo del range (per esempio 3×10), poi aumenti il peso e riparti dal minimo. L’app ti dice quando salire.'],
@@ -1074,7 +1086,7 @@
   /* ---------------- mini-guida al primo avvio ---------------- */
   const GUIDA_SLIDES = [
     ['M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z', 'Benvenuto in Recomp', 'Il tuo piano per perdere la pancia e mettere muscolo: pasti calcolati al grammo, scheda di allenamento e progressi, tutto in un posto.'],
-    ['M12 3a9 9 0 1 0 9 9M12 7v5l3 2', 'Oggi', 'Trovi la giornata con gli orari. La card «Adesso» ti dice cosa viene dopo. Segna i pasti con ✓ oppure scorrendoli verso destra, e guarda gli anelli riempirsi.'],
+    ['M12 3a9 9 0 1 0 9 9M12 7v5l3 2', 'Oggi', 'Trovi la giornata con gli orari. La card «Adesso» ti dice cosa viene dopo. Segna i pasti con ✓ oppure scorrendoli verso destra, e guarda gli anelli di calorie, proteine, carboidrati e grassi riempirsi.'],
     ['M3 4.5h18v16.5H3zM8 2.5v4M16 2.5v4M3 10h18', 'Piano e spesa', 'Tocca un pasto per vedere ingredienti e preparazione e per scambiarlo con un’alternativa equivalente. In «Lista spesa» hai le quantità esatte della settimana.'],
     ['M6.5 7v10M17.5 7v10M3.5 9.5v5M20.5 9.5v5M6.5 12h11', 'Scheda', 'Premi «Inizia» e segui l’allenamento: vedi cosa hai fatto la volta scorsa, spunti le serie e parte il recupero. Alla fine ti mostra i record battuti.'],
     ['M3 3v18h18M7 14l4-4 3 3 6-7', 'Progressi e Profilo', 'Pesati 4 mattine a settimana: l’app ti dice se il ritmo è giusto. In Profilo trovi impostazioni, sincronizzazione e la guida. Tocca il pallino «i» quando un termine non è chiaro.'],
@@ -1127,9 +1139,10 @@
           <tr><td><span class="badge off">OFF</span> Mer Sab Dom</td><td class="r">1750</td><td class="r">140 g</td><td class="r">167 g</td><td class="r">58 g</td></tr>
         </tbody><tfoot><tr><td>Media settimanale</td><td class="r">1921</td><td colspan="3" class="small muted">−16% dal TDEE, circa −380 kcal al giorno</td></tr></tfoot></table></div>
         <div class="prose small">
-          <p>Proteine a 2,2 g/kg per proteggere e costruire muscolo mentre perdi grasso. Carboidrati concentrati nei giorni in cui ti alleni, grassi un po' più alti nei giorni OFF per saziarti. Per il grasso conta la media della settimana.</p>
-          <p><strong>Perché non 1850 fisse:</strong> con 4 allenamenti più la scuola sarebbero −450 kcal al giorno (−20%). Scenderesti più in fretta sulla bilancia, ma i carichi si fermerebbero (soprattutto la schiena, che devi costruire) e arriveresti affamato alle 14:30.</p>
-          <p><strong>Cosa aspettarti:</strong> nelle prime 1–2 settimane la bilancia può salire di 0,3–0,8 kg (glicogeno e acqua). Poi −0,1/−0,25 kg a settimana, con il girovita che scende e i carichi che salgono. Proiezione a metà gennaio 2027: circa 63 kg, −2,5/−3 kg di grasso, +0,5/+1 kg di massa magra, grasso sulla bilancia intorno al 14%.</p>
+          <p>Proteine a 2,2 g/kg per proteggere e costruire muscolo mentre perdi grasso. Carboidrati concentrati nei giorni in cui ti alleni. Per il grasso conta la media della settimana.</p>
+          <p><strong>Perché questi numeri:</strong> un deficit di circa 380 kcal al giorno fa perdere circa 0,35 kg di grasso a settimana, cioè lo 0,5% del peso: è la fascia (0,5–0,7%) in cui chi si allena con i pesi perde grasso senza perdere muscolo. Con 2100/1900 il deficit sarebbe 286 kcal e il ritmo 0,26 kg a settimana: un quarto più lento senza vantaggi. Sotto le 1900/1600 (−23%) i carichi si fermerebbero e avresti fame a scuola.</p>
+          <p><strong>Cosa aspettarti:</strong> la bilancia dovrebbe scendere di 0,2–0,5 kg a settimana, con il girovita che cala e i carichi che salgono. A fine novembre 2026 circa 62,5 kg, cioè −2,5/−3 kg di grasso e intorno al 14% sulla bilancia. Da lì si passa al mantenimento (circa 2300 kcal) per costruire muscolo.</p>
+          <p class="muted">I passi non sono registrati nell’app: il consumo è stimato con 300 kcal di movimento quotidiano. Per questo conta la verifica sul peso reale: se la media settimanale non scende per 2 settimane, si tolgono 100–150 kcal.</p>
         </div>
       </section>
     </div>`;
@@ -1169,7 +1182,7 @@
         <ul><li>1 a settimana, sabato o domenica a pranzo (nel piano è domenica: puoi scambiare i giorni).</li>
         <li>Una porzione normale: pizza, hamburger con patatine piccole, sushi da 12–16 pezzi.</li>
         <li>Niente antipasto + dolce + bis, e non diventa una giornata libera.</li>
-        <li>Il resto della giornata è già più leggero (circa 1020 kcal) per lasciargli spazio.</li></ul></section>
+        <li>Il resto della giornata è già più leggero (circa 1050 kcal) per lasciargli spazio.</li></ul></section>
       <section class="card prose small"><h2>Recupero</h2>
         <ul><li><strong>Sonno:</strong> 8 ore (22:30 → 6:30). È metà della ricomposizione.</li>
         <li><strong>Acqua:</strong> 2,5–3 litri al giorno, +0,5 litri nei giorni di palestra.</li>
@@ -1178,8 +1191,8 @@
       <section class="card prose small"><h2>Misure e correzioni</h2>
         <ul><li>Peso almeno 4 mattine a settimana: conta la <strong>media settimanale</strong>, non il singolo giorno.</li>
         <li>Girovita all'ombelico ogni lunedì, foto ogni 4 settimane, bilancia BIA sempre nelle stesse condizioni.</li>
-        <li>Calo oltre 0,4 kg a settimana per 2 settimane → +150 kcal.</li>
-        <li>Peso e girovita fermi per 3 settimane → −100/150 kcal oppure +2000 passi.</li>
+        <li>Calo oltre 0,6 kg a settimana per 2 settimane → +150 kcal.</li>
+        <li>Peso e girovita fermi per 2 settimane → −100/150 kcal oppure +2000 passi.</li>
         <li>Carichi in calo per 2 settimane → +100 kcal nei giorni ON e più sonno.</li></ul></section>
     </div>`;
   }

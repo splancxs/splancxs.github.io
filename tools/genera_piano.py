@@ -60,13 +60,16 @@ food('orata', 'Orata, filetto (crudo)', C_CARNE, 121, 19.7, 0, 4.7, 'Media allev
 food('merluzzo', 'Merluzzo, filetto (crudo)', C_CARNE, 71, 17.0, 0, 0.3, 'CREA')
 food('trota', 'Trota (cruda)', C_CARNE, 141, 20.8, 0, 6.2, 'USDA')
 food('tonno_fresco', 'Tonno fresco pinne gialle (crudo)', C_CARNE, 108, 24.4, 0, 1.0, 'USDA')
-food('tonno_nat', 'Tonno al naturale (sgocciolato)', C_CARNE, 103, 25.1, 0, 0.3, 'CREA')
+food('tonno_nat', 'Tonno al naturale (sgocciolato)', C_CARNE, 103, 25.1, 0, 0.3, 'CREA', u=56,
+     note='1 scatoletta da 80 g = 56 g sgocciolati')
 food('sgombro_nat', 'Sgombro al naturale (sgocciolato)', C_CARNE, 160, 21.0, 0, 8.5, 'Media etichette')
 
 # Affettati
-food('bresaola', 'Bresaola', C_AFF, 151, 32.0, 0, 2.6, 'CREA')
-food('cotto', 'Prosciutto cotto magro (sgrassato)', C_AFF, 126, 20.0, 1.0, 4.7, 'Media etichette')
-food('tacchino_arrosto', 'Fesa di tacchino arrosto (affettato)', C_AFF, 104, 21.0, 1.5, 1.5, 'Media etichette')
+food('bresaola', 'Bresaola', C_AFF, 151, 32.0, 0, 2.6, 'CREA', u=80, note='1 vaschetta = 80 g')
+food('cotto', 'Prosciutto cotto magro (sgrassato)', C_AFF, 126, 20.0, 1.0, 4.7, 'Media etichette', u=100,
+     note='1 vaschetta = 100 g')
+food('tacchino_arrosto', 'Fesa di tacchino arrosto (affettato)', C_AFF, 104, 21.0, 1.5, 1.5, 'Media etichette',
+     u=100, note='1 vaschetta = 100 g')
 food('roastbeef', 'Roast beef (affettato)', C_AFF, 120, 22.0, 0.5, 3.4, 'Media etichette')
 food('speck', 'Speck', C_AFF, 301, 28.3, 0.5, 20.9, 'CREA')
 
@@ -77,7 +80,8 @@ food('yogurt', 'Yogurt greco 0%', C_LATT, 54, 10.3, 3.0, 0, 'Etichetta Fage Tota
 food('latte_ps', 'Latte parzialmente scremato', C_LATT, 46, 3.5, 5.0, 1.5, 'CREA')
 food('fiocchi', 'Fiocchi di latte', C_LATT, 98, 11.0, 3.2, 4.5, 'Media etichette')
 food('phila', 'Philadelphia Light', C_LATT, 182, 8.4, 3.7, 15.0, 'Etichetta (FatSecret)')
-food('mozz_light', 'Mozzarella light', C_LATT, 163, 19.0, 1.0, 9.0, 'Media etichette')
+food('mozz_light', 'Mozzarella light', C_LATT, 163, 19.0, 1.0, 9.0, 'Media etichette', u=125,
+     note='1 mozzarella = 125 g')
 food('sottiletta', 'Sottilette Light', C_LATT, 174, 16.0, 8.0, 6.8, 'Etichetta Sottilette.it', u=20,
      note='1 fetta ≈ 20 g')
 food('parmigiano', 'Parmigiano Reggiano', C_LATT, 387, 33.5, 0, 28.1, 'CREA')
@@ -86,8 +90,8 @@ food('parmigiano', 'Parmigiano Reggiano', C_LATT, 387, 33.5, 0, 28.1, 'CREA')
 food('pasta', 'Pasta di semola (cruda)', C_CARB, 359, 12.5, 71.2, 2.0, 'Etichetta Barilla')
 food('riso', 'Riso basmati (crudo)', C_CARB, 350, 7.8, 78.0, 0.6, 'Media etichette')
 food('patate', 'Patate (crude)', C_CARB, 77, 2.0, 16.0, 0.1, 'USDA')
-food('pane_int', 'Pane integrale', C_CARB, 240, 9.0, 41.0, 3.0, 'Media etichette')
-food('pane_segale', 'Pane di segale', C_CARB, 220, 7.0, 40.0, 2.0, 'Media etichette')
+food('pane_int', 'Pane integrale', C_CARB, 240, 9.0, 41.0, 3.0, 'Media etichette', u=40, note='1 fetta ≈ 40 g')
+food('pane_segale', 'Pane di segale', C_CARB, 220, 7.0, 40.0, 2.0, 'Media etichette', u=40, note='1 fetta ≈ 40 g')
 food('pancarre', 'Pancarré integrale', C_CARB, 258, 10.0, 42.0, 4.3, 'Media etichette', u=27,
      note='1 fetta ≈ 27 g')
 food('piadina', 'Piadina integrale', C_CARB, 305, 9.0, 46.0, 8.0, 'Media etichette')
@@ -101,9 +105,9 @@ food('special_k', 'Special K Protein (frutti di bosco, granola e semi)', C_CARB,
 food('gallette', 'Gallette di riso', C_CARB, 385, 8.0, 81.0, 2.8, 'Media etichette', u=8)
 
 # Frutta
-food('banana', 'Banana (polpa)', C_FRUT, 89, 1.1, 20.2, 0.3, 'USDA')
-food('mela', 'Mela', C_FRUT, 52, 0.3, 11.4, 0.2, 'USDA')
-food('pera', 'Pera', C_FRUT, 57, 0.4, 12.2, 0.1, 'USDA')
+food('banana', 'Banana (polpa)', C_FRUT, 89, 1.1, 20.2, 0.3, 'USDA', u=120, note='1 banana media ≈ 120 g di polpa')
+food('mela', 'Mela', C_FRUT, 52, 0.3, 11.4, 0.2, 'USDA', u=150, note='1 mela media ≈ 150 g')
+food('pera', 'Pera', C_FRUT, 57, 0.4, 12.2, 0.1, 'USDA', u=150, note='1 pera media ≈ 150 g')
 food('kiwi', 'Kiwi (polpa)', C_FRUT, 61, 1.1, 12.2, 0.5, 'USDA', u=75, note='1 kiwi ≈ 75 g')
 food('arancia', 'Arancia (polpa)', C_FRUT, 47, 0.9, 9.4, 0.1, 'USDA')
 food('fragole', 'Fragole', C_FRUT, 32, 0.7, 5.7, 0.3, 'USDA')
@@ -142,7 +146,9 @@ food('crema_proteica', 'Crema proteica alle nocciole', C_INT, 510, 22.0, 25.0, 3
 
 # ---------------------------------------------------------------------------
 # RICETTE / OPZIONI SCELTE
-# item: (food, grammi) oppure (food, grammi_base, min, max, passo)  -> regolabile
+# item: (food, grammi) fisso · (food, base, min, max, passo) regolabile · (food, base, [grammature ammesse])
+# Le grammature ammesse sono porzioni che esistono davvero: vaschetta intera o mezza, scatolette, vasetti,
+# fette, cucchiaini. Pasta, riso, carne e patate (che si pesano comunque) vanno a passi di 10 o 50 g.
 # ---------------------------------------------------------------------------
 R = {}
 
@@ -151,144 +157,168 @@ def rec(code, kind, name, how, items):
     R[code] = dict(code=code, kind=kind, name=name, how=how, items=items)
 
 
+PANE = [60, 80, 100, 120]            # fette da 40 g (anche mezza)
+BRESAOLA = [40, 80]                  # mezza vaschetta / vaschetta da 80 g
+VASCHETTA = [50, 100]                # mezza vaschetta / vaschetta da 100 g (cotto, tacchino)
+YOGURT = [150, 170, 200, 250, 300]   # vasetti da 150/170/200 g, mezza confezione da 500 g, 2 vasetti da 150 g
+PANCARRE = [54, 81, 108]             # 2, 3, 4 fette
+OLIO = [5, 10, 15]                   # cucchiaini da 5 g
+NOCI15 = [10, 15, 20]
+
 # Merenda 1 (09:30)
 rec('M1-A', 'm1', 'Panino integrale con bresaola, Philadelphia light e mela',
     'Spalma il Philadelphia sul pane, aggiungi la bresaola. Carta stagnola e mela intera nello zaino.',
-    [('pane_int', 100, 80, 130, 5), ('bresaola', 50, 40, 70, 5), ('phila', 20, 15, 25, 5), ('mela', 150)])
+    [('pane_int', 100, PANE), ('bresaola', 40, BRESAOLA), ('phila', 20, [15, 20, 25, 30]), ('mela', 150)])
 rec('M1-B', 'm1', 'Panino integrale con tacchino arrosto, sottiletta light e mandorle',
     'Panino con tacchino e 1 sottiletta; mandorle in un sacchettino.',
-    [('pane_int', 100, 80, 130, 5), ('tacchino_arrosto', 70, 60, 90, 10), ('sottiletta', 20),
-     ('mandorle', 15, 10, 20, 5)])
+    [('pane_int', 100, PANE), ('tacchino_arrosto', 50, VASCHETTA), ('sottiletta', 20), ('mandorle', 15, NOCI15)])
 rec('M1-C', 'm1', 'Piadina integrale con cotto magro, mozzarella light e kiwi',
     'Piadina scaldata la sera prima, farcita, chiusa a rotolo nella stagnola. Kiwi intero.',
-    [('piadina', 80, 70, 110, 5), ('cotto', 60, 50, 80, 10), ('mozz_light', 40, 30, 50, 10), ('kiwi', 75)])
+    [('piadina', 80, 70, 110, 10), ('cotto', 50, VASCHETTA), ('mozz_light', 60), ('kiwi', 75)])
 rec('M1-D', 'm1', 'Crackers integrali, bresaola, mandorle e mela',
     'Due pacchetti di crackers, bresaola in un foglio di carta da forno, mandorle a parte, mela intera.',
-    [('crackers', 50), ('bresaola', 60, 50, 80, 10), ('mandorle', 15, 10, 20, 5), ('mela', 150)])
+    [('crackers', 50), ('bresaola', 40, BRESAOLA), ('mandorle', 15, [10, 15, 20, 25]), ('mela', 150)])
 rec('M1-E', 'm1', 'Toast freddo di pancarré integrale con cotto, sottiletta e pera',
     '3 fette di pancarré (tostate la sera prima se ti piace), cotto e 1 sottiletta. Pera intera.',
-    [('pancarre', 80, 55, 110, 5), ('cotto', 70, 50, 90, 10), ('sottiletta', 20), ('pera', 150)])
+    [('pancarre', 81, PANCARRE), ('cotto', 50, VASCHETTA), ('sottiletta', 20), ('pera', 150)])
 
 # Merenda 2 (12:10)
 rec('M2-B', 'm2', 'Crackers integrali, bresaola, pera e nocciole',
     '1 pacchetto di crackers, bresaola, pera intera, nocciole in un sacchettino.',
-    [('crackers', 25), ('bresaola', 40, 40, 60, 5), ('pera', 150), ('nocciole', 10, 5, 15, 5)])
+    [('crackers', 25), ('bresaola', 40, BRESAOLA), ('pera', 150), ('nocciole', 10, [5, 10, 15])])
 rec('M2-E', 'm2', 'Mini panino di segale con tacchino arrosto e 2 kiwi',
     'Panino piccolo di segale con il tacchino; 2 kiwi interi (li sbucci con le mani o li tagli a metà a casa).',
-    [('pane_segale', 60, 40, 80, 5), ('tacchino_arrosto', 60, 40, 80, 10), ('kiwi', 150)])
+    [('pane_segale', 60, [40, 60, 80]), ('tacchino_arrosto', 50, VASCHETTA), ('kiwi', 150)])
 rec('M2-F', 'm2', 'Barretta proteica e mela',
     'Scegli barrette con circa 20 g di proteine e ≤ 210 kcal.',
-    [('barretta', 55), ('mela', 150, 150, 220, 10)])
+    [('barretta', 55), ('mela', 150, [150, 200])])
 
 # Pranzi (14:30)
 rec('P-A', 'pranzo', 'Pasta al ragù di manzo 5% + insalata',
     "Rosola il macinato senza olio, aggiungi la passata e cuoci 15'. Olio a crudo sulla pasta, parmigiano sopra.",
-    [('pasta', 100, 50, 130, 5), ('manzo5', 100, 90, 140, 10), ('passata', 120), ('olio', 5, 3, 10, 1),
+    [('pasta', 100, 50, 130, 10), ('manzo5', 100, 90, 140, 10), ('passata', 120), ('olio', 5, [0, 5, 10]),
      ('parmigiano', 10), ('insalata', 150)])
 rec('P-B', 'pranzo', 'Riso basmati con pollo al curry (o paprika/soia) + verdure crude',
     'Pollo a straccetti in padella antiaderente con curry o paprika, sfuma con la soia. Olio a crudo.',
-    [('riso', 100, 50, 130, 5), ('pollo', 140, 120, 180, 10), ('olio', 8, 5, 14, 1), ('soia', 10),
+    [('riso', 100, 50, 130, 10), ('pollo', 140, 120, 180, 10), ('olio', 10, OLIO), ('soia', 10),
      ('insalata', 150)])
 rec('P-C', 'pranzo', 'Pasta al tonno e pomodoro',
     "Passata in padella 5', tonno sgocciolato alla fine, olio a crudo. Pomodorini crudi a parte o nel piatto.",
-    [('pasta', 100, 50, 130, 5), ('tonno_nat', 100, 80, 130, 10), ('passata', 120), ('olio', 8, 5, 14, 1),
+    [('pasta', 100, 50, 130, 10), ('tonno_nat', 112, [56, 112, 168]), ('passata', 120), ('olio', 10, OLIO),
      ('pomodorini', 100)])
 rec('P-D', 'pranzo', 'Burger di manzo fatto in casa nel panino + patate in air fryer',
     "Burger schiacciato sottile, piastra 3' per lato. Patate a spicchi in air fryer 200 °C per 18-20' con spezie, olio a crudo dopo.",
-    [('pane_int', 80, 60, 100, 10), ('manzo5', 130, 110, 160, 10), ('sottiletta', 20), ('insalata', 60),
-     ('ketchup', 15), ('patate', 200, 100, 320, 10), ('olio', 5, 3, 10, 1)])
+    [('pane_int', 80, [60, 80, 100]), ('manzo5', 130, 110, 160, 10), ('sottiletta', 20), ('insalata', 60),
+     ('ketchup', 15), ('patate', 200, 100, 350, 50), ('olio', 5, [0, 5, 10])])
 rec('P-E', 'pranzo', 'Pollo alla piastra + patate in air fryer + insalata + pane',
     "Patate a cubetti in air fryer 200 °C per 20' con paprika, rosmarino e aglio; olio a crudo alla fine.",
-    [('pollo', 150, 130, 190, 10), ('patate', 350, 150, 450, 10), ('olio', 8, 5, 14, 1), ('insalata', 150),
-     ('pane_int', 40, 0, 70, 10)])
+    [('pollo', 150, 130, 190, 10), ('patate', 350, 150, 450, 50), ('olio', 10, OLIO), ('insalata', 150),
+     ('pane_int', 40, [0, 40, 60, 80])])
 rec('P-F', 'pranzo', 'Pasta al pesto con pollo e pomodorini',
     'Pollo a cubetti in padella; pasta condita con pesto e pollo, pomodorini crudi tagliati sopra.',
-    [('pasta', 100, 50, 130, 5), ('pesto', 20, 20, 25, 5), ('pollo', 120, 100, 160, 10), ('pomodorini', 100),
+    [('pasta', 100, 50, 130, 10), ('pesto', 20), ('pollo', 120, 100, 160, 10), ('pomodorini', 100),
      ('parmigiano', 5)])
 rec('P-G', 'pranzo', 'Piadina integrale con pollo e mozzarella light + banana',
     'Piadina scaldata in padella, pollo alla piastra a straccetti, mozzarella, lattuga e pomodoro.',
-    [('piadina', 100, 70, 120, 5), ('pollo', 120, 100, 160, 10), ('mozz_light', 50, 30, 70, 10),
-     ('insalata', 80), ('banana', 120, 0, 150, 10)])
+    [('piadina', 100, 70, 120, 10), ('pollo', 120, 100, 160, 10), ('mozz_light', 60), ('insalata', 80),
+     ('banana', 120, [0, 120])])
 
-# Post-workout (18:00)
+# Post-workout (18:00) — grammature fisse, tutte intorno a 220 kcal
 rec('PW-A', 'pw', 'Whey in acqua + banana',
     '1 scoop (30 g) di whey Brownie shakerato con 300 ml di acqua, subito dopo il tapis. Banana intera.',
     [('whey', 30), ('banana', 120)])
+rec('PW-B', 'pw', 'Yogurt greco 0% con avena e banana',
+    'A casa, appena rientri: 1 vasetto da 170 g, 2 cucchiai di fiocchi d\'avena e mezza banana a rondelle. Va bene anche con altra frutta (mezza mela o 100 g di frutti di bosco).',
+    [('yogurt', 170), ('avena', 20), ('banana', 60)])
+rec('PW-C', 'pw', 'Yogurt greco 0% con avena e miele',
+    'A casa, appena rientri: 1 vasetto da 200 g, 2 cucchiai abbondanti di fiocchi d\'avena e 1 cucchiaino di miele.',
+    [('yogurt', 200), ('avena', 25), ('miele', 5)])
 
 # Cene (19:00)
 rec('C-A', 'cena', 'Salmone al forno + patate in air fryer + insalata',
     "Salmone al forno 180 °C per 15-18' con limone e pepe. Patate in air fryer.",
-    [('salmone', 150, 120, 180, 10), ('patate', 250, 100, 400, 10), ('insalata', 150), ('olio', 5, 3, 10, 1)])
+    [('salmone', 150, [125, 150, 175]), ('patate', 250, 100, 400, 50), ('insalata', 150), ('olio', 5, [0, 5, 10])])
 rec('C-B', 'cena', 'Pollo BBQ o alla paprika + riso basmati + verdure crude',
     'Pollo a fette alla piastra, salsa BBQ a fine cottura (o paprika dolce). Riso bollito.',
-    [('pollo', 180, 140, 210, 10), ('riso', 70, 30, 110, 5), ('insalata', 200), ('olio', 5, 5, 14, 1),
+    [('pollo', 180, 140, 210, 10), ('riso', 70, 30, 110, 10), ('insalata', 200), ('olio', 5, OLIO),
      ('bbq', 15)])
 rec('C-C', 'cena', 'Burger di manzo al piatto con sottiletta + patate in air fryer',
     'Burger alla piastra, sottiletta sopra a fuoco spento. Patate in air fryer, ketchup a parte.',
-    [('manzo5', 150, 130, 180, 10), ('sottiletta', 20), ('patate', 250, 100, 400, 10), ('insalata', 150),
-     ('olio', 5, 3, 12, 1), ('ketchup', 15)])
+    [('manzo5', 150, 130, 180, 10), ('sottiletta', 20), ('patate', 250, 100, 400, 50), ('insalata', 150),
+     ('olio', 5, [0, 5, 10]), ('ketchup', 15)])
 rec('C-D', 'cena', 'Orata al forno + patate in air fryer + insalata',
     "Filetti di orata in forno 180 °C per 12-15' con prezzemolo e limone.",
-    [('orata', 200, 170, 250, 10), ('patate', 250, 100, 400, 10), ('insalata', 150), ('olio', 8, 5, 14, 1)])
+    [('orata', 200, [150, 200, 250]), ('patate', 250, 100, 400, 50), ('insalata', 150), ('olio', 10, OLIO)])
 rec('C-E', 'cena', 'Merluzzo al forno + pane integrale + insalata',
     "Merluzzo in forno 180 °C per 15' con pomodorini, olive e origano (o al vapore).",
-    [('merluzzo', 250, 200, 320, 10), ('pane_int', 100, 30, 130, 10), ('insalata', 150), ('olio', 10, 5, 18, 1)])
+    [('merluzzo', 250, [200, 250, 300]), ('pane_int', 100, [40, 60, 80, 100, 120]), ('insalata', 150),
+     ('olio', 10, OLIO)])
 rec('C-F', 'cena', 'Uova strapazzate con albumi + pane integrale + pomodorini',
     'Strapazzate in padella antiaderente con un filo d\'olio, parmigiano a fine cottura.',
-    [('uovo', 100), ('albume', 150, 100, 250, 10), ('pane_int', 80, 30, 110, 10), ('pomodorini', 150),
-     ('parmigiano', 10), ('olio', 5, 3, 10, 1)])
+    [('uovo', 100), ('albume', 150, [100, 150, 200, 250]), ('pane_int', 80, [40, 60, 80, 100]), ('pomodorini', 150),
+     ('parmigiano', 10), ('olio', 5, [0, 5, 10])])
 rec('C-G', 'cena', 'Polpette di manzo al sugo + pane integrale + insalata',
     "Polpette con macinato e parmigiano, 12' in air fryer a 190 °C, poi 5' nella passata calda.",
-    [('manzo5', 150, 130, 180, 10), ('parmigiano', 10), ('passata', 150), ('pane_int', 70, 30, 110, 10),
-     ('insalata', 150), ('olio', 5, 3, 12, 1)])
+    [('manzo5', 150, 130, 180, 10), ('parmigiano', 10), ('passata', 150), ('pane_int', 60, [40, 60, 80, 100]),
+     ('insalata', 150), ('olio', 5, [0, 5, 10])])
 rec('C-H', 'cena', 'Lonza alla piastra + patate in air fryer + insalata',
     'Fettine di lonza alla piastra ben calda, 2-3 minuti per lato, rosmarino e pepe.',
-    [('lonza', 180, 150, 210, 10), ('patate', 250, 100, 400, 10), ('insalata', 150), ('olio', 5, 3, 12, 1)])
+    [('lonza', 180, 150, 210, 10), ('patate', 250, 100, 400, 50), ('insalata', 150), ('olio', 5, [0, 5, 10])])
 rec('C-I', 'cena', 'Tonno fresco alla piastra + riso basmati + verdure crude',
     'Trancio di tonno scottato 1-2 minuti per lato, salsa di soia e sesamo a piacere.',
-    [('tonno_fresco', 180, 150, 210, 10), ('riso', 70, 30, 110, 5), ('insalata', 150), ('olio', 5, 5, 14, 1),
+    [('tonno_fresco', 180, 150, 210, 10), ('riso', 70, 30, 110, 10), ('insalata', 150), ('olio', 5, OLIO),
      ('soia', 10)])
 rec('C-J', 'cena', '"Piadizza" al forno: piadina, passata, mozzarella light e cotto',
     "Piadina con passata, mozzarella a pezzi e cotto; forno 200 °C per 8-10'. Insalata a parte.",
-    [('piadina', 100, 70, 130, 5), ('passata', 60), ('mozz_light', 80, 60, 110, 10), ('cotto', 40, 30, 70, 10),
+    [('piadina', 100, 70, 130, 10), ('passata', 60), ('mozz_light', 60, [60, 125]), ('cotto', 50, [0, 50]),
      ('insalata', 150)])
 
 # Spuntini (merenda OFF / dopocena)
 rec('S-A', 'spuntino', 'Yogurt greco 0% con frutti di bosco e miele', 'Anche con frutti di bosco surgelati scongelati.',
-    [('yogurt', 170, 150, 250, 10), ('frutti_bosco', 100), ('miele', 5)])
+    [('yogurt', 170, YOGURT), ('frutti_bosco', 100), ('miele', 5)])
 rec('S-B', 'spuntino', 'Yogurt greco 0% con noci', 'Noci spezzettate sopra, un pizzico di cannella se ti va.',
-    [('yogurt', 170, 120, 220, 10), ('noci', 15, 10, 20, 5)])
+    [('yogurt', 170, YOGURT), ('noci', 15, NOCI15)])
 rec('S-C', 'spuntino', 'Fiocchi di latte con ananas', 'Ananas a cubetti (fresco o al naturale sgocciolato).',
-    [('fiocchi', 150, 100, 200, 10), ('ananas', 100)])
+    [('fiocchi', 150, [150, 175, 200]), ('ananas', 100)])
 rec('S-E', 'spuntino', 'Mela e cioccolato fondente 85%', 'Lo sfizio: ha poche proteine, usalo al massimo 1-2 volte a settimana.',
-    [('mela', 150, 150, 200, 10), ('cioccolato85', 15, 10, 20, 5)])
+    [('mela', 150, [150, 200]), ('cioccolato85', 15, NOCI15)])
+rec('S-F', 'spuntino', 'Yogurt greco 0% con avena e frutta',
+    'Mezza mela a cubetti sopra; al suo posto vanno bene 100 g di fragole o di frutti di bosco, oppure mezza banana piccola.',
+    [('yogurt', 150, [150, 170, 200]), ('avena', 15, [10, 15, 20, 25]), ('mela', 75)])
+rec('S-G', 'spuntino', 'Yogurt greco 0% con avena e miele',
+    'Avena direttamente nello yogurt, 1 cucchiaino di miele sopra. Se la vuoi più morbida preparala 10 minuti prima.',
+    [('yogurt', 170, [150, 170, 200]), ('avena', 15, [10, 15, 20, 25]), ('miele', 5)])
 
 # Colazioni weekend
 rec('B-B', 'colazione', 'Pancake proteici (avena, albumi, banana) con yogurt e frutti di bosco',
     "Frulla avena, albumi e banana; padella antiaderente unta con l'olio, 2' per lato. Sopra yogurt, frutti di bosco e miele.",
-    [('avena', 50, 40, 70, 5), ('albume', 150), ('banana', 60), ('olio', 2), ('yogurt', 100, 80, 150, 10),
-     ('frutti_bosco', 80), ('miele', 5, 5, 10, 5)])
+    [('avena', 50, [40, 50, 60, 70]), ('albume', 150), ('banana', 60), ('olio', 2), ('yogurt', 150, [150, 170]),
+     ('frutti_bosco', 80), ('miele', 5, [5, 10])])
 rec('B-C', 'colazione', 'Uova strapazzate con albumi + toast integrale + kiwi',
     'Strapazzate morbide con sale e pepe; pane tostato.',
-    [('uovo', 100), ('albume', 100, 80, 160, 10), ('olio', 3), ('pane_int', 70, 50, 100, 10), ('kiwi', 150)])
+    [('uovo', 100), ('albume', 100, [100, 150]), ('olio', 5), ('pane_int', 80, [60, 80, 100]), ('kiwi', 150)])
 rec('B-D', 'colazione', 'Yogurt bowl con Special K Protein, frutti di bosco, miele e mandorle',
     'Tutto in una ciotola: yogurt alla base, cereali e frutta sopra.',
-    [('yogurt', 250, 200, 300, 10), ('special_k', 35, 30, 50, 5), ('frutti_bosco', 100), ('miele', 10),
-     ('mandorle', 15, 10, 20, 5)])
+    [('yogurt', 250, [200, 250, 300]), ('special_k', 40, [30, 40, 50]), ('frutti_bosco', 100), ('miele', 10),
+     ('mandorle', 15, NOCI15)])
 rec('B-F', 'colazione', "Colazione all'italiana proteica: latte al brownie + fette biscottate",
     'Whey sciolta nel latte (shaker o frullino). Fette con marmellata zero e crema proteica.',
-    [('latte_ps', 250), ('whey', 20, 15, 30, 5), ('fette_bisc', 40, 30, 50, 10), ('marmellata0', 20),
-     ('crema_proteica', 15, 10, 20, 5)])
+    [('latte_ps', 250), ('whey', 30, [15, 30]), ('fette_bisc', 40, [30, 40, 50]), ('marmellata0', 20),
+     ('crema_proteica', 15, NOCI15)])
 rec('B-G', 'colazione', 'Toast salato con cotto e sottiletta + spremuta',
     '3 fette di pancarré tostate con cotto e sottiletta; spremuta di 2 arance.',
-    [('pancarre', 75, 50, 110, 5), ('cotto', 80, 60, 110, 10), ('sottiletta', 20), ('spremuta', 200, 150, 250, 50)])
+    [('pancarre', 81, PANCARRE), ('cotto', 100, VASCHETTA), ('sottiletta', 20), ('spremuta', 200, [150, 200, 250])])
+rec('B-H', 'colazione', 'Yogurt greco 0% con avena, banana, miele e mandorle',
+    'Ciotola: yogurt, fiocchi d\'avena, banana a rondelle, miele e mandorle. Se la prepari la sera prima diventa un overnight oats.',
+    [('yogurt', 250, [200, 250, 300]), ('avena', 50, [30, 40, 50, 60]), ('banana', 120, [60, 120]),
+     ('miele', 5, [0, 5, 10]), ('mandorle', 10, [0, 10, 15])])
 
 # Frutto (spuntino del sabato mattina) ~80 kcal
-rec('F-A', 'frutto', 'Mela', '', [('mela', 150, 130, 170, 10)])
-rec('F-B', 'frutto', 'Pera', '', [('pera', 140, 120, 160, 10)])
-rec('F-C', 'frutto', '2 kiwi', '', [('kiwi', 130, 120, 150, 10)])
+rec('F-A', 'frutto', 'Mela', '', [('mela', 150)])
+rec('F-B', 'frutto', 'Pera', '', [('pera', 150)])
+rec('F-C', 'frutto', '2 kiwi', '', [('kiwi', 150)])
 rec('F-D', 'frutto', 'Arancia', '', [('arancia', 170, 150, 190, 10)])
-rec('F-E', 'frutto', 'Fragole', '', [('fragole', 250, 220, 280, 10)])
+rec('F-E', 'frutto', 'Fragole', '', [('fragole', 250)])
 
 # ---------------------------------------------------------------------------
 # FASCE (slot) con target: kcal, P, C, F
@@ -330,6 +360,8 @@ def tune(code, target):
     for it in items:
         if len(it) == 2:
             ranges.append([it[1]])
+        elif len(it) == 3:
+            ranges.append(list(it[2]))
         else:
             _, base, lo, hi, st = it
             ranges.append(list(range(lo, hi + 1, st)))
@@ -375,11 +407,11 @@ DAYTYPES = {
 
 WEEK = [
     dict(d='lun', name='Lunedì', type='ON', wo='TA', pick=['M1-A', 'M2-B', 'P-A', 'PW-A', 'C-A']),
-    dict(d='mar', name='Martedì', type='ON', wo='LA', pick=['M1-B', 'M2-E', 'P-B', 'PW-A', 'C-G']),
-    dict(d='mer', name='Mercoledì', type='OFF_S', wo=None, pick=['M1-C', 'M2-F', 'P-C', 'S-A', 'C-F']),
+    dict(d='mar', name='Martedì', type='ON', wo='LA', pick=['M1-B', 'M2-E', 'P-B', 'PW-B', 'C-G']),
+    dict(d='mer', name='Mercoledì', type='OFF_S', wo=None, pick=['M1-C', 'M2-F', 'P-C', 'S-F', 'C-F']),
     dict(d='gio', name='Giovedì', type='ON', wo='TB', pick=['M1-D', 'M2-B', 'P-D', 'PW-A', 'C-D']),
-    dict(d='ven', name='Venerdì', type='ON', wo='LB', pick=['M1-E', 'M2-E', 'P-F', 'PW-A', 'C-I']),
-    dict(d='sab', name='Sabato', type='OFF_W', wo=None, pick=['B-B', 'F-E', 'P-E', 'S-B', 'C-J']),
+    dict(d='ven', name='Venerdì', type='ON', wo='LB', pick=['M1-E', 'M2-E', 'P-F', 'PW-C', 'C-I']),
+    dict(d='sab', name='Sabato', type='OFF_W', wo=None, pick=['B-B', 'F-E', 'P-E', 'S-G', 'C-J']),
     dict(d='dom', name='Domenica', type='FREE', wo=None, pick=['B-D', None, 'S-C', 'C-B']),
 ]
 
