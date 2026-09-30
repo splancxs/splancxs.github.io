@@ -1547,6 +1547,7 @@
       swallowClick = true; setTimeout(() => { swallowClick = false; }, 400);
       nav.style.setProperty('--i', idx);
       bubble.style.transform = '';
+      bubble.classList.remove('moving'); void bubble.offsetWidth; bubble.classList.add('moving');
       const href = links[idx].getAttribute('href');
       if (location.hash === href) return;
       buzz();

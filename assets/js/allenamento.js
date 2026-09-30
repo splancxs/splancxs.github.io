@@ -477,7 +477,7 @@
     ].filter(Boolean);
     return `<section class="card stack analysis">
       <div class="row"><h2>Analisi</h2><span class="spacer"></span><span class="tiny muted">confronto con la seduta precedente di ogni esercizio</span></div>
-      <div class="an-sum"><span class="an-up">${grp('up').length} in progresso</span><span class="an-same">${grp('same').length} stabili</span><span class="an-down">${grp('down').length} in calo</span>${grp('new').length ? `<span>${grp('new').length} nuovi</span>` : ''}</div>
+      <div class="an-sum"><span class="an-up">${grp('up').length} in progresso</span><span class="an-same">${grp('same').length} stabili</span><span class="an-down">${grp('down').length} in calo</span>${grp('new').length ? `<span>${grp('new').length} prima volta</span>` : ''}</div>
       <p class="small">${facts.join(' · ')}.</p>
       ${block('up', 'In progresso')}${block('same', 'Stabili')}${block('down', 'In calo')}${block('new', 'Prima volta')}
       ${rows.some((x) => x.stall) ? `<p class="small an-stall"><strong>Da tenere d’occhio:</strong> ${rows.filter((x) => x.stall).map((x) => k.esc(x.n)).join(', ')} — nessun miglioramento nelle ultime 3 sedute.</p>` : ''}
