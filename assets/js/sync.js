@@ -8,9 +8,11 @@ import { firebaseConfig } from './firebase-config.js';
 
 const V = '11.0.2';
 const SKIP = new Set(['rc._meta', 'rc.theme', 'rc.installHidden', 'rc.health', 'rc.reminders', 'rc.active', 'rc.logMigrated']); // preferenze del singolo dispositivo
+// stato mostrato in Profilo: status = loading | nocfg | offline | error | out | in; net = rete del dispositivo
 const S = {
-  state: { status: 'loading' },
+  state: { status: 'loading', net: navigator.onLine !== false },
   login: () => {}, signup: () => {}, logout: () => {}, now: () => {},
+  retry: () => location.reload(),
 };
 window.RCSync = S;
 const refresh = (force) => { if (window.RC) window.RC.refresh(force); };
@@ -29,6 +31,9 @@ const ERR = {
   'auth/operation-not-allowed': "L'accesso con email e password non è attivo nel progetto Firebase.",
   'auth/admin-restricted-operation': 'La creazione di nuovi account è disattivata nel progetto Firebase.',
 };
+// una promessa che non risponde entro ms diventa un errore: niente attese infinite su rete lenta o assente
+const withTimeout = (p, ms, code) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(Object.assign(new Error(code), { code })), ms))]);
+const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
 const errMsg = (e) => ERR[e && e.code] || `Errore: ${(e && (e.code || e.message)) || 'sconosciuto'}`;
 
 /* ---------- lettura/scrittura locale ---------- */
@@ -113,22 +118,37 @@ const fromRemote = (o) => Object.fromEntries(Object.entries(o || {}).map(([k, e]
 /* ---------- avvio ---------- */
 async function start() {
   if (!firebaseConfig || !firebaseConfig.apiKey) { setState({ status: 'nocfg' }); return; }
+  window.addEventListener('online', () => setState({ net: true }, false));
+  window.addEventListener('offline', () => setState({ net: false }, false));
   let fb;
   try {
-    const [app, auth, fs] = await Promise.all([
+    const [app, auth, fs] = await withTimeout(Promise.all([
       import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`),
       import(`https://www.gstatic.com/firebasejs/${V}/firebase-auth.js`),
       import(`https://www.gstatic.com/firebasejs/${V}/firebase-firestore.js`),
-    ]);
+    ]), 15000, 'timeout');
     fb = { app, auth, fs };
   } catch (e) {
-    setState({ status: 'offline' }, false);
+    // senza rete la libreria non si scarica: riprovo da solo appena torna la connessione
+    setState({ status: navigator.onLine === false ? 'offline' : 'error', msg: navigator.onLine === false ? '' : 'Il servizio di sincronizzazione non risponde.' }, false);
     window.addEventListener('online', () => location.reload(), { once: true });
     return;
   }
-  const app = fb.app.initializeApp(firebaseConfig);
-  const auth = fb.auth.getAuth(app);
-  const db = fb.fs.getFirestore(app);
+  let auth, db;
+  try {
+    const app = fb.app.initializeApp(firebaseConfig);
+    // Nell'app iPhone (Capacitor) getAuth() resta in attesa per sempre: prova a caricare il componente dei popup,
+    // che dentro l'app non esiste. Con initializeAuth + salvataggio su IndexedDB l'accesso parte subito.
+    auth = isNative ? fb.auth.initializeAuth(app, { persistence: fb.auth.indexedDBLocalPersistence }) : fb.auth.getAuth(app);
+    db = fb.fs.getFirestore(app);
+  } catch (e) {
+    setState({ status: 'error', msg: `Avvio non riuscito (${e.code || e.message}).` }, false);
+    return;
+  }
+  // se Firebase non comunica lo stato dell'accesso entro 12 secondi, lo dico invece di restare su «Connessione…»
+  const authWatch = setTimeout(() => {
+    if (S.state.status === 'loading') setState({ status: 'error', msg: navigator.onLine === false ? '' : 'Il collegamento non risponde.' }, false);
+  }, 12000);
 
   let unsub = null, ref = null, remote = {}, pushTimer = 0, pushing = false;
 
@@ -140,12 +160,14 @@ async function start() {
       const merged = mergeAll(localSnapshot(), remote);
       if (writeLocal(merged)) refresh(false);
       if (!same(merged, remote)) {
-        await fb.fs.setDoc(ref, { data: toRemote(merged), at: fb.fs.serverTimestamp() });
+        // senza rete setDoc non risponde mai: dopo 15 secondi smetto di aspettare (Firestore la invia comunque appena può)
+        await withTimeout(fb.fs.setDoc(ref, { data: toRemote(merged), at: fb.fs.serverTimestamp() }), 15000, 'timeout');
         remote = merged;
       }
-      setState({ busy: false, last: Date.now(), msg: '' }, false);
+      setState({ busy: false, fail: false, last: Date.now(), msg: '' }, false);
     } catch (e) {
-      setState({ busy: false, msg: `Sincronizzazione non riuscita (${e.code || e.message}). Riprovo alla prossima modifica.` }, false);
+      const off = e.code === 'timeout' || e.code === 'unavailable' || navigator.onLine === false;
+      setState({ busy: false, fail: !off, msg: off ? 'Rete assente o lenta: i dati sono salvati qui e partono appena torna la connessione.' : `Sincronizzazione non riuscita (${e.code || e.message}). Riprovo alla prossima modifica.` }, false);
     } finally { pushing = false; }
   }
   const schedulePush = () => { if (!ref) return; clearTimeout(pushTimer); pushTimer = setTimeout(push, 1200); };
@@ -155,6 +177,7 @@ async function start() {
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && ref) push(); });
 
   fb.auth.onAuthStateChanged(auth, (user) => {
+    clearTimeout(authWatch);
     if (unsub) { unsub(); unsub = null; }
     if (!user) { ref = null; remote = {}; setState({ status: 'out', email: '', busy: false }); return; }
     ref = fb.fs.doc(db, 'users', user.uid);
@@ -164,11 +187,11 @@ async function start() {
       remote = fromRemote(snap.exists() ? snap.data().data : {});
       const merged = mergeAll(localSnapshot(), remote);
       const changed = writeLocal(merged);
-      setState({ last: Date.now() }, false);
+      setState({ last: Date.now(), fail: false, msg: '' }, false);
       if (changed) refresh(false);
       if (!same(merged, remote) && !pushing) schedulePush(); // qui c'erano dati più nuovi: li carico
-    }, (e) => setState({ msg: `Lettura non riuscita (${e.code || e.message}). Controlla le regole di Firestore.` }));
-  });
+    }, (e) => setState({ fail: true, msg: `Lettura non riuscita (${e.code || e.message}). Controlla le regole di Firestore.` }));
+  }, (e) => { clearTimeout(authWatch); setState({ status: 'error', msg: errMsg(e) }); });
 
   S.login = async (email, pw) => {
     setState({ emailDraft: email, msg: '' });

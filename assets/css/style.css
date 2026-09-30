@@ -878,3 +878,21 @@ h2 { font-size: 1.45rem; font-weight: 800; text-transform: uppercase; letter-spa
 /* il fondo colorato dello scorrimento compare solo mentre scorri (prima si vedeva sugli angoli) */
 .wswipe-bg, .mrow-bg { opacity: 0; transition: opacity .15s ease; }
 .wswipe.swiping .wswipe-bg, .mrow.swiping .mrow-bg { opacity: 1; }
+
+/* ============ Correzioni 30/09 ============ */
+/* la pagina riceve il focus a ogni cambio sezione (per i lettori di schermo): niente contorno azzurro,
+   che su iPhone compariva come una barretta in fondo alla pagina */
+main:focus, main:focus-visible { outline: none; }
+/* pannelli: lo scorrimento resta nel pannello e non passa alla pagina sotto */
+.gsheet-in, .sheet-in { overscroll-behavior: contain; max-height: 88dvh; }
+.gsheet-bg { touch-action: none; }
+.sheet { overscroll-behavior: contain; }
+/* sotto-schede agganciate: fascia piena fino alla barra in alto e sfumatura sotto,
+   così il contenuto che scorre non spunta sopra e non viene tagliato di netto */
+.seg { top: calc(var(--sat) + 71px); box-shadow: 0 0 0 10px var(--bg); }
+.seg.seg-static, .card .seg, .sheet .seg, .gsheet .seg { box-shadow: none; }
+@media (min-width: 900px) { .seg { top: 71px; } }
+/* stato della sincronizzazione */
+.badge.sync-ok { background: var(--accent); color: var(--accent-ink); }
+.badge.sync-bad { background: var(--bad); color: #fff; }
+.badge.sync-off { background: var(--surface-3); color: var(--muted); }

@@ -657,7 +657,7 @@
   }
 
   /* ---------------- timer recupero ---------------- */
-  const timer = { end: 0, id: 0, ctx: null, total: 1 };
+  const timer = { end: 0, id: 0, hide: 0, ctx: null, total: 1 };
   const tEl = document.getElementById('timer');
   function beep() {
     try {
@@ -679,7 +679,14 @@
       clearInterval(timer.id); tEl.classList.add('done'); beep();
       if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
       if (N.haptics) safe(N.haptics.notification({ type: 'SUCCESS' }));
+      timer.hide = setTimeout(stopTimer, 30000); // «Via!» resta mezzo minuto, poi il timer si chiude da solo
     }
+  }
+  // chiude il timer e toglie la notifica programmata: usato dal pulsante ✕ e a fine allenamento
+  function stopTimer() {
+    clearInterval(timer.id); clearTimeout(timer.hide);
+    timer.end = 0; tEl.hidden = true; tEl.classList.remove('done');
+    if (N.notif) safe(N.notif.cancel({ notifications: [{ id: TIMER_ID }] }));
   }
   // App nativa: notifica di fine recupero, arriva anche a schermo bloccato o con l'app in background
   function timerNotify() {
@@ -693,7 +700,7 @@
     $('#timerNext').textContent = next || 'Recupero';
     try { if (!timer.ctx) { const AC = window.AudioContext || window.webkitAudioContext; if (AC) timer.ctx = new AC(); } if (timer.ctx && timer.ctx.state === 'suspended') timer.ctx.resume(); } catch (e) { /* ignora */ }
     timer.end = Date.now() + sec * 1000; tEl.hidden = false; tEl.classList.remove('done');
-    clearInterval(timer.id); tick(); timer.id = setInterval(tick, 250);
+    clearInterval(timer.id); clearTimeout(timer.hide); tick(); timer.id = setInterval(tick, 250);
     buzz(); timerNotify();
   }
   $('#timerPlus').addEventListener('click', () => { if (tEl.classList.contains('done')) startTimer(15, $('#timerNext').textContent); else { timer.end += 15000; timer.total += 15; tick(); timerNotify(); } buzz(); });
@@ -701,9 +708,11 @@
     if (tEl.classList.contains('done')) return;
     timer.end = Math.max(Date.now() + 1000, timer.end - 15000); tick(); timerNotify(); buzz();
   });
-  $('#timerStop').addEventListener('click', () => {
-    clearInterval(timer.id); tEl.hidden = true;
-    if (N.notif) safe(N.notif.cancel({ notifications: [{ id: TIMER_ID }] }));
+  $('#timerStop').addEventListener('click', stopTimer);
+  // rientrando nell'app: un recupero scaduto da più di un minuto, o rimasto senza allenamento in corso, non riparte
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible' || !timer.end) return;
+    if (Date.now() > timer.end + 60000 || !(window.RCW && window.RCW.isActive())) stopTimer();
   });
 
   /* ================= PROGRESSI ================= */
@@ -933,21 +942,32 @@
   function syncCard() {
     const S = window.RCSync;
     const st = S ? S.state : { status: 'loading' };
-    const head = '<div class="row"><h2>Sincronizzazione PC ↔ telefono</h2></div>';
+    // stato reale in una parola: Connessione… · Sincronizzato · Errore · Offline
+    const offline = st.status === 'offline' || st.net === false;
+    const [cls, label] = st.status === 'nocfg' ? ['off', 'Non attiva']
+      : offline ? ['off', 'Offline']
+        : st.status === 'error' || st.fail ? ['bad', 'Errore']
+          : st.status === 'loading' || st.busy ? ['off', 'Connessione…']
+            : st.status === 'in' ? ['ok', 'Sincronizzato'] : ['off', 'Non collegato'];
+    const head = `<div class="row"><h2>Sincronizzazione</h2><span class="spacer"></span><span class="badge sync-${cls}">${label}</span></div>`;
     const msg = st.msg ? `<p class="err" role="alert">${esc(st.msg)}</p>` : '';
     if (st.status === 'nocfg') {
-      return `<section class="card stack">${head}<p class="small muted">Non ancora attiva: manca la configurazione di Firebase (<code>assets/js/firebase-config.js</code>). Quando è pronta, qui compare l'accesso.</p></section>`;
+      return `<section class="card stack">${head}<p class="small muted">Manca la configurazione di Firebase (<code>assets/js/firebase-config.js</code>). Quando è pronta, qui compare l'accesso.</p></section>`;
     }
     if (st.status === 'loading') {
-      return `<section class="card stack">${head}<p class="small muted">Connessione in corso…</p>${msg}</section>`;
+      return `<section class="card stack">${head}<p class="small muted">Sto contattando il servizio: di solito bastano un paio di secondi.</p>${msg}</section>`;
     }
     if (st.status === 'offline') {
       return `<section class="card stack">${head}<p class="small muted">Sei offline: i dati restano salvati qui e si sincronizzano appena torna la connessione.</p></section>`;
     }
+    if (st.status === 'error') {
+      return `<section class="card stack">${head}${msg}<p class="small muted">I tuoi dati sono al sicuro su questo dispositivo. Controlla la connessione e riprova.</p>
+        <div class="row"><button type="button" class="btn ghost" data-act="sync-retry">${I.reset} Riprova</button></div></section>`;
+    }
     if (st.status === 'in') {
       const when = st.last ? new Date(st.last).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : '—';
       return `<section class="card stack">${head}
-        <p class="small">Collegato come <strong>${esc(st.email || '')}</strong>. Pesi, carichi, spunte, scambi e lista della spesa si sincronizzano da soli tra i dispositivi.</p>
+        <p class="small">Collegato come <strong>${esc(st.email || '')}</strong>. Pesi, allenamenti, spunte, scambi e lista della spesa si allineano da soli tra telefono e PC.</p>
         <p class="small muted">Ultima sincronizzazione: ${when}${st.busy ? ' · in corso…' : ''}</p>${msg}
         <div class="row"><button type="button" class="btn ghost" data-act="sync-now">${I.reset} Sincronizza ora</button><button type="button" class="chip" data-act="sync-logout">Esci</button></div>
       </section>`;
@@ -1001,9 +1021,6 @@
         <label class="btn ghost" for="importFile">${I.up} Importa backup</label><input id="importFile" type="file" accept="application/json,.json" class="sr"></div>
         <p class="err" id="impMsg" role="status"></p>
       </section>
-      <section class="card stack small"><h2>Crediti</h2>
-        <p class="muted">Foto degli esercizi: <a href="https://github.com/yuhonas/free-exercise-db">free-exercise-db</a>, pubblico dominio (Unlicense). Mappa dei muscoli disegnata per Recomp. Valori nutrizionali: tabelle CREA, USDA ed etichette dei prodotti.</p>
-      </section>
     </div>`;
   }
 
@@ -1032,16 +1049,20 @@
   sheetEl.innerHTML = '<div class="gsheet-bg" data-act="sheet-close"></div><div class="gsheet-in" role="dialog" aria-modal="true"><div class="gsheet-grab" aria-hidden="true"></div><div class="gsheet-body"></div></div>';
   document.body.appendChild(sheetEl);
   let sheetOnClose = null;
+  // pagina ferma mentre è aperto un pannello (quello globale o la scelta esercizio dentro main)
+  const modalBox = () => (!sheetEl.hidden && sheetEl.classList.contains('open') ? sheetEl : main.querySelector('.sheet'));
+  const syncLock = () => document.documentElement.classList.toggle('no-scroll', !!modalBox());
   function openSheet(html, onClose) {
     sheetEl.querySelector('.gsheet-body').innerHTML = html;
     sheetEl.hidden = false; sheetOnClose = onClose || null;
-    requestAnimationFrame(() => requestAnimationFrame(() => sheetEl.classList.add('open')));
-    document.documentElement.classList.add('no-scroll');
+    sheetEl.querySelector('.gsheet-in').scrollTop = 0;
+    void sheetEl.offsetWidth; sheetEl.classList.add('open'); // classe messa subito (non al fotogramma dopo): il blocco dello scorrimento vale dal primo tocco
+    syncLock();
   }
   function closeSheet() {
     if (sheetEl.hidden) return;
     sheetEl.classList.remove('open');
-    document.documentElement.classList.remove('no-scroll');
+    syncLock();
     setTimeout(() => { if (!sheetEl.classList.contains('open')) { sheetEl.hidden = true; sheetEl.querySelector('.gsheet-body').innerHTML = ''; } }, 280);
     const cb = sheetOnClose; sheetOnClose = null; if (cb) cb();
   }
@@ -1184,10 +1205,12 @@
     if (scrollTop || r !== current) { window.scrollTo(0, 0); if (r !== current && current) main.focus({ preventScroll: true }); }
     else window.scrollTo(0, y);
     current = r;
+    syncLock();
   }
   window.addEventListener('hashchange', () => render(true));
 
   main.addEventListener('click', (ev) => {
+    if (ev.target.classList.contains('sheet') && window.RCW) { window.RCW.click({ dataset: { w: 'pick-close' } }); return; }
     const tw = ev.target.closest('[data-w]');
     if (tw && window.RCW && window.RCW.click(tw)) { ev.preventDefault(); return; }
     const t = ev.target.closest('[data-act]');
@@ -1229,6 +1252,7 @@
       window.RCSync.signup($('#syncEmail').value.trim(), $('#syncPw').value);
     } else if (act === 'sync-logout' && window.RCSync) { window.RCSync.logout(); }
     else if (act === 'sync-now' && window.RCSync) { window.RCSync.now(); }
+    else if (act === 'sync-retry' && window.RCSync) { window.RCSync.retry(); }
     else if (act === 'installhide') { store.set('installHidden', true); render(); }
     else if (act === 'install' && installEvt) {
       installEvt.prompt(); installEvt.userChoice.finally(() => { installEvt = null; render(); });
@@ -1484,6 +1508,24 @@
   });
   sheetEl.addEventListener('change', (ev) => { if (window.RCW && window.RCW.sheetInput) window.RCW.sheetInput(ev.target); });
   document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') closeSheet(); });
+  // iPhone: con un pannello aperto il dito deve scorrere solo il pannello. Fuori dal pannello il gesto viene
+  // annullato; dentro, viene annullato quando il contenuto è già in cima o in fondo (altrimenti Safari
+  // "passa" lo scorrimento alla pagina sotto). Su desktop basta overscroll-behavior + html.no-scroll.
+  (function scrollGuard() {
+    let x0 = 0, y0 = 0;
+    document.addEventListener('touchstart', (e) => { const t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; }, { passive: true });
+    document.addEventListener('touchmove', (e) => {
+      if (!modalBox() || e.touches.length > 1) return;
+      const tg = e.target;
+      if (tg.closest && tg.closest('input[type="range"]')) return;
+      const sc = tg.closest && tg.closest('.gsheet-in, .sheet-in');
+      if (!sc) { e.preventDefault(); return; }
+      const dx = e.touches[0].clientX - x0, dy = e.touches[0].clientY - y0;
+      if (Math.abs(dx) > Math.abs(dy)) { if (!tg.closest('.seg, .pill-list, .tbl-wrap')) e.preventDefault(); return; }
+      const top = sc.scrollTop <= 0, bottom = sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 1;
+      if ((dy > 0 && top) || (dy < 0 && bottom)) e.preventDefault();
+    }, { passive: false });
+  })();
 
   /* ---------------- titolo grande che si compatta nella barra in alto (come iOS) ---------------- */
   const topTitle = document.getElementById('topTitle');
@@ -1548,7 +1590,7 @@
   /* ---------------- ponte con allenamento.js ---------------- */
   window.RCK = {
     D, store, esc, f0, f1, f2, sign, r1, num, dkey, fromKey, shortDate, dayIdx, I, cap, restTxt, fmtKg,
-    startTimer, buzz, blockWeek, wakeChip, tip, openSheet, closeSheet, render: (top) => render(top),
+    startTimer, stopTimer, buzz, blockWeek, wakeChip, tip, openSheet, closeSheet, render: (top) => render(top),
   };
   if (window.RCW) window.RCW.migrate();
 
@@ -1556,6 +1598,7 @@
   render(true);
   if (!store.get('onboarded', false)) setTimeout(showOnboarding, 400);
   if (isNative) {
+    if (!(window.RCW && window.RCW.isActive())) stopTimer(); // nessuna notifica di recupero rimasta da una sessione chiusa
     scheduleReminders();
     let remT = 0;
     window.addEventListener('rc-change', (e) => { if (e.detail === 'rc.swaps') { clearTimeout(remT); remT = setTimeout(scheduleReminders, 1500); } });

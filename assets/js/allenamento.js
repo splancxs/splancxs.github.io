@@ -352,7 +352,7 @@
     const items = a.items.map((it) => ({ ex: it.ex, sets: it.sets.filter((s) => s.done).map((s) => ({ kg: s.kg, r: s.r, type: s.type })), note: it.note || '' }))
       .filter((it) => it.sets.length);
     if (!items.length) {
-      if (confirm("Nessuna serie spuntata. Vuoi annullare l'allenamento?")) { setActive(null); k.render(true); }
+      if (confirm("Nessuna serie spuntata. Vuoi annullare l'allenamento?")) { setActive(null); k.stopTimer(); k.render(true); }
       return;
     }
     const pending = a.items.reduce((acc, it) => acc + it.sets.filter((s) => !s.done && (s.kg != null || s.r != null)).length, 0);
@@ -377,6 +377,7 @@
     all.push(w);
     k.store.set('workouts', all);
     setActive(null);
+    k.stopTimer(); // fine sessione: niente recupero né notifica rimasti attivi
     ui.summary = w.id;
     k.buzz('HEAVY');
     k.render(true);
@@ -688,7 +689,7 @@
       case 'start': start(t.dataset.rid || null); return true;
       case 'resume': ui.tab = 'routine'; ui.detail = ui.exDetail = ui.summary = ui.edit = null; return false; // lascia navigare il link
       case 'finish': finish(); return true;
-      case 'discard': if (confirm("Annullare l'allenamento? Le serie di oggi non verranno salvate.")) { setActive(null); k.render(true); } return true;
+      case 'discard': if (confirm("Annullare l'allenamento? Le serie di oggi non verranno salvate.")) { setActive(null); k.stopTimer(); k.render(true); } return true;
       case 'done': {
         const it = a.items[i], s = it.sets[j];
         if (!s.done) {
