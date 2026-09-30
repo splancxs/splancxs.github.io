@@ -7,7 +7,7 @@
 import { firebaseConfig } from './firebase-config.js';
 
 const V = '11.0.2';
-const SKIP = new Set(['rc._meta', 'rc.theme', 'rc.installHidden', 'rc.health', 'rc.reminders', 'rc.active', 'rc.logMigrated']); // preferenze del singolo dispositivo
+const SKIP = new Set(['rc._meta', 'rc.theme', 'rc.installHidden', 'rc.health', 'rc.reminders', 'rc.active', 'rc.logMigrated', 'rc.aiKey', 'rc.aiModel', 'rc.coachChat']); // preferenze del singolo dispositivo
 // stato mostrato in Profilo: status = loading | nocfg | offline | error | out | in; net = rete del dispositivo
 const S = {
   state: { status: 'loading', net: navigator.onLine !== false },

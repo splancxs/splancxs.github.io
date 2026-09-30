@@ -1072,7 +1072,8 @@
         ${stat('Settimana vs prec.', dWeek != null ? sign(Math.round(dWeek * 100) / 100, f2) : '—', dWeek == null ? '' : dWeek > 0.05 ? 'up' : dWeek < -0.05 ? 'down' : '')}
         ${stat('Dal via', avg7 != null ? sign(Math.round((avg7 - START.kg) * 100) / 100, f2) : '—', avg7 == null ? '' : avg7 > START.kg ? 'up' : 'down')}
       </div>
-      <section class="card advice"><p class="eyebrow">Cosa fare adesso</p><p style="margin-top:6px">${esc(advice(wk))}</p></section>
+      <section class="card advice"><p class="eyebrow">Cosa fare adesso</p><p style="margin-top:6px">${esc(advice(wk))}</p>
+        <div class="row" style="margin-top:12px"><a class="chip" href="#/coach">Chiedi al Coach</a></div></section>
       <section class="card chart stack"><div class="row"><h2>Andamento</h2><span class="spacer"></span><span class="tiny muted">punti = pesate · linea = media 7 giorni · verde = percorso ideale · passa il dito sul grafico</span></div>${chart(ws)}</section>
       <div class="grid2">
         <section class="card stack"><h2>Medie settimanali</h2>
@@ -1228,7 +1229,7 @@
     ['M12 3a9 9 0 1 0 9 9M12 7v5l3 2', 'Oggi', 'Trovi la giornata con gli orari. La card «Adesso» ti dice cosa viene dopo. Segna i pasti con ✓ oppure scorrendoli verso destra, e guarda gli anelli di calorie, proteine, carboidrati e grassi riempirsi.'],
     ['M3 4.5h18v16.5H3zM8 2.5v4M16 2.5v4M3 10h18', 'Piano e spesa', 'Tocca un pasto per vedere ingredienti e preparazione e per scambiarlo con un’alternativa equivalente. In «Lista spesa» hai le quantità esatte della settimana.'],
     ['M6.5 7v10M17.5 7v10M3.5 9.5v5M20.5 9.5v5M6.5 12h11', 'Scheda', 'Premi «Inizia» e segui l’allenamento: vedi cosa hai fatto la volta scorsa, spunti le serie e parte il recupero. Alla fine ti mostra i record battuti.'],
-    ['M3 3v18h18M7 14l4-4 3 3 6-7', 'Progressi e Profilo', 'Pesati 4 mattine a settimana: l’app ti dice se il ritmo è giusto. In Profilo trovi impostazioni, sincronizzazione e la guida. Tocca il pallino «i» quando un termine non è chiaro.'],
+    ['M3 3v18h18M7 14l4-4 3 3 6-7', 'Progressi, Coach e Profilo', 'Pesati 4 mattine a settimana: l’app ti dice se il ritmo è giusto. Il Coach (stellina in alto) risponde alle tue domande usando solo i dati che hai registrato. In Profilo trovi impostazioni, sincronizzazione e la guida.'],
   ];
   let slide = 0;
   function onboardHtml() {
@@ -1342,15 +1343,17 @@
   }
 
   /* ================= ROUTER & EVENTI ================= */
-  const routes = { oggi: viewOggi, piano: viewPiano, scheda: () => (window.RCW ? window.RCW.view() : ''), progressi: viewProgressi, profilo: viewProfilo, guida: viewProfilo };
-  const titles = { oggi: 'Oggi', piano: 'Piano', scheda: 'Scheda', progressi: 'Progressi', profilo: 'Profilo', guida: 'Profilo' };
+  const routes = { oggi: viewOggi, piano: viewPiano, scheda: () => (window.RCW ? window.RCW.view() : ''), progressi: viewProgressi, profilo: viewProfilo, guida: viewProfilo, coach: () => (window.RCC ? window.RCC.view() : '') };
+  const titles = { oggi: 'Oggi', piano: 'Piano', scheda: 'Scheda', progressi: 'Progressi', profilo: 'Profilo', guida: 'Profilo', coach: 'Coach' };
   let current = '';
   function render(scrollTop) {
     const name = (location.hash.replace(/^#\/?/, '').split('/')[0]) || 'oggi';
     const r = name === 'guida' ? 'profilo' : routes[name] ? name : 'oggi';
     if (r !== 'scheda' && wake.want) wakeOff();
+    const navRoute = r === 'coach' ? 'progressi' : r; // il Coach vive accanto ai Progressi
+    const cb = $('#coachBtn'); if (cb) cb.classList.toggle('on', r === 'coach');
     $$('.nav a').forEach((a, i) => {
-      if (a.dataset.route === r) { a.setAttribute('aria-current', 'page'); a.parentElement.style.setProperty('--i', i); } else a.removeAttribute('aria-current');
+      if (a.dataset.route === navRoute) { a.setAttribute('aria-current', 'page'); a.parentElement.style.setProperty('--i', i); } else a.removeAttribute('aria-current');
     });
     const y = window.scrollY;
     main.classList.remove('page-in'); // l'animazione di comparsa solo quando si cambia sezione, non a ogni aggiornamento
@@ -1370,6 +1373,8 @@
     if (ev.target.classList.contains('sheet') && window.RCW) { window.RCW.click({ dataset: { w: 'pick-close' } }); return; }
     const tw = ev.target.closest('[data-w]');
     if (tw && window.RCW && window.RCW.click(tw)) { ev.preventDefault(); return; }
+    const tc = ev.target.closest('[data-c]');
+    if (tc && window.RCC && window.RCC.click(tc)) { ev.preventDefault(); return; }
     const t = ev.target.closest('[data-act]');
     if (!t) return;
     const act = t.dataset.act;
@@ -1396,7 +1401,7 @@
       store.set('weights', rawWeights().filter((w) => w.d !== t.dataset.d).concat([{ d: t.dataset.d, del: 1, t: Date.now() }])); render();
     } else if (act === 'export') {
       const out = {};
-      try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k.startsWith('rc.')) out[k] = localStorage.getItem(k); } } catch (e) { /* ignora */ }
+      try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k.startsWith('rc.') && k !== 'rc.aiKey') out[k] = localStorage.getItem(k); } } catch (e) { /* ignora */ }
       const json = JSON.stringify({ app: 'recomp', date: dkey(new Date()), data: out }, null, 2);
       const name = `recomp-backup-${dkey(new Date())}.json`;
       const download = () => {
@@ -1425,6 +1430,7 @@
 
   main.addEventListener('change', (ev) => {
     const t = ev.target;
+    if (t.dataset.c && window.RCC) { window.RCC.change(t); return; }
     if (t.dataset.act === 'swap') {
       const sw = store.get('swaps', {});
       const k = t.dataset.di + ':' + t.dataset.si;
@@ -1466,6 +1472,7 @@
   main.addEventListener('input', (ev) => {
     const t = ev.target;
     if (t.dataset.wi && window.RCW) { window.RCW.input(t); return; }
+    if (t.id === 'coQ' && window.RCC) { window.RCC.draft(t.value); return; }
     if (t.id === 'foodSearch') {
       const q = t.value.trim().toLowerCase();
       $$('#foodTable tbody tr').forEach((tr) => { tr.classList.toggle('hidden', !!q && !tr.dataset.n.includes(q)); });
@@ -1473,6 +1480,7 @@
   });
 
   main.addEventListener('submit', (ev) => {
+    if (ev.target.id === 'coForm') { ev.preventDefault(); if (window.RCC) window.RCC.submit(); return; }
     if (ev.target.id === 'syncForm') {
       ev.preventDefault();
       if (window.RCSync) window.RCSync.login($('#syncEmail').value.trim(), $('#syncPw').value);
@@ -1760,6 +1768,7 @@
   /* ---------------- ponte con allenamento.js ---------------- */
   window.RCK = {
     D, store, esc, f0, f1, f2, sign, r1, num, dkey, fromKey, shortDate, dayIdx, I, cap, restTxt, fmtKg,
+    weights, weekly, advice, START, GOAL,
     startTimer, stopTimer, buzz, blockWeek, wakeChip, tip, openSheet, closeSheet, render: (top) => render(top),
   };
   if (window.RCW) window.RCW.migrate();

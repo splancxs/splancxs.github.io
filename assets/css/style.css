@@ -963,3 +963,25 @@ main:focus, main:focus-visible { outline: none; }
 /* riquadri dell'allenamento: numero e unità sulla stessa riga anche su schermi stretti */
 .wo-stats b { white-space: nowrap; font-size: clamp(20px, 6.4vw, 28px); }
 .wo-stats div { min-width: 0; }
+
+/* ============ Coach ============ */
+.icon-btn { text-decoration: none; color: inherit; }
+.icon-btn + .icon-btn { margin-left: 0; }
+#coachBtn.on { background: var(--accent); border-color: var(--accent-line); color: var(--accent-ink); }
+.co-facts { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.co-facts li { display: grid; gap: 3px; padding-left: 12px; border-left: 3px solid var(--accent-line); }
+.co-facts b { font-family: var(--display); font-size: 15px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.co-facts span { font-size: 14.5px; line-height: 1.5; }
+.co-chat { display: grid; gap: 10px; }
+.co-msg { max-width: 92%; padding: 10px 14px; border-radius: 18px; font-size: 15px; line-height: 1.5; overflow-wrap: anywhere; }
+.co-msg p + p, .co-msg p + ul, .co-msg ul + p { margin-top: 8px; }
+.co-msg ul { margin: 0; padding-left: 18px; }
+.co-msg li + li { margin-top: 4px; }
+.co-msg.me { justify-self: end; background: var(--block); color: var(--block-text); border-bottom-right-radius: 6px; }
+.co-msg.co { justify-self: start; background: var(--surface-2); border: 1px solid var(--line); border-bottom-left-radius: 6px; }
+.co-msg.wait { color: var(--muted); animation: pulse 1.4s ease-in-out infinite; }
+.co-src { display: block; margin-top: 8px; font-size: 11.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.co-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end; }
+.co-form textarea { width: 100%; min-height: 48px; max-height: 160px; resize: vertical; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line-2); background: var(--surface); font-size: 16px; line-height: 1.4; }
+.coach .pill-list .chip { text-align: left; }
+.coach .chip[disabled], .co-form .btn[disabled] { opacity: .5; pointer-events: none; }
