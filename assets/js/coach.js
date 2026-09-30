@@ -42,14 +42,14 @@
     ['today', 'L’allenamento di oggi è stato sufficiente?'],
     ['stall', 'Il peso è fermo: cosa conviene fare?'],
   ];
-  const ui = { busy: false, draft: '', err: '', live: '', prov: '' };
+  const ui = { busy: false, draft: '', err: '', live: '', prov: '', all: false };
 
   const getKey = () => K().store.get('aiKey', '');
   // servizio collegato; chi aveva già salvato una chiave prima di questa scelta usava Claude
   const getProv = () => { const p = K().store.get('aiProv', ''); return PROVIDERS[p] ? p : getKey() ? 'claude' : 'gemini'; };
   const getModel = () => { const P = PROVIDERS[getProv()]; const m = K().store.get('aiModel', ''); return P.models[m] ? m : Object.keys(P.models)[0]; };
   const getChat = () => K().store.get('coachChat', []);
-  const setChat = (c) => K().store.set('coachChat', c.slice(-30));
+  const setChat = (c) => K().store.set('coachChat', c.slice(-20)); // al massimo le ultime 10 domande con risposta
 
   /* ---------------- fatti calcolati dai dati ---------------- */
   function facts() {
@@ -258,8 +258,10 @@ Regole:
   const showLive = () => { const el = document.getElementById('coLive'); if (el) { el.innerHTML = fmt(ui.live); el.parentElement.classList.remove('wait'); } };
   // cronologia della conversazione: solo il testo dei turni con l'AI (le risposte calcolate dall'app restano fuori)
   function turns(question) {
-    const m = getChat().filter((x) => x.src !== 'dati').map((x) => ({ role: x.role === 'user' ? 'user' : 'assistant', content: x.text }));
+    let m = getChat().filter((x) => x.src !== 'dati').map((x) => ({ role: x.role === 'user' ? 'user' : 'assistant', content: x.text }));
     if (!m.length || m[m.length - 1].role !== 'user') m.push({ role: 'user', content: question });
+    m = m.slice(-7); // ultima domanda + i tre scambi precedenti
+    while (m.length && m[0].role !== 'user') m.shift();
     return m;
   }
   // legge una risposta «a flusso» (una riga "data: {...}" per ogni pezzo) e passa ogni pezzo a onData
@@ -383,7 +385,7 @@ Regole:
     if (!q || ui.busy) return;
     const chat = getChat();
     chat.push({ role: 'user', text: q, t: Date.now() });
-    ui.err = ''; ui.draft = '';
+    ui.err = ''; ui.draft = ''; ui.all = false;
     if (!getKey()) {
       // senza AI collegata: alle domande pronte rispondo con i calcoli sui dati, alle altre spiego come collegarla
       chat.push(preset ? { role: 'coach', src: 'dati', text: localAnswer(preset), t: Date.now() }
@@ -404,7 +406,7 @@ Regole:
     ui.busy = false; ui.live = '';
     if (location.hash.indexOf('coach') >= 0) { k.render(); scrollChat(); }
   }
-  const scrollChat = () => requestAnimationFrame(() => { const el = document.getElementById('coForm'); if (el) el.scrollIntoView({ block: 'end', behavior: 'smooth' }); });
+  const scrollChat = () => requestAnimationFrame(() => { const q = document.querySelectorAll('.co-msg.me'); const el = q[q.length - 1] || document.getElementById('coForm'); if (el) el.scrollIntoView({ block: 'start', behavior: 'smooth' }); });
 
   // testo -> HTML minimo: paragrafi, elenchi puntati e **grassetto**
   function fmt(t) {
@@ -430,16 +432,21 @@ Regole:
     const chat = getChat();
     const f = facts();
     const bubble = (m) => `<div class="co-msg ${m.role === 'user' ? 'me' : 'co'}">${m.role === 'user' ? `<p>${k.esc(m.text)}</p>` : `${fmt(m.text)}<span class="co-src">${m.src === 'ai' ? `${k.esc(m.by || 'Claude')}, dai tuoi dati` : 'calcolato dai tuoi dati'}</span>`}</div>`;
+    // in pagina resta solo l'ultimo scambio (domanda + risposta); i precedenti si aprono a richiesta
+    const lastQ = chat.map((m) => m.role).lastIndexOf('user');
+    const shown = ui.all || lastQ < 0 ? chat : chat.slice(lastQ);
+    const older = chat.length - shown.length;
+    const shownMin = lastQ < 0 ? chat.length : chat.length - lastQ;
     const prov = getProv();
     const P = PROVIDERS[prov];
     const modelSel = (pid) => `<div class="field"><label for="coModel">Modello</label><select id="coModel" class="search" data-c="model">${Object.entries(PROVIDERS[pid].models).map(([id, l]) => `<option value="${id}"${key && id === getModel() ? ' selected' : ''}>${l}</option>`).join('')}</select></div>`;
     const pick = PROVIDERS[ui.prov] ? ui.prov : prov; // servizio scelto nel modulo (non ancora salvato)
     const Q = PROVIDERS[pick];
     const setup = key
-      ? `<section class="card stack"><div class="row"><h2>${k.esc(P.name)} collegato</h2><span class="spacer"></span><span class="badge sync-ok">${P.tag === 'gratis' ? 'Gratis' : 'Attivo'}</span></div>
+      ? `<details class="card co-setup"><summary><span>${k.esc(P.name)} collegato</span><span class="badge sync-ok">${P.tag === 'gratis' ? 'Gratis' : 'Attivo'}</span></summary><div class="stack">
           ${Object.keys(P.models).length > 1 ? modelSel(prov) : `<p class="small muted">Modello: ${k.esc(Object.values(P.models)[0])}</p>`}
           <p class="tiny muted">La chiave resta solo su questo dispositivo (niente sincronizzazione, niente backup). ${k.esc(P.privacy)}</p>
-          <div class="row"><button type="button" class="chip" data-c="copy">Copia i miei dati</button><button type="button" class="chip" data-c="unlink">Scollega o cambia servizio</button><span class="tiny muted" id="coCopied" role="status"></span></div></section>`
+          <div class="row"><button type="button" class="chip" data-c="copy">Copia i miei dati</button><button type="button" class="chip" data-c="unlink">Scollega o cambia servizio</button><span class="tiny muted" id="coCopied" role="status"></span></div></div></details>`
       : `<section class="card stack"><h2>Collega un’AI · facoltativo</h2>
           <p class="small">Per le domande libere il coach usa un’intelligenza artificiale esterna. Scegli il servizio, crea la tua chiave e incollala qui sotto.</p>
           <div class="field"><label for="coProv">Servizio</label><select id="coProv" class="search" data-c="prov">${Object.entries(PROVIDERS).map(([id, x]) => `<option value="${id}"${id === pick ? ' selected' : ''}>${x.name} · ${x.tag}</option>`).join('')}</select></div>
@@ -459,14 +466,16 @@ Regole:
           <li><b>Allenamento</b><span>${k.esc(tTrain(f))}</span></li>
           <li><b>Dieta</b><span>${k.esc(tDiet(f))}</span></li>
         </ul></section>
-      <section class="card stack"><div class="row"><h2>Chiedi al coach</h2><span class="spacer"></span>${chat.length && !ui.busy ? '<button type="button" class="chip" data-c="clear">Nuova conversazione</button>' : ''}</div>
-        <div class="pill-list">${PRESETS.map(([id, q]) => `<button type="button" class="chip" data-c="preset" data-id="${id}"${ui.busy ? ' disabled' : ''}>${q}</button>`).join('')}</div>
-        ${chat.length || ui.busy ? `<div class="co-chat" aria-live="polite">${chat.map(bubble).join('')}${ui.busy ? `<div class="co-msg co${ui.live ? '' : ' wait'}"><div id="coLive">${ui.live ? fmt(ui.live) : '<p>Sto leggendo i tuoi dati…</p>'}</div></div>` : ''}</div>` : ''}
+      <section class="card stack"><h2>Chiedi al coach</h2>
+        <div class="co-presets" role="group" aria-label="Domande pronte">${PRESETS.map(([id, q]) => `<button type="button" class="chip" data-c="preset" data-id="${id}"${ui.busy ? ' disabled' : ''}>${q}</button>`).join('')}</div>
+        ${chat.length || ui.busy ? `${older && !ui.busy ? `<button type="button" class="co-older" data-c="older">Mostra ${older === 1 ? 'il messaggio precedente' : `i ${older} messaggi precedenti`}</button>` : ''}
+        <div class="co-chat" aria-live="polite">${shown.map(bubble).join('')}${ui.busy ? `<div class="co-msg co${ui.live ? '' : ' wait'}"><div id="coLive">${ui.live ? fmt(ui.live) : '<p>Sto leggendo i tuoi dati…</p>'}</div></div>` : ''}</div>` : ''}
         ${ui.err ? `<p class="err" role="alert">${k.esc(ui.err)}</p>` : ''}
         <form id="coForm" class="co-form" novalidate><label class="sr" for="coQ">La tua domanda</label>
           <textarea id="coQ" rows="2" placeholder="${key ? 'Scrivi la tua domanda…' : 'Domande libere: collega un’AI qui sotto'}">${k.esc(ui.draft)}</textarea>
           <button type="submit" class="btn"${ui.busy ? ' disabled' : ''}>Invia</button></form>
-        <p class="tiny muted">${key ? `Risponde ${k.esc(P.models[getModel()].split(' · ')[0])}, solo in base ai dati dell’app.` : 'Senza un’AI collegata rispondo alle domande pronte con calcoli sui tuoi dati.'}</p>
+        <div class="co-foot"><span class="tiny muted">${key ? `Risponde ${k.esc(P.models[getModel()].split(' · ')[0])}, solo in base ai dati dell’app.` : 'Senza un’AI collegata rispondo alle domande pronte con calcoli sui tuoi dati.'}</span>
+          ${chat.length && !ui.busy ? `${ui.all && chat.length > shownMin ? '<button type="button" class="co-link" data-c="older">Nascondi i precedenti</button>' : ''}<button type="button" class="co-link" data-c="clear">Nuova conversazione</button>` : ''}</div>
       </section>
       ${setup}
     </div>`;
@@ -476,7 +485,8 @@ Regole:
     const k = K();
     const c = t.dataset.c;
     if (c === 'preset') { const p = PRESETS.find((x) => x[0] === t.dataset.id); send(p[1], p[0]); return true; }
-    if (c === 'clear') { setChat([]); ui.err = ''; k.render(); return true; }
+    if (c === 'clear') { setChat([]); ui.err = ''; ui.all = false; k.render(); return true; }
+    if (c === 'older') { ui.all = !ui.all; k.render(); return true; }
     if (c === 'save-key') {
       const v = (document.getElementById('coKey').value || '').trim();
       if (!v) { document.getElementById('coKey').focus(); return true; }

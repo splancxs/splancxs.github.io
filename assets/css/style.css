@@ -108,6 +108,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
     --lg-tint: rgba(255, 255, 255, .42); --lg-tint-2: rgba(255, 255, 255, .2);
     --lg-rim: rgba(255, 255, 255, .95); --lg-rim-dim: rgba(255, 255, 255, .3);
     --lg-sheen: rgba(255, 255, 255, .7); --lg-ink: rgba(20, 20, 20, .66);
+    --lens-1: rgba(255, 255, 255, .75); --lens-2: rgba(255, 255, 255, .3); --lens-rim: rgba(255, 255, 255, .95); --lens-rim-2: rgba(20, 20, 20, .08);
     --lg-shadow: 0 14px 36px rgba(20, 20, 20, .16), 0 3px 10px rgba(20, 20, 20, .1);
     position: fixed; left: 14px; right: 14px; bottom: max(12px, calc(var(--sab) - 8px)); z-index: 40;
     max-width: 460px; margin: 0 auto; padding: 6px; border-radius: 34px;
@@ -133,25 +134,21 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
     -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
     -webkit-mask-composite: xor; mask-composite: exclude;
   }
-  /* lente sulla sezione attiva: vetro lime con riflesso. Si muove solo con transform (lavora la GPU):
-     a riposo segue --i con un rimbalzo, mentre trascini la sposta app.js a ogni fotogramma. */
+  /* lente sulla sezione attiva: vetro trasparente (bordo illuminato, luce in alto, ombra leggera sotto).
+     Si muove solo con transform (lavora la GPU): a riposo segue --i, mentre trascini la sposta app.js. */
   .nav-bubble {
     position: absolute; top: 6px; bottom: 6px; left: 6px; width: calc((100% - 12px) / 5);
     border-radius: 28px; pointer-events: none; z-index: -1;
-    background: var(--accent);
-    background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 86%, #fff) 0%, var(--accent) 48%, color-mix(in srgb, var(--accent) 90%, #3d5700) 100%);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8), inset 0 -1px 0 rgba(40, 60, 0, .2), inset 0 0 0 .5px rgba(255, 255, 255, .4), 0 5px 14px rgba(110, 150, 0, .3);
+    background: linear-gradient(180deg, var(--lens-1), var(--lens-2));
+    box-shadow: inset 0 1px 0 var(--lens-rim), inset 0 -1px 0 var(--lens-rim-2), inset 0 0 0 .5px var(--lens-rim-2), inset 0 8px 12px -10px var(--lens-rim), 0 4px 14px rgba(0, 0, 0, .16);
     transform: translate3d(calc(var(--i, 0) * 100%), 0, 0);
-    transition: transform .5s cubic-bezier(.3, 1.35, .45, 1), background .25s ease, box-shadow .25s ease;
+    /* arrivo morbido senza superare il punto d'arrivo: prima, andando all'ultima icona, la lente usciva dalla barra e tornava indietro */
+    transition: transform .42s cubic-bezier(.22, 1, .36, 1), background .25s ease, box-shadow .25s ease;
   }
-  .nav-bubble::after { /* riflesso speculare in alto */
-    content: ""; position: absolute; left: 12%; right: 12%; top: 3px; height: 40%; border-radius: 24px 24px 50% 50%;
-    background: linear-gradient(180deg, rgba(255, 255, 255, .6), rgba(255, 255, 255, 0)); opacity: .75;
-  }
-  /* al cambio sezione la lente si allunga un attimo, come una goccia che scivola */
-  .nav-bubble.moving { animation: lgStretch .45s ease; }
-  @keyframes lgStretch { 35% { scale: 1.2 .88; } 70% { scale: .96 1.03; } }
-  /* mentre trascini la lente diventa vetro trasparente e ingrandisce l'icona che ha sotto */
+  /* al cambio sezione la lente si allunga appena mentre scivola e si riassesta all'arrivo */
+  .nav-bubble.moving { animation: lgStretch .42s cubic-bezier(.22, 1, .36, 1); }
+  @keyframes lgStretch { 30% { scale: 1.1 .93; } 72% { scale: .985 1.015; } }
+  /* mentre trascini la lente si fa più luminosa e ingrandisce l'icona che ha sotto */
   .nav.dragging .nav-bubble {
     transition: background .2s ease, box-shadow .2s ease;
     background: linear-gradient(180deg, rgba(255, 255, 255, .36), rgba(255, 255, 255, .1));
@@ -160,11 +157,11 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
   .nav a { color: var(--lg-ink); }
   .nav a span { display: block; -webkit-transform: translate3d(0, 0, 0); transform: translate3d(0, 0, 0); -webkit-backface-visibility: hidden; backface-visibility: hidden; }
   .nav a:active svg { transform: translate3d(0, 0, 0) scale(.9); }
-  .nav a[aria-current="page"], .nav a[aria-current="page"] svg { color: var(--accent-ink); }
+  .nav a[aria-current="page"], .nav a[aria-current="page"] svg { color: var(--accent-text); } /* lime su fondo scuro, verde oliva su fondo chiaro */
   .nav a[aria-current="page"] svg { transform: translate3d(0, -1px, 0) scale(1.06); }
   .nav.dragging a[aria-current="page"], .nav.dragging a[aria-current="page"] svg { color: var(--lg-ink); }
   .nav.dragging a[aria-current="page"] svg { transform: translate3d(0, 0, 0); }
-  .nav.dragging a.lens, .nav.dragging a.lens svg { color: var(--ink); }
+  .nav.dragging a.lens, .nav.dragging a.lens svg { color: var(--accent-text); }
   .nav.dragging a.lens svg { transform: translate3d(0, -2px, 0) scale(1.24); }
 }
 @media (max-width: 899px) and (prefers-color-scheme: dark) {
@@ -172,6 +169,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
     --lg-tint: rgba(70, 70, 78, .4); --lg-tint-2: rgba(20, 20, 24, .36);
     --lg-rim: rgba(255, 255, 255, .5); --lg-rim-dim: rgba(255, 255, 255, .1);
     --lg-sheen: rgba(255, 255, 255, .2); --lg-ink: rgba(241, 241, 236, .7);
+    --lens-1: rgba(255, 255, 255, .2); --lens-2: rgba(255, 255, 255, .06); --lens-rim: rgba(255, 255, 255, .5); --lens-rim-2: rgba(255, 255, 255, .14);
     --lg-shadow: 0 16px 40px rgba(0, 0, 0, .6), 0 3px 10px rgba(0, 0, 0, .35);
   }
 }
@@ -180,6 +178,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
     --lg-tint: rgba(70, 70, 78, .4); --lg-tint-2: rgba(20, 20, 24, .36);
     --lg-rim: rgba(255, 255, 255, .5); --lg-rim-dim: rgba(255, 255, 255, .1);
     --lg-sheen: rgba(255, 255, 255, .2); --lg-ink: rgba(241, 241, 236, .7);
+    --lens-1: rgba(255, 255, 255, .2); --lens-2: rgba(255, 255, 255, .06); --lens-rim: rgba(255, 255, 255, .5); --lens-rim-2: rgba(255, 255, 255, .14);
     --lg-shadow: 0 16px 40px rgba(0, 0, 0, .6), 0 3px 10px rgba(0, 0, 0, .35);
   }
 }
@@ -967,12 +966,12 @@ main:focus, main:focus-visible { outline: none; }
 .co-msg p + p, .co-msg p + ul, .co-msg ul + p { margin-top: 8px; }
 .co-msg ul { margin: 0; padding-left: 18px; }
 .co-msg li + li { margin-top: 4px; }
-.co-msg.me { justify-self: end; background: var(--block); color: var(--block-text); border-bottom-right-radius: 6px; }
+.co-msg.me { justify-self: end; background: var(--accent); color: var(--accent-ink); font-weight: 600; border-bottom-right-radius: 6px; }
 .co-msg.co { justify-self: start; background: var(--surface-2); border: 1px solid var(--line); border-bottom-left-radius: 6px; }
 .co-msg.wait { color: var(--muted); animation: pulse 1.4s ease-in-out infinite; }
 .co-src { display: block; margin-top: 8px; font-size: 11.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
 .co-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end; }
-.co-form textarea { width: 100%; min-height: 48px; max-height: 160px; resize: vertical; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line-2); background: var(--surface); font-size: 16px; line-height: 1.4; }
+.co-form textarea { width: 100%; min-height: 48px; max-height: 160px; resize: none; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line-2); background: var(--surface); font-size: 16px; line-height: 1.4; }
 .coach .pill-list .chip { text-align: left; }
 .coach .chip[disabled], .co-form .btn[disabled] { opacity: .5; pointer-events: none; }
 
@@ -1035,3 +1034,24 @@ img, svg, video, canvas { max-width: 100%; }
 .pick-t, .ld-t { min-width: 0; overflow-wrap: break-word; }
 /* intestazione di Oggi: se giorno ed etichetta non stanno affiancati, l'etichetta scende sotto (niente parole spezzate) */
 .hero-top { flex-wrap: wrap; row-gap: 8px; }
+
+/* ============ Coach: chat compatta ============ */
+/* le liste dentro una scheda non devono attaccarsi al titolo (prima la barra lime partiva sotto la scritta) */
+.stack > * + ul, .stack > * + ol { margin-top: 16px; }
+/* domande pronte: una riga sola che scorre di lato, invece di sei pulsanti impilati */
+.co-presets { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin-inline: -16px; padding: 2px 16px;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 16px, #000 calc(100% - 28px), transparent 100%); mask-image: linear-gradient(90deg, transparent 0, #000 16px, #000 calc(100% - 28px), transparent 100%); }
+.co-presets::-webkit-scrollbar { display: none; }
+.co-presets .chip { flex: none; white-space: nowrap; border-radius: 999px; }
+@media (min-width: 600px) { .co-presets { margin-inline: -20px; padding-inline: 20px; } }
+.co-older { align-self: center; width: 100%; padding: 8px 12px; border: 1px dashed var(--line-2); border-radius: 12px; background: none; color: var(--muted); font-size: 13.5px; font-weight: 650; }
+.co-msg.me { scroll-margin-top: calc(var(--sat) + 76px); }
+.co-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
+.co-foot > span { flex: 1 1 180px; }
+.co-link { border: 0; background: none; padding: 6px 0; color: var(--accent-text); font-size: 13.5px; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+.co-setup summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-weight: 700; cursor: pointer; list-style: none; }
+.co-setup summary::-webkit-details-marker { display: none; }
+.co-setup summary::after { content: "›"; color: var(--muted); font-size: 20px; line-height: 1; transition: transform .2s ease; }
+.co-setup[open] summary::after { transform: rotate(90deg); }
+.co-setup summary span:first-child { flex: 1; min-width: 0; }
+.co-setup[open] > .stack { margin-top: 14px; }
