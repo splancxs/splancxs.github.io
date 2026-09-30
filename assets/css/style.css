@@ -914,3 +914,52 @@ main:focus, main:focus-visible { outline: none; }
 .dash-left { margin-top: 12px; font-size: 14px; color: var(--muted); }
 .dash-left b { color: var(--ink); }
 @media (min-width: 600px) { .mrings { grid-template-columns: repeat(3, minmax(0, 1fr)); } .mring { grid-template-columns: 1fr; justify-items: start; } .mring svg { width: 54px; height: 54px; } }
+
+/* ============ Creatina, giorno saltato ============ */
+.hero-badge { gap: 6px; flex-wrap: nowrap; flex: none; }
+.supp { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px; text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+.supp-ic { flex: none; width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: var(--surface-3); color: var(--muted); }
+.supp-t { flex: 1; min-width: 0; display: grid; line-height: 1.25; }
+.supp-t b { font-family: var(--display); font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: .02em; }
+.supp-t small { font-size: 13px; color: var(--muted); }
+.supp .check { pointer-events: none; }
+.supp.done .check { background: var(--accent); border-color: var(--accent-line); color: var(--accent-ink); }
+.supp.done .supp-ic { background: var(--accent); color: var(--accent-ink); }
+.supp.late { border-color: var(--warn); }
+.supp.late .supp-t small { color: var(--warn); font-weight: 700; }
+.evrow.skipped { color: var(--muted); }
+.alt .alt-m em { font-style: normal; font-weight: 800; color: var(--ink); }
+
+/* ============ Carichi attuali e analisi dell'allenamento ============ */
+.loads { list-style: none; margin: 0; padding: 0; }
+.loads li + li { border-top: 1px solid var(--line); }
+.ld { width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px 2px; border: 0; background: none; text-align: left; }
+.ld-t { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.ld-t b { font-size: 15px; }
+.ld-t small { font-size: 12.5px; color: var(--muted); line-height: 1.35; }
+.ld-next.up { color: var(--accent-text); font-weight: 700; }
+.ld-kg { flex: none; text-align: right; display: grid; justify-items: end; line-height: 1; }
+.ld-kg b { font-family: var(--display); font-size: 30px; font-weight: 800; }
+.ld-kg small { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+.an-sum { display: flex; flex-wrap: wrap; gap: 6px; }
+.an-sum span { font-family: var(--display); font-weight: 800; font-size: 14px; text-transform: uppercase; letter-spacing: .04em; padding: 4px 10px; border-radius: 99px; background: var(--surface-3); color: var(--muted); }
+.an-sum .an-up { background: var(--accent); color: var(--accent-ink); }
+.an-sum .an-down { background: color-mix(in srgb, var(--bad) 18%, transparent); color: var(--bad); }
+.an-g h3 { font-family: var(--display); text-transform: uppercase; letter-spacing: .04em; font-size: 15px; color: var(--muted); }
+.an-g ul { list-style: none; margin: 6px 0 0; padding: 0; }
+.an-g li { padding: 9px 0 9px 12px; border-left: 3px solid var(--line-2); }
+.an-g li + li { margin-top: 8px; }
+.an-up li { border-left-color: var(--accent-line); }
+.an-down li { border-left-color: var(--bad); }
+.an-h { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.an-why { font-size: 13px; font-weight: 700; color: var(--muted); }
+.an-up .an-why { color: var(--accent-text); }
+.an-down .an-why { color: var(--bad); }
+.an-d { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.an-n { font-size: 13.5px; margin-top: 3px; }
+.an-stall { padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--warn) 14%, transparent); }
+.cal-d.skip { text-decoration: line-through; color: var(--bad); }
+.whist.skip { opacity: .75; border-style: dashed; }
+/* riquadri dell'allenamento: numero e unità sulla stessa riga anche su schermi stretti */
+.wo-stats b { white-space: nowrap; font-size: clamp(20px, 6.4vw, 28px); }
+.wo-stats div { min-width: 0; }

@@ -83,7 +83,8 @@ function mergeKey(k, L, R) {
     const v = mergeItems(parse(L.v, []), parse(R.v, []), (x) => x.id).sort((x, y) => (x.start || 0) - (y.start || 0));
     return { v: JSON.stringify(v), t };
   }
-  if (k === 'rc.routines' || k === 'rc.exlib') { // routine modificate ed esercizi creati: uno per id
+  // routine, esercizi creati, creatina, diario e giorni modificati: una voce per id (o per data), vince la più recente
+  if (k === 'rc.routines' || k === 'rc.exlib' || k === 'rc.creatina' || k === 'rc.dlog' || k === 'rc.dayov') {
     const a = parse(L.v, {}), b = parse(R.v, {});
     const out = {};
     for (const id of new Set([...Object.keys(a), ...Object.keys(b)])) {

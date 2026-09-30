@@ -349,7 +349,7 @@
     const k = K();
     const a = getActive();
     if (!a) return;
-    const items = a.items.map((it) => ({ ex: it.ex, sets: it.sets.filter((s) => s.done).map((s) => ({ kg: s.kg, r: s.r, type: s.type })), note: it.note || '' }))
+    const items = a.items.map((it) => ({ ex: it.ex, lo: it.lo, hi: it.hi, sets: it.sets.filter((s) => s.done).map((s) => ({ kg: s.kg, r: s.r, type: s.type })), note: it.note || '' }))
       .filter((it) => it.sets.length);
     if (!items.length) {
       if (confirm("Nessuna serie spuntata. Vuoi annullare l'allenamento?")) { setActive(null); k.stopTimer(); k.render(true); }
@@ -384,6 +384,137 @@
     if (w.prs.length) setTimeout(confetti, 120);
   }
 
+  /* ---------------- analisi di un allenamento (solo dati registrati, nessun voto) ---------------- */
+  // sedute precedenti di un esercizio, dalla più recente
+  function sessionsBefore(exId, ts, max) {
+    const out = [];
+    for (const x of history()) {
+      if (x.start >= ts) continue;
+      const it = x.items.find((y) => y.ex === exId && y.sets.some(isWork));
+      if (it) { out.push({ w: x, it }); if (out.length >= max) break; }
+    }
+    return out;
+  }
+  function metrics(it, unit) {
+    const work = it.sets.filter((s) => isWork(s) && s.r != null);
+    if (unit === 'sec') return { n: work.length, kg: 0, reps: work.reduce((a, s) => a + s.r, 0), best: Math.max(0, ...work.map((s) => s.r)), e1: 0, list: work.map((s) => `${s.r}″`).join(' · ') };
+    const kg = Math.max(0, ...work.map((s) => s.kg || 0));
+    const top = work.filter((s) => (s.kg || 0) === kg);
+    const same = work.every((s) => (s.kg || 0) === kg);
+    return {
+      n: work.length, kg, reps: top.reduce((a, s) => a + s.r, 0), best: 0, e1: Math.max(0, ...work.map((s) => e1rm(s.kg, s.r))),
+      list: same ? `${K().fmtKg(kg)} kg × ${work.map((s) => s.r).join(' · ')}` : work.map((s) => `${K().fmtKg(s.kg || 0)}×${s.r}`).join(' · '),
+    };
+  }
+  function rangeOf(w, it) {
+    if (it.lo && it.hi) return { lo: it.lo, hi: it.hi };
+    const r = w.rid ? routineOf(w.rid) : null;
+    const ri = r && r.items.find((x) => x.ex === it.ex);
+    return ri ? { lo: ri.lo, hi: ri.hi } : null;
+  }
+  function analyze(w) {
+    const k = K();
+    return w.items.filter((it) => it.sets.some(isWork)).map((it) => {
+      const e = exOf(it.ex);
+      const cur = metrics(it, e.unit);
+      const prev = sessionsBefore(it.ex, w.start, 3).map((p) => metrics(p.it, e.unit));
+      const rg = rangeOf(w, it);
+      const work = it.sets.filter((s) => isWork(s) && s.r != null);
+      const o = { ex: it.ex, n: e.n, cur, prev: prev[0] || null, st: 'new', why: 'prima seduta registrata', next: '', stall: false };
+      if (prev[0]) {
+        const p = prev[0];
+        if (e.unit === 'sec') {
+          o.st = cur.best > p.best ? 'up' : cur.best < p.best ? 'down' : 'same';
+          o.why = cur.best === p.best ? 'stesso tempo' : `${cur.best > p.best ? '+' : '−'}${Math.abs(cur.best - p.best)}″ sul tempo migliore`;
+        } else if (cur.kg > p.kg) { o.st = 'up'; o.why = `carico +${k.fmtKg(k.r1(cur.kg - p.kg))} kg`; }
+        else if (cur.kg === p.kg) {
+          const d = cur.reps - p.reps;
+          o.st = d > 0 ? 'up' : d < 0 ? 'down' : 'same';
+          o.why = d === 0 ? 'stesso carico e stesse ripetizioni' : `stesso carico, ${d > 0 ? '+' : '−'}${Math.abs(d)} ripetizion${Math.abs(d) === 1 ? 'e' : 'i'}`;
+        } else {
+          const better = cur.e1 > p.e1 * 1.01;
+          o.st = better ? 'same' : 'down';
+          o.why = `carico −${k.fmtKg(k.r1(p.kg - cur.kg))} kg${better ? ' ma più ripetizioni: forza stimata invariata' : ''}`;
+        }
+        // stallo: con questa sono 3 sedute di fila senza migliorare il valore migliore (1RM stimato o tempo)
+        if (prev.length >= 2) {
+          const val = (m) => (e.unit === 'sec' ? m.best : m.e1);
+          o.stall = val(cur) <= val(prev[0]) * 1.005 && val(prev[0]) <= val(prev[1]) * 1.005;
+        }
+      }
+      if (rg && work.length) {
+        if (e.unit === 'sec') o.next = work.every((s) => s.r >= rg.hi) ? `prossima volta ${rg.hi + e.inc}″` : `punta a ${rg.hi}″ su tutte le serie`;
+        else if (cur.kg > 0) {
+          if (work.every((s) => s.r >= rg.hi && (s.kg || 0) === cur.kg)) o.next = `tutte le serie a ${rg.hi}: prossima volta sali a ${k.fmtKg(k.r1(cur.kg + e.inc))} kg`;
+          else if (work.some((s) => s.r < rg.lo)) o.next = `qualche serie sotto le ${rg.lo}: resta a ${k.fmtKg(cur.kg)} kg`;
+          else o.next = `resta a ${k.fmtKg(cur.kg)} kg e cerca 1 ripetizione in più (si sale a ${rg.hi} su tutte le serie)`;
+        }
+      }
+      if (o.stall) o.next = (o.next ? o.next + '. ' : '') + 'Fermo da 3 sedute: controlla sonno e calorie, poi prova a scendere del 10% e risalire';
+      return o;
+    });
+  }
+  function analysisHtml(w) {
+    const k = K();
+    const rows = analyze(w);
+    if (!rows.length) return '';
+    const r = w.rid ? routineOf(w.rid) : null;
+    const planned = r ? r.items.reduce((a, it) => a + it.s, 0) : 0;
+    const done = rows.reduce((a, x) => a + x.cur.n, 0);
+    const missed = r ? r.items.filter((it) => !w.items.some((x) => x.ex === it.ex && x.sets.some(isWork))).map((it) => exOf(it.ex).n.split(' · ')[0]) : [];
+    const prevSame = w.rid ? history().find((x) => x.rid === w.rid && x.start < w.start) : null;
+    const vol = w.items.reduce((a, it) => a + volOf(it.sets), 0);
+    const pv = prevSame ? prevSame.items.reduce((a, it) => a + volOf(it.sets), 0) : 0;
+    const grp = (st) => rows.filter((x) => x.st === st);
+    const li = (x) => `<li><div class="an-h"><b>${k.esc(x.n)}</b><span class="an-why">${k.esc(x.why)}</span></div>
+      <div class="an-d">Oggi: ${k.esc(x.cur.list)}${x.prev ? ` · Prima: ${k.esc(x.prev.list)}` : ''}</div>
+      ${x.next ? `<div class="an-n">→ ${k.esc(x.next)}</div>` : ''}</li>`;
+    const block = (st, title) => (grp(st).length ? `<div class="an-g an-${st}"><h3>${title} · ${grp(st).length}</h3><ul>${grp(st).map(li).join('')}</ul></div>` : '');
+    const facts = [
+      planned ? `${done} serie allenanti su ${planned} previste` : `${done} serie allenanti`,
+      pv ? `volume ${vol >= pv ? '+' : '−'}${k.f0(Math.abs((vol - pv) / pv * 100))}% rispetto all’ultimo ${k.esc(w.name)}` : '',
+      missed.length ? `non fatti: ${missed.map(k.esc).join(', ')}` : '',
+    ].filter(Boolean);
+    return `<section class="card stack analysis">
+      <div class="row"><h2>Analisi</h2><span class="spacer"></span><span class="tiny muted">confronto con la seduta precedente di ogni esercizio</span></div>
+      <div class="an-sum"><span class="an-up">${grp('up').length} in progresso</span><span class="an-same">${grp('same').length} stabili</span><span class="an-down">${grp('down').length} in calo</span>${grp('new').length ? `<span>${grp('new').length} nuovi</span>` : ''}</div>
+      <p class="small">${facts.join(' · ')}.</p>
+      ${block('up', 'In progresso')}${block('same', 'Stabili')}${block('down', 'In calo')}${block('new', 'Prima volta')}
+      ${rows.some((x) => x.stall) ? `<p class="small an-stall"><strong>Da tenere d’occhio:</strong> ${rows.filter((x) => x.stall).map((x) => k.esc(x.n)).join(', ')} — nessun miglioramento nelle ultime 3 sedute.</p>` : ''}
+      ${window.RCC ? `<div class="row"><a class="chip" href="#/coach" data-w="coach-workout" data-id="${w.id}">Chiedi un parere al Coach</a></div>` : ''}
+    </section>`;
+  }
+
+  /* ---------------- carichi attuali: l'ultima seduta registrata di ogni esercizio ---------------- */
+  function loadRow(it) {
+    const k = K();
+    const e = exOf(it.ex);
+    const p = prevSets(it.ex);
+    const m = p ? metrics({ sets: p.sets }, e.unit) : null;
+    const work = p ? p.sets.filter((s) => isWork(s) && s.r != null) : [];
+    const reps = work.map((s) => s.r);
+    const uniform = reps.length && reps.every((r) => r === reps[0]) && work.every((s) => (s.kg || 0) === (work[0].kg || 0));
+    const big = !m ? (e.unit === 'sec' ? `${it.lo}″` : it.kg != null ? k.fmtKg(it.kg) : '—') : e.unit === 'sec' ? `${m.best}″` : k.fmtKg(m.kg);
+    const sub = !m ? (it.kg != null || e.unit === 'sec' ? 'carico di partenza della scheda · mai registrato' : 'carico da testare · mai registrato')
+      : `${uniform ? `${reps.length} × ${reps[0]}${e.unit === 'sec' ? '″' : ''}` : e.unit === 'sec' ? m.list : work.map((s) => ((s.kg || 0) === m.kg ? s.r : `${s.r} (${k.fmtKg(s.kg || 0)} kg)`)).join(' · ')} · ultima sessione ${new Date(p.w.start).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' })}`;
+    const sg = suggestion({ ...it, sets: Array.from({ length: it.s || work.length || 3 }, () => ({ type: 'n' })) });
+    return `<li><button type="button" class="ld" data-w="exdetail" data-ex="${it.ex}">
+      <span class="ld-t"><b>${k.esc(e.n)}</b><small>${k.esc(sub)}</small><small class="ld-next${sg.cls === 'up' ? ' up' : ''}">${k.esc(sg.txt)}</small></span>
+      <span class="ld-kg"><b>${big}</b>${e.unit === 'sec' || big === '—' ? '' : '<small>kg</small>'}</span></button></li>`;
+  }
+  function viewLoads() {
+    const k = K();
+    const list = routines();
+    const inRoutine = new Set(list.flatMap((r) => r.items.map((it) => it.ex)));
+    const others = [...new Set(history().flatMap((x) => x.items.map((it) => it.ex)))].filter((id) => !inRoutine.has(id));
+    return `<div class="stack">
+      <p class="small muted">Il carico più alto dell’ultima sessione registrata di ogni esercizio, con serie e ripetizioni, e cosa fare la prossima volta. Tocca un esercizio per vedere lo storico.</p>
+      <div class="grid2">${list.map((r) => `<section class="card stack"><div><h2>${k.esc(r.name)}</h2><p class="small muted">${r.day ? k.esc(r.day) + ' · ' : ''}${k.esc(r.focus || '')}</p></div>
+        <ul class="loads">${r.items.map(loadRow).join('')}</ul></section>`).join('')}
+      ${others.length ? `<section class="card stack"><h2>Altri esercizi</h2><ul class="loads">${others.map((id) => loadRow({ ex: id, lo: 8, hi: 12, s: 0, kg: null })).join('')}</ul></section>` : ''}</div>
+    </div>`;
+  }
+
   function summaryView(w) {
     const k = K();
     const vol = w.items.reduce((a, it) => a + volOf(it.sets), 0);
@@ -396,6 +527,7 @@
         ${w.prs && w.prs.length ? `<div class="stack"><h3>🏆 Record personali (${w.prs.length})</h3><ul class="prs">${w.prs.map((p) => `<li><span>${k.esc(exOf(p.ex).n)}</span><span class="muted">${k.esc(p.k)}</span><b>${k.esc(p.v)}</b></li>`).join('')}</ul></div>` : '<p class="small muted">Nessun nuovo record questa volta: la costanza è quello che conta.</p>'}
         <div class="row"><button type="button" class="btn" data-w="summary-close">Fatto</button><button type="button" class="btn ghost" data-w="detail" data-id="${w.id}">Vedi dettaglio</button></div>
       </section>
+      ${analysisHtml(w)}
     </div>`;
   }
 
@@ -522,20 +654,21 @@
     const off = k.dayIdx(first);
     const byDay = {};
     list.forEach((w) => { const d = k.dkey(new Date(w.start)); (byDay[d] = byDay[d] || []).push(w); });
+    const sk = skipped();
     const cells = [];
     for (let i = 0; i < off; i++) cells.push('<span></span>');
     for (let d = 1; d <= days; d++) {
       const key = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
       const ws = byDay[key];
       const today = key === k.dkey(now);
-      cells.push(ws ? `<button type="button" class="cal-d has${today ? ' today' : ''}" data-w="detail" data-id="${ws[0].id}" aria-label="${d}: ${k.esc(ws[0].name)}">${d}</button>` : `<span class="cal-d${today ? ' today' : ''}">${d}</span>`);
+      cells.push(ws ? `<button type="button" class="cal-d has${today ? ' today' : ''}" data-w="detail" data-id="${ws[0].id}" aria-label="${d}: ${k.esc(ws[0].name)}">${d}</button>` : `<span class="cal-d${today ? ' today' : ''}${sk[key] ? ' skip' : ''}"${sk[key] ? ` aria-label="${d}: allenamento saltato"` : ''}>${d}</span>`);
     }
     const title = first.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
     const inMonth = list.filter((w) => { const d = new Date(w.start); return d.getFullYear() === y && d.getMonth() === m - 1; }).length;
     return `<section class="card stack">
       <div class="row"><button type="button" class="x-btn" data-w="month" data-d="-1" aria-label="Mese precedente">‹</button><h2 style="flex:1;text-align:center">${k.cap(title)}</h2><button type="button" class="x-btn" data-w="month" data-d="1" aria-label="Mese successivo">›</button></div>
       <div class="cal">${['L', 'M', 'M', 'G', 'V', 'S', 'D'].map((x) => `<span class="cal-h">${x}</span>`).join('')}${cells.join('')}</div>
-      <p class="small muted">${inMonth} allenamenti in questo mese.</p>
+      <p class="small muted">${inMonth} allenamenti in questo mese${(() => { const n = Object.keys(sk).filter((d) => d.startsWith(`${y}-${String(m).padStart(2, '0')}`)).length; return n ? ` · ${n} saltat${n === 1 ? 'o' : 'i'} (barrati)` : ''; })()}.</p>
     </section>`;
   }
 
@@ -552,11 +685,26 @@
     </button></li>`;
   }
 
+  // giorni segnati come «palestra saltata» (rc.dayov), esclusi quelli in cui poi ti sei allenato lo stesso
+  function skipped() {
+    const k = K();
+    const ov = k.store.get('dayov', {});
+    const doneDays = new Set(history().map((w) => k.dkey(new Date(w.start))));
+    const out = {};
+    Object.keys(ov).forEach((d) => { if (ov[d].skip && !ov[d].del && !doneDays.has(d)) out[d] = ov[d]; });
+    return out;
+  }
   function viewHistory() {
+    const k = K();
     const list = history();
+    const sk = skipped();
+    const rows = list.slice(0, 60).map((w) => ({ t: w.start, html: workoutRow(w) }))
+      .concat(Object.keys(sk).map((d) => { const r = routineOf(sk[d].rid); const dt = k.fromKey(d);
+        return { t: dt.getTime() + 16.5 * 3600000, html: `<li><div class="card whist skip"><div class="row"><b>${k.esc(r ? r.name : 'Allenamento')} · saltato</b><span class="spacer"></span><span class="tiny muted">${k.cap(dt.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' }))}</span></div><p class="tiny muted" style="margin-top:4px">Non conta tra gli allenamenti fatti.</p></div></li>` }; }))
+      .sort((a, b) => b.t - a.t);
     return `<div class="grid-main">
       <div class="stack"><h2 class="sec-title">Cronologia</h2>
-        ${list.length ? `<ul class="whlist">${list.slice(0, 60).map(workoutRow).join('')}</ul>` : '<p class="card small muted">Qui compariranno i tuoi allenamenti completati.</p>'}</div>
+        ${rows.length ? `<ul class="whlist">${rows.map((x) => x.html).join('')}</ul>` : '<p class="card small muted">Qui compariranno i tuoi allenamenti completati.</p>'}</div>
       <aside class="stack sticky-col">${monthGrid(list)}</aside>
     </div>`;
   }
@@ -571,6 +719,7 @@
       <section class="card stack"><p class="eyebrow">${k.esc(k.cap(d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })))} · ${d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}</p>
         <h1>${k.esc(w.name)}</h1>
         <div class="wo-stats"><div><span>Durata</span><b>${min} min</b></div><div><span>Volume</span><b>${k.f0(vol)} kg</b></div><div><span>Record</span><b>${(w.prs || []).length}</b></div></div></section>
+      ${analysisHtml(w)}
       ${w.items.map((it) => { const e = exOf(it.ex); let n = 0; return `<article class="card stack">
         <div class="row"><h3 style="flex:1">${k.esc(e.n)}</h3><button type="button" class="chip" data-w="exdetail" data-ex="${it.ex}">Progressi</button></div>
         ${it.note ? `<p class="small muted">📝 ${k.esc(it.note)}</p>` : ''}
@@ -659,9 +808,9 @@
     else if (ui.detail) { const w = history().find((x) => x.id === ui.detail); body = w ? viewDetail(w) : (ui.detail = null, ''); }
     else if (ui.summary) { const w = history().find((x) => x.id === ui.summary); body = w ? summaryView(w) : (ui.summary = null, ''); }
     if (!body) {
-      const tabs = [['routine', a ? 'In corso' : 'Allenamento'], ['cronologia', 'Cronologia'], ['statistiche', 'Statistiche']];
+      const tabs = [['routine', a ? 'In corso' : 'Allenamento'], ['carichi', 'Carichi'], ['cronologia', 'Cronologia'], ['statistiche', 'Statistiche']];
       const seg = `<div class="seg" role="tablist" aria-label="Sezioni dell'allenamento">${tabs.map(([t, l]) => `<button type="button" role="tab" data-w="tab" data-tab="${t}" aria-selected="${ui.tab === t}">${l}</button>`).join('')}</div>`;
-      const inner = ui.tab === 'cronologia' ? viewHistory() : ui.tab === 'statistiche' ? viewStats() : a ? viewActive(a) : viewRoutines();
+      const inner = ui.tab === 'cronologia' ? viewHistory() : ui.tab === 'statistiche' ? viewStats() : ui.tab === 'carichi' ? viewLoads() : a ? viewActive(a) : viewRoutines();
       body = `<div class="stack">${a && ui.tab === 'routine' ? '' : '<div><p class="eyebrow">Allenamento · Torso/Limbs 4x</p><h1>Scheda</h1></div>'}${seg}${inner}</div>`;
     }
     return body + (ui.picker ? viewPicker() : '');
@@ -719,6 +868,7 @@
         openPlates(kg, it ? exOf(it.ex).n : ''); return true;
       }
       case 'exanim': showAnim(t.dataset.ex); return true;
+      case 'coach-workout': if (window.RCC) window.RCC.ask(`Analizza il mio allenamento ${(history().find((x) => x.id === t.dataset.id) || {}).name || ''} del ${new Date((history().find((x) => x.id === t.dataset.id) || {}).start || Date.now()).toLocaleDateString('it-IT')}: cosa è andato bene e cosa cambio la prossima volta?`); return false;
       case 'pick-add': ui.picker = { ctx: 'add' }; ui.muscle = ''; k.render(); return true;
       case 'pick-swap': ui.picker = { ctx: 'swap', i }; ui.muscle = exOf(a.items[i].ex).m; k.render(); return true;
       case 'pick-edit': ui.picker = { ctx: 'edit' }; ui.muscle = ''; k.render(); return true;

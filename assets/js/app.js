@@ -58,6 +58,7 @@
     moon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/></svg>',
     play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>',
     arrow: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+    pill: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>',
   };
 
   /* ---------------- piattaforma (iPhone / app installata) ---------------- */
@@ -96,7 +97,8 @@
   }
 
   const TIMER_ID = 9001;
-  const REM = { merenda: 'Merenda di domani (21:00)', peso: 'Pesata del mattino', palestra: 'Palestra (16:00 nei giorni ON)' };
+  const REM = { merenda: 'Merenda di domani (21:00)', peso: 'Pesata del mattino', palestra: 'Palestra (16:00 nei giorni ON)', creatina: 'Creatina, se non l’hai ancora segnata' };
+  const CREA_AT = '20:30';
   async function scheduleReminders() {
     if (!N.notif) return;
     const prefs = store.get('reminders', {});
@@ -130,6 +132,26 @@
     }
     if (list.length) await safe(N.notif.schedule({ notifications: list }));
   }
+  // Creatina: una notifica al giorno per i prossimi 14 giorni, ciascuna con il suo numero fisso (140–153):
+  // riprogrammarle non crea doppioni. Il giorno in cui la spunti, la notifica di quel giorno viene tolta.
+  async function scheduleCreatine() {
+    if (!N.notif) return;
+    await safe(N.notif.cancel({ notifications: Array.from({ length: 14 }, (_, i) => ({ id: 140 + i })) }));
+    const prefs = store.get('reminders', {});
+    if (!prefs.creatina) return;
+    const [h, m] = (prefs.creatinaAt || CREA_AT).split(':').map(Number);
+    const taken = store.get('creatina', {});
+    const list = [];
+    for (let i = 0; i < 14; i++) {
+      const at = new Date(); at.setDate(at.getDate() + i); at.setHours(h, m, 0, 0);
+      const o = taken[dkey(at)];
+      if (at.getTime() <= Date.now() + 30000 || (o && o.on)) continue; // orario già passato oppure già presa
+      list.push({ id: 140 + i, title: 'Creatina', body: 'Oggi non l’hai ancora segnata: 3–5 g con un bicchiere d’acqua.', schedule: { at, allowWhileIdle: true } });
+    }
+    if (list.length) await safe(N.notif.schedule({ notifications: list }));
+  }
+  let creaT = 0;
+  const creatineSoon = () => { if (!isNative) return; clearTimeout(creaT); creaT = setTimeout(scheduleCreatine, 800); };
   async function setReminder(key, on) {
     if (on && N.notif) {
       const perm = await safe(N.notif.requestPermissions());
@@ -137,6 +159,8 @@
     }
     store.set('reminders', { ...store.get('reminders', {}), [key]: on });
     await scheduleReminders();
+    await scheduleCreatine();
+    if (key === 'creatina') render();
   }
 
   function nativeCards() {
@@ -144,7 +168,8 @@
     const rem = store.get('reminders', {});
     const notif = N.notif ? `<section class="card stack"><h2>Promemoria</h2>
       ${Object.entries(REM).map(([k, l]) => `<label class="row small" style="justify-content:space-between;cursor:pointer"><span>${l}</span><input type="checkbox" data-act="rem" data-k="${k}"${rem[k] ? ' checked' : ''} style="width:22px;height:22px;accent-color:var(--ink)"></label>`).join('')}
-      <p class="tiny muted">La merenda arriva la sera prima dei giorni di scuola con i nomi delle merende (scambi compresi). Il timer di recupero manda una notifica anche a schermo bloccato.</p>
+      ${rem.creatina ? `<div class="field"><label for="creaAt">Ora del promemoria creatina</label><input id="creaAt" type="time" data-act="crea-time" value="${esc(rem.creatinaAt || CREA_AT)}"></div>` : ''}
+      <p class="tiny muted">La creatina avvisa solo se a quell’ora non l’hai ancora spuntata in Oggi. La merenda arriva la sera prima dei giorni di scuola con i nomi delle merende (scambi compresi). Il timer di recupero manda una notifica anche a schermo bloccato.</p>
     </section>` : '';
     return notif;
   }
@@ -189,26 +214,41 @@
     return { k, p: r1(p), c: r1(c), fa: r1(fa) };
   }
   const mealLines = (slot, code) => D.variants[slot][code].map(([f, g]) => line(f, g));
-  const slotOf = (di, si) => D.daytypes[D.week[di].type].slots[si][2];
-
-  function pickFor(di, si) {
-    const sw = store.get('swaps', {});
-    const v = sw[di + ':' + si];
-    const slot = slotOf(di, si);
-    return v && D.variants[slot] && D.variants[slot][v] ? v : D.week[di].pick[si];
+  // Giorni «modificati»: rc.dayov = { 'AAAA-MM-GG': { skip, rid, type: 'ON' | 'OFF' | '', keep: [pasti già mangiati], t } }
+  const dayOv = (key) => { const o = store.get('dayov', {})[key]; return o && !o.del ? o : null; };
+  function setDayOv(key, v) {
+    const all = store.get('dayov', {});
+    all[key] = v ? { ...v, t: Date.now() } : { del: 1, t: Date.now() };
+    store.set('dayov', all);
   }
-  function dayPlan(di) {
+  // conv = { type: 'ON' | 'OFF_S', keep: [...] }: la giornata usa le fasce dell'altro tipo (stessi orari, 5 pasti).
+  // I pasti in keep erano già stati mangiati al momento del cambio e restano nella versione originale.
+  function dayPlan(di, conv) {
     const day = D.week[di];
-    const dt = D.daytypes[day.type];
-    const meals = dt.slots.map(([time, label, slot], si) => {
+    const base = D.daytypes[day.type];
+    const other = conv && conv.type !== day.type ? D.daytypes[conv.type] : null;
+    const alt = other && other.slots.length === base.slots.length ? other : null;
+    const model = alt ? D.week.find((d) => d.type === conv.type) : null; // giorno-modello: da lì il pasto di default delle fasce nuove
+    const swaps = store.get('swaps', {});
+    const meals = base.slots.map((s0, si) => {
+      const useAlt = alt && !(conv.keep || []).includes(si);
+      const [time, label, slot] = useAlt ? alt.slots[si] : s0;
       if (slot === 'free') return { si, time, label, slot, free: true };
-      const code = pickFor(di, si);
+      const def = D.variants[slot][day.pick[si]] ? day.pick[si] : model.pick[si];
+      const sw = swaps[di + ':' + si];
+      const code = sw && D.variants[slot][sw] ? sw : def;
       const lines = mealLines(slot, code);
-      return { si, time, label, slot, code, def: day.pick[si], lines, tot: sumLines(lines) };
+      return { si, time, label, slot, code, def, lines, tot: sumLines(lines) };
     });
     let k = 0, p = 0, c = 0, fa = 0;
     for (const m of meals) if (!m.free) { k += m.tot.k; p += m.tot.p; c += m.tot.c; fa += m.tot.fa; }
-    return { di, day, dt, meals, tot: { k, p: r1(p), c: r1(c), fa: r1(fa) }, hasFree: meals.some((m) => m.free) };
+    return { di, day, dt: alt || base, conv: alt ? conv.type : '', meals, tot: { k, p: r1(p), c: r1(c), fa: r1(fa) }, hasFree: meals.some((m) => m.free) };
+  }
+  // il piano di oggi tiene conto di un eventuale cambio fatto oggi; le altre pagine mostrano la settimana tipo
+  function todayPlan() {
+    const now = new Date();
+    const ov = dayOv(dkey(now));
+    return dayPlan(dayIdx(now), ov && ov.type ? { type: ov.type === 'ON' ? 'ON' : 'OFF_S', keep: ov.keep || [] } : null);
   }
   const FREE_EST = 850; // stima usata solo per la media settimanale
 
@@ -301,7 +341,8 @@
     </article>`;
   }
 
-  function typeBadge(day) {
+  function typeBadge(day, plan) {
+    if (plan && plan.conv) return plan.conv === 'ON' ? '<span class="badge on">ON · recupero</span>' : '<span class="badge off">OFF · palestra saltata</span>';
     if (day.type === 'ON') {
       const w = D.workouts.find((x) => x.id === day.wo);
       return `<span class="badge on">ON · ${esc(w.name)}</span>`;
@@ -348,24 +389,24 @@
     if (next.gym) {
       const active = window.RCW && window.RCW.isActive();
       return `<section class="card adesso gym"><p class="eyebrow">${late ? 'Allenamento di oggi' : 'Adesso · ' + when}</p><h2>16:30 · ${esc(w.name)}</h2><p class="small">${esc(w.focus)} · pesi ~60′ + tapis 15–20′</p>
-        <div class="row"><button type="button" class="btn" data-w="start" data-rid="${w.id}">${I.play} ${active ? 'Riprendi' : 'Inizia'} l'allenamento</button></div></section>`;
+        <div class="row"><button type="button" class="btn" data-w="start" data-rid="${w.id}">${I.play} ${active ? 'Riprendi' : 'Inizia'} l'allenamento</button>${active ? '' : '<button type="button" class="chip" data-act="skip-open">Oggi la salto</button>'}</div></section>`;
     }
     const m = next.meal;
     return `<section class="card adesso"><p class="eyebrow">${late ? 'Da segnare · era alle ' + m.time : 'Adesso · ' + when}</p><h2>${m.time} · ${esc(m.label)}</h2>
       <p class="small">${esc(D.recipes[m.code].name)} · <strong>${m.tot.k} kcal</strong> · P ${f1(m.tot.p)}</p>
-      <div class="row"><button type="button" class="btn" data-act="eat" data-si="${m.si}">${I.check} Segna come mangiato</button><button type="button" class="chip" data-act="meal-open" data-di="${plan.di}" data-si="${m.si}">Dettagli</button></div></section>`;
+      <div class="row"><button type="button" class="btn" data-act="eat" data-si="${m.si}">${I.check} Segna come mangiato</button><button type="button" class="chip" data-act="meal-open" data-td="1" data-di="${plan.di}" data-si="${m.si}">Dettagli</button></div></section>`;
   }
 
   // riga compatta di un pasto: tocco = dettagli, scorri a destra = mangiato
   function mealRow(plan, m, eaten) {
     if (m.free) {
-      return `<li class="mrow free"><button type="button" class="mrow-main" data-act="meal-open" data-di="${plan.di}" data-si="${m.si}"><span class="mrow-t">${m.time}</span><span class="mrow-n"><b>Pasto libero</b><small>1 porzione normale · non conteggiato</small></span></button></li>`;
+      return `<li class="mrow free"><button type="button" class="mrow-main" data-act="meal-open" data-td="1" data-di="${plan.di}" data-si="${m.si}"><span class="mrow-t">${m.time}</span><span class="mrow-n"><b>Pasto libero</b><small>1 porzione normale · non conteggiato</small></span></button></li>`;
     }
     const on = eaten.includes(m.si);
     return `<li class="mrow${on ? ' done' : ''}" data-swipe="eat" data-si="${m.si}">
       <span class="mrow-bg" aria-hidden="true">${I.check}</span>
       <div class="mrow-fg">
-        <button type="button" class="mrow-main" data-act="meal-open" data-di="${plan.di}" data-si="${m.si}">
+        <button type="button" class="mrow-main" data-act="meal-open" data-td="1" data-di="${plan.di}" data-si="${m.si}">
           <span class="mrow-t">${m.time}</span>
           <span class="mrow-n"><b>${esc(m.label)}</b><small>${esc(D.recipes[m.code].name)}</small></span>
           <span class="mrow-k"><b>${m.tot.k}</b><small>P ${f1(m.tot.p)}</small></span>
@@ -376,8 +417,9 @@
   }
 
   // pannello di un pasto: ingredienti, preparazione e scambio a schede
-  function mealSheetHtml(di, si) {
-    const plan = dayPlan(di);
+  // td = aperto dalla pagina Oggi: vale il piano di oggi (anche se la giornata è stata cambiata)
+  function mealSheetHtml(di, si, td) {
+    const plan = td ? todayPlan() : dayPlan(di);
     const m = plan.meals[si];
     const isToday = di === dayIdx(new Date());
     if (m.free) {
@@ -390,7 +432,7 @@
     const alts = Object.keys(D.variants[m.slot]).map((code) => {
       const t = sumLines(mealLines(m.slot, code));
       const d = t.k - m.tot.k;
-      return `<button type="button" class="alt${code === m.code ? ' cur' : ''}" data-act="sheet-swap" data-di="${di}" data-si="${si}" data-code="${code}"${code === m.code ? ' aria-current="true"' : ''}>
+      return `<button type="button" class="alt${code === m.code ? ' cur' : ''}" data-act="sheet-swap" data-td="${td ? 1 : ''}" data-di="${di}" data-si="${si}" data-code="${code}"${code === m.code ? ' aria-current="true"' : ''}>
         <span class="alt-c">${code}${code === m.def ? ' · originale' : ''}</span>
         <b>${esc(D.recipes[code].name)}</b>
         <span class="alt-m">${t.k} kcal${code === m.code ? '' : ` <em>${d > 0 ? '+' : d < 0 ? '−' : '±'}${Math.abs(d)}</em>`} · P ${f1(t.p)} · C ${f1(t.c)} · G ${f1(t.fa)}</span>
@@ -407,7 +449,7 @@
       <button type="button" class="chip" data-act="sheet-close">Chiudi</button>
     </div>`;
   }
-  function openMeal(di, si) { openSheet(mealSheetHtml(di, si)); }
+  function openMeal(di, si, td) { openSheet(mealSheetHtml(di, si, td)); }
 
   function toggleEaten(si) {
     const key = dkey(new Date());
@@ -415,9 +457,88 @@
     const arr = new Set(all[key] || []);
     if (arr.has(si)) arr.delete(si); else arr.add(si);
     all[key] = Array.from(arr);
-    Object.keys(all).forEach((k) => { if ((fromKey(key) - fromKey(k)) / 86400000 > 10) delete all[k]; });
+    Object.keys(all).forEach((k) => { if ((fromKey(key) - fromKey(k)) / 86400000 > 60) delete all[k]; });
     store.set('eaten', all);
+    logDay();
     buzz(arr.has(si) ? 'MEDIUM' : 'LIGHT');
+  }
+  // Diario: per ogni giorno salva quanto hai davvero spuntato (kcal e macro) rispetto al piano di quel giorno.
+  // Serve al riepilogo e al Coach per parlare di aderenza con i numeri reali, anche se poi cambi gli scambi.
+  function logDay() {
+    const key = dkey(new Date());
+    const plan = todayPlan();
+    const eaten = store.get('eaten', {})[key] || [];
+    const e = { k: 0, p: 0, c: 0, fa: 0 };
+    let n = 0, of = 0;
+    plan.meals.forEach((m) => { if (m.free) return; of++; if (eaten.includes(m.si)) { n++; e.k += m.tot.k; e.p += m.tot.p; e.c += m.tot.c; e.fa += m.tot.fa; } });
+    const all = store.get('dlog', {});
+    all[key] = { k: e.k, p: r1(e.p), c: r1(e.c), f: r1(e.fa), n, of, tk: plan.tot.k, on: plan.dt === D.daytypes.ON ? 1 : 0, free: plan.hasFree ? 1 : 0, t: Date.now() };
+    Object.keys(all).forEach((k) => { if ((fromKey(key) - fromKey(k)) / 86400000 > 200) delete all[k]; });
+    store.set('dlog', all);
+  }
+
+  /* ---------------- creatina ---------------- */
+  const creaOn = (key) => { const o = store.get('creatina', {})[key]; return !!(o && o.on); };
+  function toggleCreatine() {
+    const key = dkey(new Date());
+    const all = store.get('creatina', {});
+    all[key] = { on: creaOn(key) ? 0 : 1, t: Date.now() };
+    Object.keys(all).forEach((k) => { if ((fromKey(key) - fromKey(k)) / 86400000 > 200) delete all[k]; });
+    store.set('creatina', all);
+    buzz(all[key].on ? 'MEDIUM' : 'LIGHT');
+    creatineSoon();
+  }
+  function creatineRow(key) {
+    const on = creaOn(key);
+    let streak = 0;
+    for (let d = fromKey(key), first = true; ; d.setDate(d.getDate() - 1), first = false) {
+      if (creaOn(dkey(d))) streak++; else if (!first) break; // oggi può essere ancora da prendere
+      if (streak > 400) break;
+    }
+    const prefs = store.get('reminders', {});
+    const [h, m] = (prefs.creatinaAt || CREA_AT).split(':').map(Number);
+    const now = new Date();
+    const late = !on && now.getHours() * 60 + now.getMinutes() >= h * 60 + m;
+    return `<button type="button" class="supp${on ? ' done' : ''}${late ? ' late' : ''}" data-act="crea" aria-pressed="${on}">
+      <span class="supp-ic">${I.pill}</span>
+      <span class="supp-t"><b>Creatina · 3–5 g</b><small>${on ? 'Presa oggi' : late ? 'Da prendere: non l’hai ancora segnata' : 'Ogni giorno, a qualsiasi ora'}${streak > 1 ? ` · ${streak} giorni di fila` : ''}</small></span>
+      <span class="check" aria-hidden="true">${I.check}</span></button>`;
+  }
+
+  /* ---------------- palestra saltata / recupero ---------------- */
+  function skipSheetHtml() {
+    const now = new Date();
+    const di = dayIdx(now);
+    const day = D.week[di];
+    const w = D.workouts.find((x) => x.id === day.wo);
+    const eaten = store.get('eaten', {})[dkey(now)] || [];
+    const on = dayPlan(di), off = dayPlan(di, { type: 'OFF_S', keep: eaten });
+    const changed = off.meals.filter((m, i) => !m.free && (m.slot !== on.meals[i].slot)).map((m) => `${m.time} ${esc(D.recipes[m.code].name)} (${m.tot.k} kcal)`);
+    return `<div class="stack"><div><p class="eyebrow">Oggi · ${esc(w.name)}</p><h2>Allenamento saltato</h2></div>
+      <p>Lo segno nella cronologia come saltato: non conta tra gli allenamenti fatti e non cambia i tuoi record.</p>
+      <div class="row"><h3>E i pasti di oggi?</h3></div>
+      <div class="alts">
+        <button type="button" class="alt" data-act="skip-do" data-diet="off"><span class="alt-c">Consigliato</span><b>Mangia come in un giorno di riposo</b>
+          <span class="alt-m">Senza allenamento i carboidrati in più non servono. ${eaten.length ? 'I pasti già mangiati restano come sono; cambiano solo i prossimi' : 'Cambiano pranzo, merenda e cena'}: <em>${off.tot.k} kcal</em> invece di ${on.tot.k}.</span>
+          ${changed.length ? `<span class="alt-m">${changed.join(' · ')}</span>` : ''}</button>
+        <button type="button" class="alt" data-act="skip-do" data-diet="on"><span class="alt-c">Nessun cambio</span><b>Tieni il piano ON</b>
+          <span class="alt-m">Se hai già mangiato quasi tutto o è un caso isolato: ${on.tot.k} kcal. Una giornata così non rovina la settimana.</span></button>
+      </div>
+      <button type="button" class="chip" data-act="sheet-close">Annulla</button></div>`;
+  }
+  function recoverSheetHtml() {
+    const now = new Date();
+    const di = dayIdx(now);
+    const eaten = store.get('eaten', {})[dkey(now)] || [];
+    const off = dayPlan(di), on = dayPlan(di, { type: 'ON', keep: eaten });
+    return `<div class="stack"><div><p class="eyebrow">Oggi · giorno di riposo</p><h2>Recuperi un allenamento?</h2></div>
+      <p>Se oggi vai in palestra al posto di un giorno saltato, conviene mangiare come in un giorno ON: più carboidrati a pranzo e il post-allenamento al posto della merenda.</p>
+      <div class="alts">
+        <button type="button" class="alt" data-act="recover-do"><span class="alt-c">Oggi mi alleno</span><b>Passa al piano ON</b>
+          <span class="alt-m">${eaten.length ? 'I pasti già mangiati restano come sono. ' : ''}Totale di oggi: <em>${on.tot.k} kcal</em> invece di ${off.tot.k}.</span></button>
+      </div>
+      <p class="small muted">Poi apri la Scheda e avvia l’allenamento che vuoi recuperare.</p>
+      <button type="button" class="chip" data-act="sheet-close">Annulla</button></div>`;
   }
 
   /* ================= OGGI ================= */
@@ -425,19 +546,24 @@
     const now = new Date();
     const di = dayIdx(now);
     const key = dkey(now);
-    const plan = dayPlan(di);
+    const plan = todayPlan();
+    const ov = dayOv(key);
     const eaten = store.get('eaten', {})[key] || [];
     const T = plan.dt.target;
     const e = { k: 0, p: 0, c: 0, fa: 0 };
     plan.meals.forEach((m) => { if (!m.free && eaten.includes(m.si)) { e.k += m.tot.k; e.p += m.tot.p; e.c += m.tot.c; e.fa += m.tot.fa; } });
     e.p = r1(e.p); e.c = r1(e.c); e.fa = r1(e.fa);
-    const w = plan.day.wo ? D.workouts.find((x) => x.id === plan.day.wo) : null;
+    const w0 = plan.day.wo ? D.workouts.find((x) => x.id === plan.day.wo) : null;
+    const skipped = !!(w0 && ov && ov.skip && !(window.RCW && window.RCW.doneToday(w0.id)));
+    const w = skipped ? null : w0;
     const planned = plan.tot.k;
     const school = di <= 4;
 
     const rows = [];
     if (school) rows.push({ t: '07:40', html: '<li class="evrow"><span class="mrow-t">07:40</span><span>Scuola fino alle 14:05 · merende nello zaino</span></li>' });
     if (w) rows.push({ t: '16:30', html: `<li class="evrow gym"><span class="mrow-t">16:30</span><span><b>Palestra · ${esc(w.name)}</b> · ${esc(w.focus)}</span></li>` });
+    else if (skipped) rows.push({ t: '16:30', html: `<li class="evrow skipped"><span class="mrow-t">16:30</span><span><s>Palestra · ${esc(w0.name)}</s> · saltata</span></li>` });
+    else if (plan.conv === 'ON') rows.push({ t: '16:30', html: '<li class="evrow gym"><span class="mrow-t">16:30</span><span><b>Palestra · recupero</b> · scegli l’allenamento nella Scheda</span></li>' });
     plan.meals.forEach((m) => rows.push({ t: m.time, html: mealRow(plan, m, eaten) }));
     rows.sort((a, b) => (a.t < b.t ? -1 : a.t > b.t ? 1 : 0));
 
@@ -449,7 +575,7 @@
           <section class="card hero">
             <div class="hero-top">
               <div><p class="eyebrow">${esc(cap(longDate(now)))}</p><h1>${esc(plan.day.name)}</h1></div>
-              <span class="row" style="gap:6px">${typeBadge(plan.day)}${tip(plan.day.type === 'ON' ? 'on' : 'off')}</span>
+              <span class="row hero-badge">${typeBadge(plan.day, plan)}${tip(plan.dt === D.daytypes.ON ? 'on' : 'off')}</span>
             </div>
             <div class="dash">
               <div class="rings-wrap">${rings(e.k, planned)}<div class="rings-c"><b>${f0(e.k)}</b><span>di ${f0(planned)} kcal</span></div></div>
@@ -459,12 +585,13 @@
             ${plan.hasFree ? '<p class="tiny muted" style="margin-top:10px">Il pasto libero non è conteggiato negli anelli.</p>' : ''}
           </section>
           ${adessoCard(plan, eaten, w)}
+          ${creatineRow(key)}
           <div class="row sec-title" style="margin-bottom:0"><h2>La tua giornata</h2><span class="tiny muted">tocca per i dettagli · scorri a destra per segnare</span></div>
           <ol class="mlist">${rows.map((x) => x.html).join('')}</ol>
         </div>
         <aside class="stack sticky-col">
           ${dayTotalsCard(plan)}
-          ${w ? workoutMini(w) : restCard(plan.day)}
+          ${w ? workoutMini(w) : skipped ? skipCard(w0, plan) : restCard(plan.day, plan)}
           ${tomorrow <= 4 ? prepCard(tomorrow) : ''}
         </aside>
       </div>`;
@@ -488,17 +615,31 @@
       <h2>${esc(w.name)} <span class="muted" style="font-weight:600">· ${esc(w.focus)}</span></h2>
       <p class="small"><strong>Settimana ${wk.n} del blocco</strong> · ${esc(wk.phase)}</p>
       <ol class="small" style="margin:0;padding-left:20px">${w.ex.map((e) => `<li>${esc(e.n)} <span class="muted">${e.s}×${e.lo}–${e.hi}${e.unit === 'sec' ? '″' : ''}</span></li>`).join('')}</ol>
-      <div class="row"><button type="button" class="btn" data-w="start" data-rid="${w.id}">${I.play} Inizia l'allenamento</button><a class="chip" href="#/scheda">Apri la scheda</a></div>
+      <div class="row"><button type="button" class="btn" data-w="start" data-rid="${w.id}">${I.play} Inizia l'allenamento</button><a class="chip" href="#/scheda">Apri la scheda</a>${window.RCW && (window.RCW.isActive() || window.RCW.doneToday(w.id)) ? '' : '<button type="button" class="chip" data-act="skip-open">Oggi la salto</button>'}</div>
     </section>`;
   }
 
-  function restCard(day) {
+  function skipCard(w, plan) {
+    return `<section class="card stack">
+      <p class="eyebrow">Palestra saltata oggi</p>
+      <h2>${esc(w.name)} <span class="muted" style="font-weight:600">· non fatto</span></h2>
+      <p class="small">${plan.conv ? `Oggi mangi come in un giorno di riposo: <strong>${plan.tot.k} kcal</strong>.` : 'Il piano dei pasti di oggi resta quello ON.'} Capita: l’importante è tornare al prossimo allenamento.</p>
+      <div class="row"><button type="button" class="chip" data-act="skip-undo">Annulla: oggi mi alleno</button></div>
+    </section>`;
+  }
+  function restCard(day, plan) {
+    if (plan && plan.conv === 'ON') {
+      return `<section class="card stack"><p class="eyebrow">Recupero allenamento</p>
+        <p class="small">Oggi mangi come in un giorno ON: <strong>${plan.tot.k} kcal</strong>. Apri la Scheda e avvia l’allenamento che vuoi recuperare.</p>
+        <div class="row"><a class="btn" href="#/scheda">Apri la Scheda</a><button type="button" class="chip" data-act="skip-undo">Torna al piano OFF</button></div></section>`;
+    }
     const next = (() => { for (let i = 1; i <= 7; i++) { const d = D.week[(dayIdx(new Date()) + i) % 7]; if (d.wo) return d; } return null; })();
     const w = next && D.workouts.find((x) => x.id === next.wo);
     return `<section class="card stack">
       <p class="eyebrow">Giorno di riposo</p>
       <p class="small">Recupero attivo: punta a <strong>8–10 mila passi</strong>. ${day.type === 'FREE' ? 'Oggi c\'è il pasto libero: goditelo senza sensi di colpa.' : ''}</p>
       ${w ? `<p class="small muted">Prossimo allenamento: <strong>${esc(next.name)} · ${esc(w.name)}</strong></p>` : ''}
+      ${day.type === 'OFF_S' ? '<div class="row"><button type="button" class="chip" data-act="recover-open">Oggi recupero un allenamento</button></div>' : ''}
     </section>`;
   }
 
@@ -514,7 +655,7 @@
         ${plan.hasFree ? '' : `<div class="status ${cls}">${txt}</div>`}</div>`;
     };
     return `<section class="card stack">
-      <div class="row"><h2>Totale ${esc(plan.day.name.toLowerCase())}</h2>${tip('macro')}<span class="spacer"></span>${typeBadge(plan.day)}</div>
+      <div class="row"><h2>Totale ${esc(plan.day.name.toLowerCase())}</h2>${tip('macro')}<span class="spacer"></span>${typeBadge(plan.day, plan)}</div>
       <div class="tot-grid">
         ${box('k', 'Calorie', '', t.k, T[0], ' kcal')}
         ${box('p', 'Proteine', 'p', t.p, T[1], ' g')}
@@ -804,16 +945,14 @@
     const prevMon = new Date(mon); prevMon.setDate(prevMon.getDate() - 7);
     const prev2 = new Date(prevMon); prev2.setDate(prev2.getDate() - 7);
     const avgIn = (a, b) => { const v = ws.filter((w) => { const t = fromKey(w.d).getTime(); return t >= a.getTime() && t < b.getTime(); }); return v.length ? v.reduce((s, w) => s + w.kg, 0) / v.length : null; };
-    const eaten = store.get('eaten', {});
-    const mealsDays = (a, b) => {
+    const dlog = store.get('dlog', {});
+    const dayov = store.get('dayov', {});
+    const mealsDays = (a, b) => { // giorni con almeno l'80% dei pasti spuntati
       let n = 0;
-      for (let d = new Date(a); d < b; d.setDate(d.getDate() + 1)) {
-        const plan = dayPlan(dayIdx(d));
-        const tot = plan.meals.filter((m) => !m.free).length;
-        if ((eaten[dkey(d)] || []).length >= Math.ceil(tot * 0.8)) n++;
-      }
+      for (let d = new Date(a); d < b; d.setDate(d.getDate() + 1)) { const x = dlog[dkey(d)]; if (x && x.of && x.n >= Math.ceil(x.of * 0.8)) n++; }
       return n;
     };
+    const skips = (a, b) => Object.keys(dayov).filter((k) => dayov[k].skip && !dayov[k].del && fromKey(k) >= a && fromKey(k) < b).length;
     const rows = [['Settimana scorsa', prevMon, mon, prev2], ['Questa settimana', mon, new Date(today.getTime() + 86400000), prevMon]].map(([title, a, b, before]) => {
       const kg = avgIn(a, b), kgBefore = avgIn(before, a);
       const st = window.RCW ? window.RCW.weekStats(a.getTime(), b.getTime()) : { n: 0, prs: 0 };
@@ -822,7 +961,7 @@
         <p class="eyebrow">${title}</p>
         <div class="wsum-g">
           <div><span>Peso medio</span><b>${kg != null ? f2(kg) : '—'}</b><small>${kg != null && kgBefore != null ? sign(Math.round((kg - kgBefore) * 100) / 100, f2) + ' kg' : 'servono 2 settimane'}</small></div>
-          <div><span>Allenamenti</span><b>${st.n}<small style="display:inline"> / 4</small></b><small>${st.prs ? `🏆 ${st.prs} record` : 'nessun record'}</small></div>
+          <div><span>Allenamenti</span><b>${st.n}<small style="display:inline"> / 4</small></b><small>${[skips(a, b) ? `${skips(a, b)} saltat${skips(a, b) === 1 ? 'o' : 'i'}` : '', st.prs ? `🏆 ${st.prs} record` : ''].filter(Boolean).join(' · ') || 'nessun record'}</small></div>
           <div><span>Pasti rispettati</span><b>${mealsDays(a, b)}<small style="display:inline"> / ${Math.min(7, days)}</small></b><small>giorni ≥ 80% spuntati</small></div>
         </div>
       </div>`;
@@ -1187,7 +1326,12 @@
         <ul><li><strong>Sonno:</strong> 8 ore (22:30 → 6:30). È metà della ricomposizione.</li>
         <li><strong>Acqua:</strong> 2,5–3 litri al giorno, +0,5 litri nei giorni di palestra.</li>
         <li><strong>Passi:</strong> 7–8 mila al giorno, 8–10 mila nei giorni OFF.</li>
-        <li><strong>Creatina monoidrato</strong> (facoltativa): 3–5 g al giorno, tutti i giorni. È l'integratore più studiato, ma aggiunge 0,5–1 kg d'acqua sulla bilancia.</li></ul></section>
+        <li><strong>Creatina monoidrato:</strong> 3–5 g al giorno, tutti i giorni (anche di riposo), a qualsiasi ora: spuntala in Oggi. Nelle prime 2–3 settimane aggiunge 0,5–1 kg d'acqua nei muscoli sulla bilancia: non è grasso.</li></ul></section>
+      <section class="card prose small"><h2>Se salti la palestra</h2>
+        <ul><li>In Oggi tocca <strong>«Oggi la salto»</strong>: l'allenamento viene segnato come saltato e non conta tra quelli fatti.</li>
+        <li>L'app ti propone di mangiare come in un giorno di riposo (−300 kcal circa, soprattutto carboidrati): sei tu a scegliere, non cambia niente da sola.</li>
+        <li>Se recuperi l'allenamento in un giorno OFF di scuola, in Oggi tocca <strong>«Oggi recupero un allenamento»</strong> per passare al piano ON.</li>
+        <li>Un allenamento saltato ogni tanto non cambia niente. Se ne salti 2 nella stessa settimana, tieni comunque le proteine a 140 g.</li></ul></section>
       <section class="card prose small"><h2>Misure e correzioni</h2>
         <ul><li>Peso almeno 4 mattine a settimana: conta la <strong>media settimanale</strong>, non il singolo giorno.</li>
         <li>Girovita all'ombelico ogni lunedì, foto ogni 4 settimane, bilancia BIA sempre nelle stesse condizioni.</li>
@@ -1231,7 +1375,11 @@
     const act = t.dataset.act;
     if (commonAct(t, act)) return;
     if (act === 'eat') { toggleEaten(Number(t.dataset.si)); render(); }
-    else if (act === 'meal-open') { openMeal(Number(t.dataset.di), Number(t.dataset.si)); }
+    else if (act === 'crea') { toggleCreatine(); render(); }
+    else if (act === 'skip-open') { openSheet(skipSheetHtml()); }
+    else if (act === 'recover-open') { openSheet(recoverSheetHtml()); }
+    else if (act === 'skip-undo') { setDayOv(dkey(new Date()), null); logDay(); buzz(); render(); }
+    else if (act === 'meal-open') { openMeal(Number(t.dataset.di), Number(t.dataset.si), !!t.dataset.td); }
     else if (act === 'ptab') { ui.pianoTab = t.dataset.tab; render(); }
     else if (act === 'gtab') { ui.guidaTab = t.dataset.tab; render(); }
     else if (act === 'pday') { ui.pianoDay = Number(t.dataset.di); render(); }
@@ -1289,6 +1437,8 @@
       if (b) b.textContent = `${tot.filter((id) => s[id]).length}/${tot.length}`;
     } else if (t.dataset.act === 'rem') {
       setReminder(t.dataset.k, t.checked);
+    } else if (t.dataset.act === 'crea-time') {
+      if (t.value) { store.set('reminders', { ...store.get('reminders', {}), creatinaAt: t.value }); creatineSoon(); }
     } else if (t.id === 'photoIn' && t.files && t.files[0]) {
       photoAdd(t.files[0]); t.value = '';
     } else if (t.dataset.act === 'blockstart') {
@@ -1590,13 +1740,20 @@
       if (act === 'sheet-swap') {
         const di = Number(t.dataset.di), si = Number(t.dataset.si);
         setSwap(di, si, t.dataset.code); buzz();
-        body.innerHTML = mealSheetHtml(di, si); render();
+        body.innerHTML = mealSheetHtml(di, si, !!t.dataset.td); render();
       } else if (act === 'sheet-eat') {
         const si = Number(t.dataset.si);
         toggleEaten(si); render(); closeSheet();
+      } else if (act === 'skip-do' || act === 'recover-do') {
+        const now = new Date();
+        const key = dkey(now);
+        const keep = store.get('eaten', {})[key] || [];
+        if (act === 'recover-do') setDayOv(key, { type: 'ON', keep });
+        else setDayOv(key, { skip: 1, rid: D.week[dayIdx(now)].wo, type: t.dataset.diet === 'off' ? 'OFF' : '', keep });
+        logDay(); buzz('MEDIUM'); closeSheet(); render();
       }
     },
-    refresh(force) { if (!force && typing()) { pendingRefresh = true; return; } pendingRefresh = false; render(); },
+    refresh(force) { creatineSoon(); if (!force && typing()) { pendingRefresh = true; return; } pendingRefresh = false; render(); },
   };
   main.addEventListener('focusout', () => { if (pendingRefresh) setTimeout(() => { if (!typing()) { pendingRefresh = false; render(); } }, 0); });
 
@@ -1613,6 +1770,8 @@
   if (isNative) {
     if (!(window.RCW && window.RCW.isActive())) stopTimer(); // nessuna notifica di recupero rimasta da una sessione chiusa
     scheduleReminders();
+    scheduleCreatine();
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') creatineSoon(); });
     let remT = 0;
     window.addEventListener('rc-change', (e) => { if (e.detail === 'rc.swaps') { clearTimeout(remT); remT = setTimeout(scheduleReminders, 1500); } });
   }
