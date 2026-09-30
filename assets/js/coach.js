@@ -15,7 +15,7 @@
   const PROVIDERS = {
     gemini: {
       name: 'Google Gemini', tag: 'gratis', keyUrl: 'https://aistudio.google.com/apikey', keyHint: 'AIza…',
-      models: { 'gemini-3.8-flash': 'Gemini 3.8 Flash' },
+      models: { 'gemini-3.8-flash': 'Gemini 3.8 Flash', 'gemini-3.7-flash': 'Gemini 3.7 Flash', 'gemini-3.5-flash': 'Gemini 3.5 Flash', 'gemini-3.5-flash-lite': 'Gemini 3.5 Flash-Lite · il più leggero' },
       how: 'Gratis con un account Google (servono 18 anni). Apri aistudio.google.com/apikey, tocca «Create API key» e incolla qui la chiave. Non serve una carta.',
       privacy: 'Con il piano gratuito Google può usare domande e risposte per migliorare i suoi servizi, e dei revisori possono leggerle. Al coach arrivano peso, pasti spuntati e allenamenti; non il tuo nome né la tua email.',
     },
@@ -42,7 +42,7 @@
     ['today', 'L’allenamento di oggi è stato sufficiente?'],
     ['stall', 'Il peso è fermo: cosa conviene fare?'],
   ];
-  const ui = { busy: false, draft: '', err: '', live: '', prov: '', all: false };
+  const ui = { busy: false, draft: '', err: '', live: '', prov: '', all: false, by: '' };
 
   const getKey = () => K().store.get('aiKey', '');
   // servizio collegato; chi aveva già salvato una chiave prima di questa scelta usava Claude
@@ -299,16 +299,44 @@ Regole:
       clearTimeout(timer);
       let msg = '';
       try { const j = await res.json(); msg = (j.error && (j.error.message || j.error.status)) || ''; } catch (e) { /* risposta senza dettagli */ }
-      if (res.status === 401 || res.status === 403 || /api key/i.test(msg)) throw new Error('La chiave non è valida: controllala in fondo alla pagina.');
-      if (res.status === 429) throw new Error(`Hai raggiunto il limite gratuito di ${name}: riprova tra un minuto (o domani, se è il limite giornaliero).`);
-      if (res.status === 413) throw new Error(`La richiesta è troppo grande per il piano gratuito di ${name}.`);
-      if (res.status >= 500) throw new Error(`${name} è sovraccarico in questo momento: riprova tra poco.`);
-      throw new Error(`Richiesta rifiutata da ${name}${msg ? ': ' + msg : ''}`);
+      const detail = ` (${res.status}${msg ? ': ' + msg.slice(0, 140) : ''})`;
+      const fail = (text, retry) => Object.assign(new Error(text), { status: res.status, retry: !!retry });
+      if (res.status === 401 || res.status === 403 || /api key/i.test(msg)) throw fail('La chiave non è valida: controllala in fondo alla pagina.');
+      if (res.status === 429) throw fail(`Hai raggiunto il limite gratuito di ${name}: riprova tra un minuto (o domani, se è il limite giornaliero).${detail}`, true);
+      if (res.status === 413) throw fail(`La richiesta è troppo grande per il piano gratuito di ${name}.`);
+      if (res.status >= 500) throw fail(`${name} è sovraccarico in questo momento: riprova tra poco.${detail}`, true);
+      throw fail(`Richiesta rifiutata da ${name}${detail}`);
     }
     return { res, done: () => clearTimeout(timer) };
   }
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const note = (text) => { const el = document.getElementById('coLive'); if (el && !ui.live) el.innerHTML = `<p>${K().esc(text)}</p>`; };
+  // Se il servizio è sovraccarico o ha finito le richieste al minuto: riprovo una volta dopo una pausa,
+  // poi passo agli altri modelli gratuiti. Mi fermo appena una risposta ha iniziato ad arrivare.
+  async function withFallback(once) {
+    const P = PROVIDERS[getProv()];
+    const first = getModel();
+    const order = [first, first].concat(Object.keys(P.models).filter((m) => m !== first));
+    let last = null;
+    for (let i = 0; i < order.length; i++) {
+      const label = P.models[order[i]].split(' · ')[0];
+      if (i) { note(i === 1 ? `${label} è occupato: riprovo tra un attimo…` : `Provo con ${label}…`); await sleep(i === 1 ? 2500 : 900); }
+      try {
+        const text = await once(order[i]);
+        ui.by = order[i] === first ? P.name : label;
+        return text;
+      } catch (e) {
+        if (!e.retry || ui.live) throw e;
+        last = e;
+      }
+    }
+    throw last;
+  }
   async function askGemini(question) {
-    const { res, done } = await post(`https://generativelanguage.googleapis.com/v1beta/models/${getModel()}:streamGenerateContent?alt=sse`, { 'x-goog-api-key': getKey() }, {
+    return withFallback((model) => geminiOnce(model, question));
+  }
+  async function geminiOnce(model, question) {
+    const { res, done } = await post(`https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`, { 'x-goog-api-key': getKey() }, {
       system_instruction: { parts: [{ text: `${SYSTEM}\n\n<dati_app>\n${context()}\n</dati_app>` }] },
       contents: turns(question).map((m) => ({ role: m.role === 'user' ? 'user' : 'model', parts: [{ text: m.content }] })),
     }, 'Gemini');
@@ -325,8 +353,11 @@ Regole:
     return ui.live.trim() + (finish === 'MAX_TOKENS' ? '\n\n(risposta interrotta: era troppo lunga)' : '');
   }
   async function askGroq(question) {
+    return withFallback((model) => groqOnce(model, question));
+  }
+  async function groqOnce(model, question) {
     const { res, done } = await post('https://api.groq.com/openai/v1/chat/completions', { Authorization: `Bearer ${getKey()}` }, {
-      model: getModel(), stream: true,
+      model, stream: true,
       messages: [{ role: 'system', content: `${SYSTEM}\n\n<dati_app>\n${context(true)}\n</dati_app>` }].concat(turns(question)),
     }, 'Groq');
     let finish = '';
@@ -397,8 +428,9 @@ Regole:
     ui.busy = true; ui.live = '';
     k.render(); scrollChat();
     try {
+      ui.by = '';
       const answer = await ask(q);
-      const c = getChat(); c.push({ role: 'coach', src: 'ai', by: PROVIDERS[getProv()].name, text: answer, t: Date.now() }); setChat(c);
+      const c = getChat(); c.push({ role: 'coach', src: 'ai', by: ui.by || PROVIDERS[getProv()].name, text: answer, t: Date.now() }); setChat(c);
     } catch (e) {
       ui.err = e.message || 'Qualcosa non ha funzionato: riprova.';
       const c = getChat(); if (c.length && c[c.length - 1].role === 'user') { ui.draft = c.pop().text; setChat(c); } // la domanda torna nel campo
