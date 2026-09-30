@@ -388,11 +388,11 @@
     const when = late ? 'da segnare' : inMin(next.t - nm);
     if (next.gym) {
       const active = window.RCW && window.RCW.isActive();
-      return `<section class="card adesso gym"><p class="eyebrow">${late ? 'Allenamento di oggi' : 'Adesso · ' + when}</p><h2>16:30 · ${esc(w.name)}</h2><p class="small">${esc(w.focus)} · pesi ~60′ + tapis 15–20′</p>
+      return `<section class="card adesso gym"><p class="eyebrow">${late ? 'Allenamento di oggi' : when === 'adesso' ? 'Adesso' : 'Adesso · ' + when}</p><h2>16:30 · ${esc(w.name)}</h2><p class="small">${esc(w.focus)} · pesi ~60′ + tapis 15–20′</p>
         <div class="row"><button type="button" class="btn" data-w="start" data-rid="${w.id}">${I.play} ${active ? 'Riprendi' : 'Inizia'} l'allenamento</button>${active ? '' : '<button type="button" class="chip" data-act="skip-open">Oggi la salto</button>'}</div></section>`;
     }
     const m = next.meal;
-    return `<section class="card adesso"><p class="eyebrow">${late ? 'Da segnare · era alle ' + m.time : 'Adesso · ' + when}</p><h2>${m.time} · ${esc(m.label)}</h2>
+    return `<section class="card adesso"><p class="eyebrow">${late ? 'Da segnare · era alle ' + m.time : when === 'adesso' ? 'Adesso' : 'Adesso · ' + when}</p><h2>${m.time} · ${esc(m.label)}</h2>
       <p class="small">${esc(D.recipes[m.code].name)} · <strong>${m.tot.k} kcal</strong> · P ${f1(m.tot.p)}</p>
       <div class="row"><button type="button" class="btn" data-act="eat" data-si="${m.si}">${I.check} Segna come mangiato</button><button type="button" class="chip" data-act="meal-open" data-td="1" data-di="${plan.di}" data-si="${m.si}">Dettagli</button></div></section>`;
   }
@@ -574,7 +574,7 @@
           ${installCard()}
           <section class="card hero">
             <div class="hero-top">
-              <div><p class="eyebrow">${esc(cap(longDate(now)))}</p><h1>${esc(plan.day.name)}</h1></div>
+              <div><p class="eyebrow">${esc(now.toLocaleDateString('it-IT', { day: 'numeric', month: 'long' }))}</p><h1>${esc(plan.day.name)}</h1></div>
               <span class="row hero-badge">${typeBadge(plan.day, plan)}${tip(plan.dt === D.daytypes.ON ? 'on' : 'off')}</span>
             </div>
             <div class="dash">
@@ -1274,7 +1274,7 @@
         </section>
       </div>
       <section class="card stack"><h2>Target</h2>
-        <div class="tbl-wrap"><table><thead><tr><th></th><th class="r">kcal</th><th class="r">Proteine</th><th class="r">Carboidrati</th><th class="r">Grassi</th></tr></thead><tbody>
+        <div class="tbl-wrap"><table><thead><tr><th></th><th class="r">kcal</th><th class="r">P</th><th class="r">C</th><th class="r">G</th></tr></thead><tbody>
           <tr><td><span class="badge on">ON</span> Lun Mar Gio Ven</td><td class="r">2050</td><td class="r">140 g</td><td class="r">249 g</td><td class="r">55 g</td></tr>
           <tr><td><span class="badge off">OFF</span> Mer Sab Dom</td><td class="r">1750</td><td class="r">140 g</td><td class="r">167 g</td><td class="r">58 g</td></tr>
         </tbody><tfoot><tr><td>Media settimanale</td><td class="r">1921</td><td colspan="3" class="small muted">−16% dal TDEE, circa −380 kcal al giorno</td></tr></tfoot></table></div>
