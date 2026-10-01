@@ -77,7 +77,7 @@
     if (!isNative) return null;
     try { return (Cap.Plugins && Cap.Plugins[name]) || (Cap.registerPlugin ? Cap.registerPlugin(name) : null); } catch (e) { return null; }
   };
-  const N = { notif: plugin('LocalNotifications'), haptics: plugin('Haptics'), status: plugin('StatusBar') };
+  const N = { notif: plugin('LocalNotifications'), haptics: plugin('Haptics'), status: plugin('StatusBar'), live: plugin('RestActivity') }; // RestActivity: plugin di Recomp (app-ios/native)
   const safe = (p) => { try { return Promise.resolve(p).catch(() => null); } catch (e) { return Promise.resolve(null); } };
   const buzz = (style = 'LIGHT') => { if (N.haptics) safe(N.haptics.impact({ style })); };
   if (isNative) {
@@ -837,9 +837,17 @@
     clearInterval(timer.id); clearTimeout(timer.hide);
     timer.end = 0; tEl.hidden = true; tEl.classList.remove('done');
     if (N.notif) safe(N.notif.cancel({ notifications: [{ id: TIMER_ID }] }));
+    if (N.live) safe(N.live.end());
+  }
+  // App nativa: Live Activity del recupero (conto alla rovescia sulla schermata di blocco). Avvio, +15 e −15 la aggiornano.
+  function liveSync() {
+    if (!N.live || !timer.end) return;
+    const a = store.get('active', null);
+    safe(N.live.start({ end: timer.end, next: $('#timerNext').textContent || 'Recupero', workout: (a && a.name) || 'Allenamento' }));
   }
   // App nativa: notifica di fine recupero, arriva anche a schermo bloccato o con l'app in background
   function timerNotify() {
+    liveSync();
     if (!N.notif) return;
     safe(N.notif.cancel({ notifications: [{ id: TIMER_ID }] })).then(() => safe(N.notif.schedule({ notifications: [{
       id: TIMER_ID, title: 'Recupero finito', body: 'Via con la prossima serie.', schedule: { at: new Date(timer.end), allowWhileIdle: true },

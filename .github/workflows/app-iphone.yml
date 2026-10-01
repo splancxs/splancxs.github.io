@@ -37,6 +37,7 @@ jobs:
       - name: Prepara il progetto iOS
         working-directory: app-ios
         run: |
+          exec > >(tee -a ../prepare.log) 2>&1 # registro di questa fase, pubblicato se qualcosa va storto
           npm install --no-audit --no-fund
           rm -rf www ios
           mkdir -p www
@@ -44,16 +45,23 @@ jobs:
           cp -R ../assets www/
           npx cap add ios
           node patch-ios.mjs
+          # Live Activity del recupero: file nativi dell'app ed estensione RecompLive
+          cp native/Shared/RestAttributes.swift native/App/*.swift ios/App/App/
+          mkdir -p ios/App/RecompLive
+          cp native/Shared/RestAttributes.swift native/RecompLive/* ios/App/RecompLive/
+          ruby -e "require 'xcodeproj'" 2>/dev/null || sudo gem install xcodeproj --no-document
+          ruby add-live-activity.rb
           npx cap sync ios
 
       - name: Compila (senza firma)
         working-directory: app-ios/ios/App
         run: |
           if [ -d App.xcworkspace ]; then TARGET="-workspace App.xcworkspace"; else TARGET="-project App.xcodeproj"; fi
+          set -o pipefail
           xcodebuild $TARGET -scheme App -configuration Release -sdk iphoneos \
             -destination 'generic/platform=iOS' -derivedDataPath build \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build | tail -n 60
-          test -d build/Build/Products/Release-iphoneos/App.app
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build 2>&1 | tee ../../build.log | tail -n 60
+          test -d build/Build/Products/Release-iphoneos/App.app/PlugIns/RecompLive.appex
 
       - name: Crea Recomp.ipa
         env:
@@ -61,8 +69,11 @@ jobs:
         run: |
           APP=app-ios/ios/App/build/Build/Products/Release-iphoneos/App.app
           # versione = numero della compilazione, così AltStore riconosce gli aggiornamenti
-          plutil -replace CFBundleShortVersionString -string "1.0.$BUILD" "$APP/Info.plist"
-          plutil -replace CFBundleVersion -string "$BUILD" "$APP/Info.plist"
+          # (anche l'estensione della Live Activity deve avere la stessa versione dell'app)
+          for P in "$APP/Info.plist" "$APP/PlugIns/RecompLive.appex/Info.plist"; do
+            plutil -replace CFBundleShortVersionString -string "1.0.$BUILD" "$P"
+            plutil -replace CFBundleVersion -string "$BUILD" "$P"
+          done
           # firma provvisoria "ad-hoc": AltStore poi rifirma con il tuo Apple ID
           codesign --force --deep --sign - "$APP"
           codesign -d --entitlements :- "$APP" > entitlements.plist 2>/dev/null || true
@@ -90,7 +101,7 @@ jobs:
           const date = new Date().toISOString();
           const downloadURL = `https://github.com/${repo}/releases/download/build-${build}/Recomp.ipa`;
           const iconURL = 'https://splancxs.github.io/assets/icons/icon-512.png';
-          const desc = 'Piano alimentare al grammo, scheda Torso/Limbs, progressi e Apple Salute.';
+          const desc = 'Piano alimentare al grammo, scheda Torso/Limbs, progressi e Live Activity del recupero.';
           const source = {
             name: 'Recomp', identifier: 'io.github.splancxs.recomp.source', subtitle: 'App personale di Recomp',
             iconURL, website: 'https://splancxs.github.io', tintColor: '#C4F031',
@@ -122,9 +133,22 @@ jobs:
         run: |
           # pulizia: la vecchia app di prova di HealthKit non serve più
           gh release delete healthkit-test --repo "${{ github.repository }}" --yes --cleanup-tag || true
+          gh release delete build-log --repo "${{ github.repository }}" --yes --cleanup-tag || true
           gh release create "build-$BUILD" Recomp.ipa altstore-source.json \
             --repo "${{ github.repository }}" --title "Recomp · compilazione $BUILD" \
             --notes-file notes.md --latest
+
+      # i registri di Actions non si leggono senza accesso: in caso di errore le ultime righe vanno in una Release
+      - name: Se fallisce, pubblica il registro
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          { echo 'Compilazione fallita. Errori:'; echo '```'; (grep -E "error:|BUILD FAILED" app-ios/build.log 2>/dev/null | tail -n 60) || true; \
+            echo '--- compilazione'; tail -n 80 app-ios/build.log 2>/dev/null || echo 'nessun registro';             echo '--- preparazione'; tail -n 60 prepare.log 2>/dev/null || echo 'nessun registro'; echo '```'; } > log.md
+          gh release delete build-log --repo "${{ github.repository }}" --yes --cleanup-tag || true
+          gh release create build-log --repo "${{ github.repository }}" --title "Recomp · registro errori" \
+            --notes-file log.md --prerelease --latest=false
 
       - uses: actions/upload-artifact@v4
         with:
