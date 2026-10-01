@@ -1,7 +1,7 @@
 // Adatta il progetto Xcode generato da "npx cap add ios" (gira su macOS, dentro GitHub Actions):
 // solo verticale, icona e schermata di avvio di Recomp, Live Activity del recupero.
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, readdirSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 const APP = 'ios/App/App';
@@ -27,12 +27,5 @@ function fill(dir, src) {
 }
 fill(join(APP, 'Assets.xcassets/AppIcon.appiconset'), 'resources/icon-1024.png');
 fill(join(APP, 'Assets.xcassets/Splash.imageset'), 'resources/splash-2732.png');
-
-// 3. Controller principale: MainViewController (in native/App) registra il plugin della Live Activity
-const sb = join(APP, 'Base.lproj/Main.storyboard');
-const xml = readFileSync(sb, 'utf8');
-if (!xml.includes('customClass="CAPBridgeViewController"')) throw new Error('Main.storyboard: controller di Capacitor non trovato');
-writeFileSync(sb, xml.replace('customClass="CAPBridgeViewController"', 'customClass="MainViewController"')
-  .replace(/ customModule="Capacitor"/, ' customModuleProvider="target"'));
 
 console.log('Progetto iOS adattato.');

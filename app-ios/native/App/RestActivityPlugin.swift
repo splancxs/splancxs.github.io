@@ -6,6 +6,8 @@ import UIKit
 // Ponte tra il JavaScript dell'app e la Live Activity del recupero.
 // JS: RestActivity.start({ end: <millisecondi>, next: "Prossima: …", workout: "Limbs A" }) avvia o aggiorna,
 //     RestActivity.end() la chiude.
+// Capacitor lo crea all'avvio perché il workflow aggiunge "RestActivityPlugin" a packageClassList
+// (ios/App/App/capacitor.config.json): il nome Objective-C qui sotto deve restare uguale.
 @objc(RestActivityPlugin)
 public class RestActivityPlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "RestActivityPlugin"

@@ -52,6 +52,9 @@ jobs:
           ruby -e "require 'xcodeproj'" 2>/dev/null || sudo gem install xcodeproj --no-document
           ruby add-live-activity.rb
           npx cap sync ios
+          # il plugin RestActivity va nell'elenco che Capacitor legge all'avvio (come notifiche e vibrazione):
+          # così l'app lo trova in window.Capacitor.Plugins. "cap sync" riscrive il file, quindi si aggiunge dopo.
+          node -e "const fs=require('fs'),f='ios/App/App/capacitor.config.json',c=JSON.parse(fs.readFileSync(f,'utf8'));c.packageClassList=[...new Set([...(c.packageClassList||[]),'RestActivityPlugin'])];fs.writeFileSync(f,JSON.stringify(c,null,2));console.log('Plugin registrati:',c.packageClassList.join(', '))"
 
       - name: Compila (senza firma)
         working-directory: app-ios/ios/App
