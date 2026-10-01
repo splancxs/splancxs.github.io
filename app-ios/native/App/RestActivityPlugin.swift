@@ -4,7 +4,8 @@ import Foundation
 import UIKit
 
 // Ponte tra il JavaScript dell'app e la Live Activity del recupero.
-// JS: RestActivity.start({ end: <millisecondi>, next: "Prossima: …", workout: "Limbs A" }) avvia o aggiorna,
+// JS: RestActivity.start({ start, end: <millisecondi>, exercise: "Leg Press", detail: "Serie 2 · 118 kg × 8", workout: "Limbs A" })
+//     avvia o aggiorna,
 //     RestActivity.end() la chiude.
 // Capacitor lo crea all'avvio perché il workflow aggiunge "RestActivityPlugin" a packageClassList
 // (ios/App/App/capacitor.config.json): il nome Objective-C qui sotto deve restare uguale.
@@ -44,7 +45,10 @@ public class RestActivityPlugin: CAPPlugin, CAPBridgedPlugin {
             return
         }
         let end = Date(timeIntervalSince1970: (call.getDouble("end") ?? 0) / 1000)
-        let state = RestAttributes.ContentState(end: end, next: call.getString("next") ?? "")
+        let start = min(end, Date(timeIntervalSince1970: (call.getDouble("start") ?? Date().timeIntervalSince1970 * 1000) / 1000))
+        let state = RestAttributes.ContentState(start: start, end: end,
+                                                exercise: call.getString("exercise") ?? "Recupero",
+                                                detail: call.getString("detail") ?? "")
         let workout = call.getString("workout") ?? "Allenamento"
         // «scaduta» alla fine del recupero: l'estensione allora mostra «Via!» al posto del conto alla rovescia
         let content = ActivityContent(state: state, staleDate: end)

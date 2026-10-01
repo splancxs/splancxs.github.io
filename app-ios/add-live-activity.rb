@@ -12,11 +12,11 @@ app_group = project.main_group.find_subpath('App', false) or abort('gruppo App n
 %w[RestAttributes.swift RestActivityPlugin.swift].each do |f|
   app.add_file_references([app_group.new_reference(f)])
 end
-# ActivityKit esiste da iOS 16.1: l'app parte da 16.2 come l'estensione (l'iPhone 14 ha almeno iOS 16)
+# ActivityKit esiste da iOS 16.1: l'app parte da 16.2; l'estensione da 18.0 (serve per il disegno dedicato all'Apple Watch)
 app.build_configurations.each { |c| c.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '16.2' }
 
 # 2. estensione RecompLive
-ext = project.new_target(:app_extension, 'RecompLive', :ios, '16.2', nil, :swift)
+ext = project.new_target(:app_extension, 'RecompLive', :ios, '18.0', nil, :swift)
 ext_group = project.main_group.new_group('RecompLive', 'RecompLive')
 ext.add_file_references(%w[RestAttributes.swift RestLiveActivity.swift].map { |f| ext_group.new_reference(f) })
 ext_group.new_reference('Info.plist')
@@ -31,7 +31,7 @@ ext.build_configurations.each do |c|
   s['CURRENT_PROJECT_VERSION'] = '1'
   s['SWIFT_VERSION'] = '5.0'
   s['TARGETED_DEVICE_FAMILY'] = '1'
-  s['IPHONEOS_DEPLOYMENT_TARGET'] = '16.2'
+  s['IPHONEOS_DEPLOYMENT_TARGET'] = '18.0'
   s['APPLICATION_EXTENSION_API_ONLY'] = 'YES'
   s['SKIP_INSTALL'] = 'YES'
   s['LD_RUNPATH_SEARCH_PATHS'] = ['$(inherited)', '@executable_path/Frameworks', '@executable_path/../../Frameworks']

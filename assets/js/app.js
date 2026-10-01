@@ -811,7 +811,7 @@
   }
 
   /* ---------------- timer recupero ---------------- */
-  const timer = { end: 0, id: 0, hide: 0, ctx: null, total: 1 };
+  const timer = { start: 0, end: 0, id: 0, hide: 0, ctx: null, total: 1 };
   const tEl = document.getElementById('timer');
   function beep() {
     try {
@@ -848,10 +848,17 @@
   function liveCall(fn) { // un errore della Live Activity non deve mai fermare timer e notifiche
     try { return Promise.resolve(fn()).catch((e) => { liveDiag.last = 'errore: ' + ((e && (e.message || e.code)) || e); return null; }); } catch (e) { liveDiag.last = 'errore: ' + (e && e.message); return Promise.resolve(null); }
   }
-  function liveSync(endMs, next) {
+  // «Prossima: Leg Press · serie 2 · 118 kg × 8» → esercizio «Leg Press» e dettaglio «Serie 2 · 118 kg × 8»
+  function liveLabel(label) {
+    const txt = String(label || 'Recupero').replace(/^(Prossima|Poi):\s*/, '');
+    const k = txt.indexOf(' · serie ');
+    return k < 0 ? { exercise: txt, detail: '' } : { exercise: txt.slice(0, k), detail: 'Serie ' + txt.slice(k + 9) };
+  }
+  function liveSync(endMs, next, startMs) {
     if (!N.live || !(endMs || timer.end)) return Promise.resolve(null);
     const a = store.get('active', null);
-    return liveCall(() => N.live.start({ end: endMs || timer.end, next: next || $('#timerNext').textContent || 'Recupero', workout: (a && a.name) || 'Allenamento' }))
+    const l = liveLabel(next || $('#timerNext').textContent);
+    return liveCall(() => N.live.start({ start: startMs || timer.start || Date.now(), end: endMs || timer.end, exercise: l.exercise, detail: l.detail, workout: (a && a.name) || 'Allenamento' }))
       .then((r) => { if (r) liveDiag.last = r.ok ? 'avviata o aggiornata' : 'non avviata: ' + (r.reason || 'motivo sconosciuto'); return r; });
   }
   // App nativa: notifica di fine recupero, arriva anche a schermo bloccato o con l'app in background
@@ -866,7 +873,7 @@
     timer.total = sec;
     $('#timerNext').textContent = next || 'Recupero';
     try { if (!timer.ctx) { const AC = window.AudioContext || window.webkitAudioContext; if (AC) timer.ctx = new AC(); } if (timer.ctx && timer.ctx.state === 'suspended') timer.ctx.resume(); } catch (e) { /* ignora */ }
-    timer.end = Date.now() + sec * 1000; tEl.hidden = false; tEl.classList.remove('done');
+    timer.start = Date.now(); timer.end = timer.start + sec * 1000; tEl.hidden = false; tEl.classList.remove('done');
     clearInterval(timer.id); clearTimeout(timer.hide); tick(); timer.id = setInterval(tick, 250);
     buzz(); timerNotify();
   }
@@ -1402,7 +1409,7 @@
     else if (act === 'live-test') {
       const out = $('#liveDiag');
       if (out) out.textContent = 'Provo…';
-      liveSync(Date.now() + 30000, 'Prova: blocca il telefono').then(() => (N.live ? liveCall(() => N.live.status()) : null)).then((st) => {
+      liveSync(Date.now() + 30000, 'Prossima: Prova, blocca il telefono · serie 1 · 20 kg × 10', Date.now()).then(() => (N.live ? liveCall(() => N.live.status()) : null)).then((st) => {
         const el = $('#liveDiag'); if (!el) return;
         const yes = (v) => (v ? 'sì' : 'no');
         el.textContent = !N.live ? 'Plugin non trovato nell’app.'
