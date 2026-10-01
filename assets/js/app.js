@@ -113,7 +113,7 @@
         const next = (di + 1) % 7;
         if (next > 4) continue; // domani non c'è scuola
         const p = dayPlan(next);
-        const sn = p.meals.filter((m) => m.slot === 'm1' || m.slot === 'm2').map((m) => `${m.code} ${D.recipes[m.code].name}`);
+        const sn = p.meals.filter((m) => /^m[12]/.test(m.slot)) // merende di scuola (m1/m2 e le versioni dei giorni OFF).map((m) => `${m.code} ${D.recipes[m.code].name}`);
         list.push({ id: 100 + di, title: `Prepara le merende per ${p.day.name.toLowerCase()}`, body: sn.join(' · '), schedule: { on: { weekday: wd(di), hour: 21, minute: 0 }, allowWhileIdle: true } });
       }
     }
@@ -265,9 +265,10 @@
   const UNITS = {
     uovo: ['uovo', 'uova'], sottiletta: ['fetta', 'fette'], kiwi: ['kiwi', 'kiwi'], crackers: ['pacchetto', 'pacchetti'],
     fette_bisc: ['fetta', 'fette'], pancarre: ['fetta', 'fette'], barretta: ['barretta', 'barrette'], gallette: ['galletta', 'gallette'],
-    bresaola: ['vaschetta', 'vaschette'], cotto: ['vaschetta', 'vaschette'], tacchino_arrosto: ['vaschetta', 'vaschette'],
-    tonno_nat: ['scatoletta da 80 g', 'scatolette da 80 g'], mozz_light: ['mozzarella', 'mozzarelle'],
-    pane_int: ['fetta', 'fette'], pane_segale: ['fetta', 'fette'], banana: ['banana', 'banane'], mela: ['mela', 'mele'], pera: ['pera', 'pere'],
+    // le confezioni dicono sempre quanto pesano: chi pesa il cibo guarda i grammi, la confezione è solo un aiuto
+    bresaola: ['vaschetta da 80 g', 'vaschette da 80 g'], cotto: ['vaschetta da 100 g', 'vaschette da 100 g'], tacchino_arrosto: ['vaschetta da 100 g', 'vaschette da 100 g'],
+    tonno_nat: ['scatoletta da 80 g', 'scatolette da 80 g'], mozz_light: ['mozzarella da 125 g', 'mozzarelle da 125 g'],
+    pane_int: ['fetta', 'fette'], pane_segale: ['fetta', 'fette'], piadina: ['piadina', 'piadine'], banana: ['banana', 'banane'], mela: ['mela', 'mele'], pera: ['pera', 'pere'],
   };
   const YOGURT_PACK = { 100: '⅔ di vasetto da 150 g', 150: '1 vasetto da 150 g', 170: '1 vasetto da 170 g', 200: '1 vasetto da 200 g', 250: 'mezza confezione da 500 g', 300: '2 vasetti da 150 g', 340: '2 vasetti da 170 g' };
   const SPOONS = { avena: [10, 'cucchiaio', 'cucchiai'], miele: [5, 'cucchiaino', 'cucchiaini'], parmigiano: [5, 'cucchiaino', 'cucchiaini'], pesto: [20, 'cucchiaio', 'cucchiai'], phila: [15, 'cucchiaio', 'cucchiai'], marmellata0: [10, 'cucchiaino', 'cucchiaini'], crema_proteica: [15, 'cucchiaino colmo', 'cucchiaini colmi'] };
@@ -519,7 +520,7 @@
       <div class="row"><h3>E i pasti di oggi?</h3></div>
       <div class="alts">
         <button type="button" class="alt" data-act="skip-do" data-diet="off"><span class="alt-c">Consigliato</span><b>Mangia come in un giorno di riposo</b>
-          <span class="alt-m">Senza allenamento i carboidrati in più non servono. ${eaten.length ? 'I pasti già mangiati restano come sono; cambiano solo i prossimi' : 'Cambiano pranzo, merenda e cena'}: <em>${off.tot.k} kcal</em> invece di ${on.tot.k}.</span>
+          <span class="alt-m">Senza allenamento i carboidrati in più non servono. ${eaten.length ? 'I pasti già mangiati restano come sono; cambiano solo i prossimi' : 'Le merende diventano quelle più leggere dei giorni di riposo e cambiano pranzo, merenda e cena'}: <em>${off.tot.k} kcal</em> invece di ${on.tot.k}.</span>
           ${changed.length ? `<span class="alt-m">${changed.join(' · ')}</span>` : ''}</button>
         <button type="button" class="alt" data-act="skip-do" data-diet="on"><span class="alt-c">Nessun cambio</span><b>Tieni il piano ON</b>
           <span class="alt-m">Se hai già mangiato quasi tutto o è un caso isolato: ${on.tot.k} kcal. Una giornata così non rovina la settimana.</span></button>
@@ -599,7 +600,7 @@
 
   function prepCard(di) {
     const p = dayPlan(di);
-    const snacks = p.meals.filter((m) => m.slot === 'm1' || m.slot === 'm2');
+    const snacks = p.meals.filter((m) => /^m[12]/.test(m.slot));
     return `<section class="card stack">
       <p class="eyebrow">Stasera prepara per ${esc(p.day.name.toLowerCase())}</p>
       ${snacks.map((m) => `<div><h3 style="font-size:15px"><span class="muted">${m.time}</span> · ${esc(D.recipes[m.code].name)}</h3>
@@ -770,7 +771,7 @@
       <section class="card prose">
         <h2>Come sostituire senza sbagliare</h2>
         <ul>
-          <li><strong>Un pasto intero:</strong> usa il menu "scambia" sotto ogni pasto. Le opzioni della stessa fascia sono già calcolate su calorie quasi uguali (entro 25 kcal circa), quindi il totale del giorno resta giusto.</li>
+          <li><strong>Un pasto intero:</strong> usa il menu "scambia" sotto ogni pasto. Le opzioni della stessa fascia sono già calcolate su calorie quasi uguali (entro 30 kcal circa), quindi il totale del giorno resta giusto.</li>
           <li><strong>Un singolo alimento:</strong> usa le tabelle qui sotto. Le fonti proteiche sono equivalenti per proteine e i carboidrati per carboidrati. Guarda la colonna kcal: se l'alimento nuovo ha più calorie, togline un po' dal condimento.</li>
           <li><strong>Verdura cruda:</strong> libera. Lattuga, pomodori, cetrioli, peperoni, carote e cipolla si scambiano tra loro senza pesarli.</li>
           <li><strong>Frutta:</strong> circa 80 kcal equivalgono a una mela (150 g), una pera (140 g), 2 kiwi (130 g), un'arancia (170 g) o 250 g di fragole.</li>
@@ -1182,7 +1183,7 @@
     off: ['Giorno OFF', 'Giorno senza palestra (mercoledì, sabato, domenica). 1750 kcal, meno carboidrati per stare in deficit.'],
     kcal: ['Calorie', 'L’energia del cibo. Il piano ti tiene circa 380 kcal sotto il tuo consumo medio: perdi circa 0,35 kg di grasso a settimana tenendo le proteine alte per non perdere muscolo.'],
     macro: ['P · C · G', 'Proteine (P): costruiscono e proteggono il muscolo, obiettivo 140 g al giorno. Carboidrati (C): benzina per l’allenamento, più alti nei giorni ON. Grassi (G): servono agli ormoni e saziano, circa 55–58 g.'],
-    scambio: ['Scambiare un pasto', 'Tutte le opzioni della stessa fascia (per esempio le merende delle 9:30) hanno quasi le stesse calorie (differenze entro 25 kcal circa): puoi scambiarle quando vuoi senza sballare la giornata.'],
+    scambio: ['Scambiare un pasto', 'Tutte le opzioni della stessa fascia (per esempio le merende delle 9:30) hanno quasi le stesse calorie (differenze entro 30 kcal circa): puoi scambiarle quando vuoi senza sballare la giornata.'],
     rir: ['RIR · ripetizioni in riserva', 'Quante ripetizioni avresti ancora potuto fare prima di non farcela più. RIR 2 vuol dire che ti fermi quando ne avresti ancora 2 nel serbatoio.'],
     block: ['Blocco di 7 settimane', 'Settimane 1–2: adattamento (RIR 2–3). Settimane 3–6: progressione (RIR 1–2). Settimana 7: scarico, con metà delle serie per recuperare. Poi si ricomincia.'],
     progressione: ['Doppia progressione', 'Prima aumenti le ripetizioni fino al massimo del range (per esempio 3×10), poi aumenti il peso e riparti dal minimo. L’app ti dice quando salire.'],
