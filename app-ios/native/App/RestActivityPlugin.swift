@@ -1,6 +1,7 @@
 import ActivityKit
 import Capacitor
 import Foundation
+import UIKit
 
 // Ponte tra il JavaScript dell'app e la Live Activity del recupero.
 // JS: RestActivity.start({ end: <millisecondi>, next: "Prossima: …", workout: "Limbs A" }) avvia o aggiorna,
@@ -12,11 +13,32 @@ public class RestActivityPlugin: CAPPlugin, CAPBridgedPlugin {
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "start", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "end", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "status", returnType: CAPPluginReturnPromise),
     ]
 
+    // diagnosi per la scheda in Profilo: dice in quale punto la Live Activity si ferma
+    @objc func status(_ call: CAPPluginCall) {
+        let plist = Bundle.main.object(forInfoDictionaryKey: "NSSupportsLiveActivities") as? Bool ?? false
+        let ext = Bundle.main.builtInPlugInsURL
+            .map { FileManager.default.fileExists(atPath: $0.appendingPathComponent("RecompLive.appex").path) } ?? false
+        if #available(iOS 16.2, *) {
+            call.resolve([
+                "ios": UIDevice.current.systemVersion, "supported": true, "plist": plist, "extension": ext,
+                "enabled": ActivityAuthorizationInfo().areActivitiesEnabled,
+                "open": Activity<RestAttributes>.activities.count,
+            ])
+        } else {
+            call.resolve(["ios": UIDevice.current.systemVersion, "supported": false, "plist": plist, "extension": ext])
+        }
+    }
+
     @objc func start(_ call: CAPPluginCall) {
-        guard #available(iOS 16.2, *), ActivityAuthorizationInfo().areActivitiesEnabled else {
-            call.resolve(["ok": false])
+        guard #available(iOS 16.2, *) else {
+            call.resolve(["ok": false, "reason": "iOS troppo vecchio (serve 16.2)"])
+            return
+        }
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else {
+            call.resolve(["ok": false, "reason": "Live Activity disattivate per Recomp"])
             return
         }
         let end = Date(timeIntervalSince1970: (call.getDouble("end") ?? 0) / 1000)
