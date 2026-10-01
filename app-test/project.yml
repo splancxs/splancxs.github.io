@@ -1,0 +1,51 @@
+# Mini app nativa di prova: verifica che la Live Activity del recupero funzioni con AltStore + Apple ID gratuito.
+# Il progetto Xcode viene generato da XcodeGen su GitHub Actions (non serve un Mac): vedi .github/workflows/app-test.yml.
+name: RecompTest
+options:
+  bundleIdPrefix: io.github.splancxs
+  deploymentTarget:
+    iOS: "16.2"
+targets:
+  RecompTest:
+    type: application
+    platform: iOS
+    sources: [Sources/App, Sources/Shared]
+    dependencies:
+      - target: RecompTestWidget   # l'estensione viene incorporata nell'app (cartella PlugIns)
+    info:
+      path: Info.plist
+      properties:
+        CFBundleDisplayName: Recomp Test
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "1"
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        NSSupportsLiveActivities: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.splancxs.recomptest
+        TARGETED_DEVICE_FAMILY: "1"
+        SWIFT_VERSION: "5.0"
+        GENERATE_INFOPLIST_FILE: NO
+  RecompTestWidget:
+    type: app-extension
+    platform: iOS
+    sources: [Sources/Widget, Sources/Shared]
+    dependencies:
+      - sdk: WidgetKit.framework
+      - sdk: SwiftUI.framework
+    info:
+      path: Widget-Info.plist
+      properties:
+        CFBundleDisplayName: Recomp Test
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "1"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.splancxs.recomptest.liveactivity
+        TARGETED_DEVICE_FAMILY: "1"
+        SWIFT_VERSION: "5.0"
+        GENERATE_INFOPLIST_FILE: NO
+        APPLICATION_EXTENSION_API_ONLY: YES
