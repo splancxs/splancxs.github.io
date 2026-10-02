@@ -1,5 +1,5 @@
 # Aggiunge al progetto Xcode generato da "npx cap add ios" (gira su macOS, dentro GitHub Actions):
-#  - nell'app: il plugin RestActivity e i dati della Live Activity;
+#  - nell'app: i plugin RestActivity (Live Activity) e NativeTabs (barra in basso nativa) e i dati della Live Activity;
 #  - l'estensione RecompLive (WidgetKit) che disegna la Live Activity del recupero, incorporata nell'app.
 # I file Swift vengono copiati dal workflow in ios/App/App e ios/App/RecompLive prima di lanciare questo script.
 require 'xcodeproj'
@@ -9,7 +9,7 @@ app = project.targets.find { |t| t.name == 'App' } or abort('target App non trov
 
 # 1. file nativi dell'app (gruppo "App" = cartella ios/App/App)
 app_group = project.main_group.find_subpath('App', false) or abort('gruppo App non trovato')
-%w[RestAttributes.swift RestActivityPlugin.swift].each do |f|
+%w[RestAttributes.swift RestActivityPlugin.swift NativeTabsPlugin.swift].each do |f|
   app.add_file_references([app_group.new_reference(f)])
 end
 # ActivityKit esiste da iOS 16.1: l'app parte da 16.2; l'estensione da 18.0 (serve per il disegno dedicato all'Apple Watch)

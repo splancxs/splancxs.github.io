@@ -78,8 +78,14 @@
     if (!isNative) return null;
     try { return (Cap.Plugins && Cap.Plugins[name]) || (Cap.registerPlugin ? Cap.registerPlugin(name) : null); } catch (e) { return null; }
   };
-  const N = { notif: plugin('LocalNotifications'), haptics: plugin('Haptics'), status: plugin('StatusBar'), live: plugin('RestActivity') }; // RestActivity: plugin di Recomp (app-ios/native)
+  const N = { notif: plugin('LocalNotifications'), haptics: plugin('Haptics'), status: plugin('StatusBar'), browser: plugin('Browser'),
+    live: plugin('RestActivity'), tabs: plugin('NativeTabs') }; // RestActivity e NativeTabs: plugin di Recomp (app-ios/native)
   const safe = (p) => { try { return Promise.resolve(p).catch(() => null); } catch (e) { return Promise.resolve(null); } };
+  // pagina web esterna: nell'app si apre in una finestra di Safari dentro Recomp, sul sito in una nuova scheda
+  function openWeb(url) {
+    if (N.browser) safe(N.browser.open({ url, presentationStyle: 'popover' })).then((r) => { if (r === null) window.open(url, '_blank'); });
+    else window.open(url, '_blank', 'noopener');
+  }
   const buzz = (style = 'LIGHT') => { if (N.haptics) safe(N.haptics.impact({ style })); };
   if (isNative) {
     // come un'app vera: niente zoom con doppio tocco o pizzico (sfasava la pagina e la spingeva sotto l'orologio)
@@ -172,7 +178,10 @@
       ${rem.creatina ? `<div class="field"><label for="creaAt">Ora del promemoria creatina</label><input id="creaAt" type="time" data-act="crea-time" value="${esc(rem.creatinaAt || CREA_AT)}"></div>` : ''}
       <p class="tiny muted">La creatina avvisa solo se a quell’ora non l’hai ancora spuntata in Oggi. La merenda arriva la sera prima dei giorni di scuola con i nomi delle merende (scambi compresi). Il timer di recupero manda una notifica anche a schermo bloccato.</p>
     </section>` : '';
-    return notif;
+    const tabs = N.tabs ? `<section class="card stack"><h2>Barra in basso</h2>
+      <label class="row small" style="justify-content:space-between;cursor:pointer"><span>Barra di iOS (Liquid Glass)</span><input type="checkbox" data-act="ntabs"${store.get('nativeTabs', true) !== false ? ' checked' : ''} style="width:22px;height:22px;accent-color:var(--ink)"></label>
+      <p class="tiny muted">La barra nativa di iOS, con il vetro di iOS 26 che rifrange la pagina. Spenta, torna quella disegnata dall’app.</p></section>` : '';
+    return notif + tabs;
   }
 
   function installCard() {
@@ -1228,7 +1237,12 @@
   let sheetOnClose = null;
   // pagina ferma mentre è aperto un pannello (quello globale o la scelta esercizio dentro main)
   const modalBox = () => (!sheetEl.hidden && sheetEl.classList.contains('open') ? sheetEl : main.querySelector('.sheet'));
-  const syncLock = () => document.documentElement.classList.toggle('no-scroll', !!modalBox());
+  function syncLock() {
+    const open = !!modalBox();
+    document.documentElement.classList.toggle('no-scroll', open);
+    // la barra nativa sta sopra la pagina: con un pannello aperto lo coprirebbe
+    if (ntabs.on && ntabs.hidden !== open) { ntabs.hidden = open; safe(N.tabs.setHidden({ hidden: open })); }
+  }
   function openSheet(html, onClose) {
     sheetEl.querySelector('.gsheet-body').innerHTML = html;
     sheetEl.hidden = false; sheetOnClose = onClose || null;
@@ -1380,6 +1394,7 @@
     $$('.nav a').forEach((a, i) => {
       if (a.dataset.route === navRoute) { a.setAttribute('aria-current', 'page'); a.parentElement.style.setProperty('--i', i); } else a.removeAttribute('aria-current');
     });
+    if (ntabs.on) safe(N.tabs.select({ index: tabIdx(navRoute) }));
     const y = window.scrollY;
     main.classList.remove('page-in'); // l'animazione di comparsa solo quando si cambia sezione, non a ogni aggiornamento
     main.innerHTML = (r !== 'scheda' && window.RCW ? window.RCW.banner() : '') + routes[r]();
@@ -1404,6 +1419,38 @@
   }
   function segCheck() { if (segEl) segEl.classList.toggle('stuck', segEl.getBoundingClientRect().top <= segTop + 1); }
   window.addEventListener('scroll', segCheck, { passive: true });
+
+  /* ---------------- barra in basso nativa (app iPhone) ---------------- */
+  // UITabBar di iOS (Liquid Glass su iOS 26) al posto della barra della pagina, che resta per il sito e per il PC.
+  // Si spegne in Profilo; se il plugin non risponde (app non ancora aggiornata) resta la barra della pagina.
+  const TABS = [['oggi', 'Oggi', 'house'], ['piano', 'Piano', 'calendar'], ['scheda', 'Scheda', 'dumbbell'], ['progressi', 'Progressi', 'chart.line.uptrend.xyaxis'], ['profilo', 'Profilo', 'person']];
+  const ntabs = { on: false, hidden: false, listening: false };
+  const tabIdx = (route) => TABS.findIndex((t) => t[0] === route);
+  function nativeTabsStart() {
+    if (!N.tabs || store.get('nativeTabs', true) === false) return;
+    const sel = tabIdx(current === 'coach' ? 'progressi' : current);
+    safe(N.tabs.show({ items: TABS.map(([, title, icon]) => ({ title, icon })), selected: Math.max(0, sel), dark: effectiveTheme() === 'dark' })).then((r) => {
+      if (!r) return;
+      ntabs.on = true; ntabs.hidden = false;
+      document.documentElement.classList.add('ntabs');
+      if (!ntabs.listening) {
+        ntabs.listening = true;
+        safe(N.tabs.addListener('select', (e) => {
+          const route = TABS[e && e.index] && TABS[e.index][0];
+          if (!route) return;
+          buzz();
+          if (route === current) window.scrollTo({ top: 0, behavior: 'smooth' }); // voce già attiva: torna in cima, come nelle app di iOS
+          else location.hash = '#/' + route;
+        }));
+      }
+      syncLock();
+    });
+  }
+  function nativeTabsStop() {
+    if (N.tabs) safe(N.tabs.remove());
+    ntabs.on = false; ntabs.hidden = false;
+    document.documentElement.classList.remove('ntabs');
+  }
 
   main.addEventListener('click', (ev) => {
     if (ev.target.classList.contains('sheet') && window.RCW) { window.RCW.click({ dataset: { w: 'pick-close' } }); return; }
@@ -1477,6 +1524,9 @@
       store.set('shop', s); t.closest('li').classList.toggle('got', t.checked);
       const tot = Object.keys(shoppingList()); const b = t.closest('.card').querySelector('.badge');
       if (b) b.textContent = `${tot.filter((id) => s[id]).length}/${tot.length}`;
+    } else if (t.dataset.act === 'ntabs') {
+      store.set('nativeTabs', t.checked);
+      if (t.checked) nativeTabsStart(); else nativeTabsStop();
     } else if (t.dataset.act === 'superserie') {
       store.set('superserie', t.checked);
     } else if (t.dataset.act === 'rem') {
@@ -1761,6 +1811,7 @@
     // nell'app installata da Safari l'orologio è sempre bianco, quindi in tema chiaro la striscia resta scura.
     document.documentElement.classList.toggle('strip-dark', !isNative && !dark);
     if (N.status) safe(N.status.setStyle({ style: dark ? 'DARK' : 'LIGHT' }));
+    if (ntabs.on) safe(N.tabs.style({ dark }));
   }
   function setTheme(v) {
     if (v === 'light' || v === 'dark') { document.documentElement.setAttribute('data-theme', v); store.set('theme', v); }
@@ -1815,6 +1866,7 @@
     startTimer, stopTimer, buzz, blockWeek, wakeChip, tip, openSheet, closeSheet, render: (top) => render(top),
     // piano dei pasti per il Coach: lo legge e applica le proposte che confermi con «Applica»
     plan: { dayPlan, todayPlan, setSwap, logDay, mealOptions, eatenToday, markEaten },
+    openWeb,
   };
   if (window.RCW) window.RCW.migrate();
 
@@ -1823,6 +1875,7 @@
   if (!store.get('onboarded', false)) setTimeout(showOnboarding, 400);
   if (isNative) {
     if (!(window.RCW && window.RCW.isActive())) stopTimer(); // nessuna notifica di recupero rimasta da una sessione chiusa
+    nativeTabsStart();
     scheduleReminders();
     scheduleCreatine();
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') creatineSoon(); });

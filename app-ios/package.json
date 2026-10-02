@@ -1,9 +1,10 @@
 {
   "name": "recomp-ios",
   "private": true,
-  "description": "App iPhone di Recomp: il sito del repository dentro un guscio nativo Capacitor (notifiche e vibrazione).",
+  "description": "App iPhone di Recomp: il sito del repository dentro un guscio nativo Capacitor (notifiche, vibrazione, pagine web interne).",
   "type": "module",
   "dependencies": {
+    "@capacitor/browser": "8.0.5",
     "@capacitor/cli": "8.5.2",
     "@capacitor/core": "8.5.2",
     "@capacitor/haptics": "8.0.2",

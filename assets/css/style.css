@@ -1084,3 +1084,7 @@ img, svg, video, canvas { max-width: 100%; }
 .co-mem li span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .co-mem .x-btn { flex: none; }
 .co-check { gap: 10px 14px; }
+.co-free { gap: 8px 14px; }
+.co-free > span { flex: 1 1 180px; }
+/* app iPhone con la barra di iOS (app.js, NativeTabs): quella della pagina sparisce; lo spazio in fondo resta uguale */
+html.ntabs .nav { display: none !important; }

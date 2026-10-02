@@ -49,7 +49,7 @@
     + '**Allenamento** (sedute fatte su previste, esercizi in crescita o fermi), poi **Da fare** con 1-3 azioni concrete. '
     + 'Se un’azione si può fare nell’app (scambio di un pasto, carico della prossima seduta), proponila con lo strumento giusto.';
   const PHOTO_Q = 'Quanto vale questo pasto? Confrontalo con il pasto del mio piano più vicino.';
-  const ui = { busy: false, draft: '', err: '', live: '', status: '', all: false, photo: null, prov: '', free: '' };
+  const ui = { busy: false, draft: '', err: '', live: '', status: '', all: false, photo: null, prov: '', free: '', copied: '' };
 
   // Chiavi per servizio, solo su questo dispositivo (rc.aiKeys non viene sincronizzato né messo nel backup).
   // Le versioni precedenti avevano una sola chiave (rc.aiKey + rc.aiProv): la sposto qui la prima volta.
@@ -681,7 +681,7 @@ Foto: se ti manda la foto di un piatto, stima ingredienti e grammi, poi kcal e m
     if (!hasClaude() && !freeProv()) {
       // senza AI collegata: alle domande pronte rispondo con i calcoli sui dati, alle altre spiego come collegarla
       chat.push(preset ? { role: 'coach', src: 'dati', text: localAnswer(preset), t: Date.now() }
-        : { role: 'coach', src: 'dati', text: 'Alle domande libere risponde Claude: puoi collegarlo in fondo alla pagina. Senza, posso rispondere alle domande pronte qui sopra, calcolate dai tuoi dati.', t: Date.now() });
+        : { role: 'coach', src: 'dati', text: 'Per le domande libere tocca «Chiedi a Claude gratis» qui sotto: si apre Claude con i tuoi dati e la domanda già copiati. Qui rispondo alle domande pronte, calcolate dai tuoi dati.', t: Date.now() });
       setChat(chat); k.render(); scrollChat();
       return;
     }
@@ -784,9 +784,10 @@ Foto: se ti manda la foto di un piatto, stima ingredienti e grammi, poi kcal e m
           <p class="tiny muted">La chiave resta solo su questo dispositivo (niente sincronizzazione, niente backup). I dati dell’app e le foto partono verso Anthropic solo quando invii una domanda.</p>
           ${copyRow}
           <div class="row"><button type="button" class="chip" data-c="unlink" data-p="claude">Scollega Claude</button></div></div></details>`
-      : `<section class="card stack"><h2>Collega Claude</h2>
-          <p class="small">Con Claude il coach legge tutti i tuoi dati, guarda le foto dei pasti, ricorda quello che gli dici e ti propone modifiche che applichi con un tocco.</p>
-          <p class="small">Serve una <strong>chiave API</strong> di Anthropic con un po’ di credito prepagato: è un servizio a consumo, separato dall’eventuale abbonamento a Claude. Una domanda costa circa 2–6 centesimi di dollaro con Opus 5.5, circa la metà con Sonnet 5.5: con 5 $ di credito fai circa un centinaio di domande. <a href="${CLAUDE.keyUrl}" target="_blank" rel="noopener">Crea la chiave su console.anthropic.com</a></p>
+      : `<section class="card stack"><h2>Claude</h2>
+          <p class="small"><strong>Gratis, nella finestra di Claude.</strong> Scrivi la domanda qui sopra e tocca «Chiedi a Claude gratis»: copio i tuoi dati con la domanda e si apre Claude dentro l’app. La prima volta accedi con il tuo account Claude gratuito, poi tieni premuto nel campo del messaggio e scegli Incolla. La risposta resta lì: niente «Applica», foto o memoria qui.</p>
+          <h3>Risposte qui dentro, a consumo</h3>
+          <p class="small">Per avere le risposte in questa pagina, con le proposte da applicare, le foto e la memoria, serve una <strong>chiave API</strong> di Anthropic con un po’ di credito prepagato: è un servizio a consumo, separato dall’eventuale abbonamento a Claude, e non ha un piano gratuito. Una domanda costa circa 2–6 centesimi di dollaro con Opus 5.5, circa la metà con Sonnet 5.5. <a href="${CLAUDE.keyUrl}" target="_blank" rel="noopener">Crea la chiave su console.anthropic.com</a></p>
           <div class="field"><label for="coKey">Chiave di Claude</label><input id="coKey" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${CLAUDE.keyHint}"></div>
           ${modelSel}
           <div class="row"><button type="button" class="btn" data-c="save-key" data-p="claude">Salva su questo dispositivo</button></div>
@@ -830,8 +831,9 @@ Foto: se ti manda la foto di un piatto, stima ingredienti e grammi, poi kcal e m
         <form id="coForm" class="co-form${cl ? ' has-cam' : ''}" novalidate>
           ${cl ? `<label class="x-btn co-cam" for="coPhoto" aria-label="Allega la foto di un piatto o di un’etichetta">${k.I.camera}</label><input id="coPhoto" class="sr" type="file" accept="image/*" data-c="photo">` : ''}
           <label class="sr" for="coQ">La tua domanda</label>
-          <textarea id="coQ" rows="2" placeholder="${cl ? 'Chiedi o allega una foto…' : ai ? 'Scrivi la tua domanda…' : 'Domande libere: collega Claude qui sotto'}">${k.esc(ui.draft)}</textarea>
+          <textarea id="coQ" rows="2" placeholder="${cl ? 'Chiedi o allega una foto…' : 'Scrivi la tua domanda…'}">${k.esc(ui.draft)}</textarea>
           <button type="submit" class="btn"${ui.busy ? ' disabled' : ''}>Invia</button></form>
+        ${cl ? '' : `<div class="row co-free"><button type="button" class="btn ghost" data-c="claude-free"${ui.busy ? ' disabled' : ''}>Chiedi a Claude gratis</button><span class="tiny muted" role="status">${k.esc(ui.copied || 'Si apre Claude con i tuoi dati già copiati.')}</span></div>`}
         <div class="co-foot"><span class="tiny muted">${footTxt}</span>
           ${chat.length && !ui.busy ? `${ui.all && chat.length > shownMin ? '<button type="button" class="co-link" data-c="older">Nascondi i precedenti</button>' : ''}<button type="button" class="co-link" data-c="clear">Nuova conversazione</button>` : ''}</div>
       </section>
@@ -873,6 +875,23 @@ Foto: se ti manda la foto di un piatto, stima ingredienti e grammi, poi kcal e m
       const pid = t.dataset.p;
       const name = pid === 'claude' ? CLAUDE.name : FREE[pid].name;
       if (confirm(`Scollegare ${name} da questo dispositivo? La chiave salvata qui verrà cancellata.`)) { setKey(pid, ''); k.render(); }
+      return true;
+    }
+    if (c === 'claude-free') {
+      // Claude gratis: dati e domanda negli appunti, poi la pagina di Claude in una finestra dentro l'app
+      const el = document.getElementById('coQ');
+      const q = (el ? el.value : ui.draft || '').trim();
+      const txt = `${SYSTEM}
+
+<dati_app>
+${context()}
+</dati_app>
+
+La mia domanda: ${q || '(scrivila qui)'}`;
+      const done = (ok) => { ui.copied = ok ? 'Copiato: in Claude tieni premuto nel campo del messaggio e scegli Incolla.' : 'Copia non riuscita: usa «Copia i miei dati» qui sotto.'; k.render(); };
+      const copying = navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(txt) : Promise.reject();
+      k.openWeb('https://claude.ai/new'); // subito, dentro il tocco: dopo un'attesa il browser bloccherebbe la nuova scheda
+      copying.then(() => done(true), () => done(false));
       return true;
     }
     if (c === 'copy') {

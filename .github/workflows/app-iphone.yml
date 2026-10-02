@@ -54,9 +54,9 @@ jobs:
           # dopo "cap sync": Capacitor copia nel suo Package.swift la versione iOS più alta del progetto,
           # e l'iOS 18 dell'estensione (serve per l'Apple Watch) non è accettato dal suo formato
           ruby add-live-activity.rb
-          # il plugin RestActivity va nell'elenco che Capacitor legge all'avvio (come notifiche e vibrazione):
-          # così l'app lo trova in window.Capacitor.Plugins. "cap sync" riscrive il file, quindi si aggiunge dopo.
-          node -e "const fs=require('fs'),f='ios/App/App/capacitor.config.json',c=JSON.parse(fs.readFileSync(f,'utf8'));c.packageClassList=[...new Set([...(c.packageClassList||[]),'RestActivityPlugin'])];fs.writeFileSync(f,JSON.stringify(c,null,2));console.log('Plugin registrati:',c.packageClassList.join(', '))"
+          # i plugin di Recomp (RestActivity, NativeTabs) vanno nell'elenco che Capacitor legge all'avvio (come notifiche e vibrazione):
+          # così l'app li trova in window.Capacitor.Plugins. "cap sync" riscrive il file, quindi si aggiungono dopo.
+          node -e "const fs=require('fs'),f='ios/App/App/capacitor.config.json',c=JSON.parse(fs.readFileSync(f,'utf8'));c.packageClassList=[...new Set([...(c.packageClassList||[]),'RestActivityPlugin','NativeTabsPlugin'])];fs.writeFileSync(f,JSON.stringify(c,null,2));console.log('Plugin registrati:',c.packageClassList.join(', '))"
 
       - name: Compila (senza firma)
         working-directory: app-ios/ios/App
