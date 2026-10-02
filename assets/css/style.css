@@ -1057,3 +1057,28 @@ img, svg, video, canvas { max-width: 100%; }
 .co-setup[open] summary::after { transform: rotate(90deg); }
 .co-setup summary span:first-child { flex: 1; min-width: 0; }
 .co-setup[open] > .stack { margin-top: 14px; }
+/* Coach con Claude: proposte con «Applica», foto, memoria, check-in */
+.co-msg.co { max-width: 100%; }
+.co-acts { display: grid; gap: 8px; margin-top: 10px; }
+.co-act { display: grid; gap: 4px; padding: 10px 12px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line-2); border-left: 4px solid var(--accent); }
+.co-act.is-note { border-left-color: var(--line-2); }
+.co-act.is-ok { border-left-color: var(--ok); }
+.co-act.is-no { opacity: .65; }
+.co-act-t { font-family: var(--display); font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }
+.co-act-s { font-size: 14px; font-weight: 600; }
+.co-act .row { margin-top: 4px; gap: 8px; }
+.co-act .btn { min-height: 38px; padding: 8px 16px; }
+.co-status { color: var(--muted); font-size: 13.5px; font-weight: 600; }
+.co-tag { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; opacity: .8; }
+.co-tag svg { width: 14px; height: 14px; }
+.co-form.has-cam { grid-template-columns: auto minmax(0, 1fr) auto; }
+.co-cam { margin: 0 0 4px; width: 44px; height: 44px; border-radius: 14px; cursor: pointer; color: var(--ink); }
+.co-cam svg { width: 20px; height: 20px; }
+.co-photo { display: flex; align-items: center; gap: 10px; }
+.co-photo img { width: 64px; height: 64px; object-fit: cover; border-radius: 12px; border: 1px solid var(--line-2); }
+.co-photo .x-btn { margin-left: 0; flex: none; }
+.co-mem { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.co-mem li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; background: var(--surface-2); font-size: 14px; }
+.co-mem li span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.co-mem .x-btn { flex: none; }
+.co-check { gap: 10px 14px; }

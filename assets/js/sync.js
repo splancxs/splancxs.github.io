@@ -7,7 +7,7 @@
 import { firebaseConfig } from './firebase-config.js';
 
 const V = '11.0.2';
-const SKIP = new Set(['rc._meta', 'rc.theme', 'rc.installHidden', 'rc.health', 'rc.reminders', 'rc.active', 'rc.logMigrated', 'rc.aiKey', 'rc.aiModel', 'rc.aiProv', 'rc.coachChat']); // preferenze del singolo dispositivo
+const SKIP = new Set(['rc._meta', 'rc.theme', 'rc.installHidden', 'rc.health', 'rc.reminders', 'rc.active', 'rc.logMigrated', 'rc.aiKey', 'rc.aiKeys', 'rc.aiModel', 'rc.aiProv', 'rc.aiSpend', 'rc.coachChat']); // preferenze del singolo dispositivo
 // stato mostrato in Profilo: status = loading | nocfg | offline | error | out | in; net = rete del dispositivo
 const S = {
   state: { status: 'loading', net: navigator.onLine !== false },
@@ -83,8 +83,9 @@ function mergeKey(k, L, R) {
     const v = mergeItems(parse(L.v, []), parse(R.v, []), (x) => x.id).sort((x, y) => (x.start || 0) - (y.start || 0));
     return { v: JSON.stringify(v), t };
   }
-  // routine, esercizi creati, creatina, diario e giorni modificati: una voce per id (o per data), vince la più recente
-  if (k === 'rc.routines' || k === 'rc.exlib' || k === 'rc.creatina' || k === 'rc.dlog' || k === 'rc.dayov') {
+  // routine, esercizi creati, creatina, diario, giorni modificati, memoria del coach e carichi da lui proposti:
+  // una voce per id (o per data), vince la più recente
+  if (['rc.routines', 'rc.exlib', 'rc.creatina', 'rc.dlog', 'rc.dayov', 'rc.coachMem', 'rc.loadNext'].includes(k)) {
     const a = parse(L.v, {}), b = parse(R.v, {});
     const out = {};
     for (const id of new Set([...Object.keys(a), ...Object.keys(b)])) {

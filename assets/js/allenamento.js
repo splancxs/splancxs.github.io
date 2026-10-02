@@ -148,8 +148,15 @@
     if (location.hash !== '#/scheda') location.hash = '#/scheda'; else k.render(true);
   }
 
+  // carico proposto dal Coach e accettato con «Applica» (rc.loadNext): vale fino alla prossima seduta di quell'esercizio
+  function coachTarget(exId, p) {
+    const t = K().store.get('loadNext', {})[exId];
+    return t && !t.del && t.kg > 0 && (!p || t.t > p.w.start) ? t : null;
+  }
   function placeholder(it, j) {
     const p = prevSets(it.ex);
+    const tg = coachTarget(it.ex, p);
+    if (tg) return { kg: tg.kg, r: tg.r || it.lo };
     const ps = p && p.sets.filter(isWork)[Math.min(j, p.sets.filter(isWork).length - 1)];
     return { kg: ps && ps.kg != null ? ps.kg : it.kg != null ? it.kg : null, r: ps && ps.r != null ? ps.r : it.lo };
   }
@@ -158,6 +165,8 @@
     const k = K();
     const e = exOf(it.ex);
     const p = prevSets(it.ex);
+    const tg = coachTarget(it.ex, p);
+    if (tg) return { cls: 'up', txt: `Consiglio del coach: ${k.fmtKg(tg.kg)} kg × ${tg.r || it.lo}${tg.why ? `. ${tg.why}` : ''}` };
     const work = p ? p.sets.filter((s) => isWork(s) && s.r != null) : [];
     if (!work.length) {
       if (e.unit === 'sec') return { cls: '', txt: `Tieni ${it.lo}″ su ogni serie, poi aumenta fino a ${it.hi}″.` };

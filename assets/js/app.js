@@ -50,6 +50,7 @@
     check: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>',
     timer: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/></svg>',
     swap: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 16V4M3 8l4-4 4 4M17 8v12M21 16l-4 4-4-4"/></svg>',
+    camera: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
     reset: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>',
     trash: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>',
     down: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>',
@@ -1769,6 +1770,10 @@
     if (code === D.week[di].pick[si]) delete sw[k]; else sw[k] = code;
     store.set('swaps', sw);
   }
+  // per il Coach: le ricette possibili per una fascia e i pasti spuntati oggi
+  const mealOptions = (slot) => Object.keys(D.variants[slot]).map((code) => ({ code, name: D.recipes[code].name, ...sumLines(mealLines(slot, code)) }));
+  const eatenToday = () => store.get('eaten', {})[dkey(new Date())] || [];
+  function markEaten(si) { if (!eatenToday().includes(si)) toggleEaten(si); }
   window.RC = {
     sheetAct(t, act) {
       const body = sheetEl.querySelector('.gsheet-body');
@@ -1797,6 +1802,8 @@
     D, store, esc, f0, f1, f2, sign, r1, num, dkey, fromKey, shortDate, dayIdx, I, cap, restTxt, fmtKg,
     weights, weekly, advice, START, GOAL,
     startTimer, stopTimer, buzz, blockWeek, wakeChip, tip, openSheet, closeSheet, render: (top) => render(top),
+    // piano dei pasti per il Coach: lo legge e applica le proposte che confermi con «Applica»
+    plan: { dayPlan, todayPlan, setSwap, logDay, mealOptions, eatenToday, markEaten },
   };
   if (window.RCW) window.RCW.migrate();
 
