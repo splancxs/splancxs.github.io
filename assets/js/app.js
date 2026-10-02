@@ -171,11 +171,7 @@
       ${rem.creatina ? `<div class="field"><label for="creaAt">Ora del promemoria creatina</label><input id="creaAt" type="time" data-act="crea-time" value="${esc(rem.creatinaAt || CREA_AT)}"></div>` : ''}
       <p class="tiny muted">La creatina avvisa solo se a quell’ora non l’hai ancora spuntata in Oggi. La merenda arriva la sera prima dei giorni di scuola con i nomi delle merende (scambi compresi). Il timer di recupero manda una notifica anche a schermo bloccato.</p>
     </section>` : '';
-    const live = `<section class="card stack"><h2>Live Activity del recupero</h2>
-      <p class="small muted">Il conto alla rovescia del recupero sulla schermata di blocco. Tocca «Prova», poi blocca il telefono: per 30 secondi deve comparire il riquadro.</p>
-      <div class="row"><button type="button" class="btn ghost" data-act="live-test">Prova la Live Activity</button></div>
-      <p class="small" id="liveDiag" role="status"></p></section>`;
-    return notif + live;
+    return notif;
   }
 
   function installCard() {
@@ -844,9 +840,8 @@
     if (N.live) liveCall(() => N.live.end());
   }
   // App nativa: Live Activity del recupero (conto alla rovescia sulla schermata di blocco). Avvio, +15 e −15 la aggiornano.
-  const liveDiag = { last: 'nessun recupero avviato da quando hai aperto l’app' };
   function liveCall(fn) { // un errore della Live Activity non deve mai fermare timer e notifiche
-    try { return Promise.resolve(fn()).catch((e) => { liveDiag.last = 'errore: ' + ((e && (e.message || e.code)) || e); return null; }); } catch (e) { liveDiag.last = 'errore: ' + (e && e.message); return Promise.resolve(null); }
+    try { return Promise.resolve(fn()).catch(() => null); } catch (e) { return Promise.resolve(null); }
   }
   // «Prossima: Leg Press · serie 2 · 118 kg × 8» → esercizio «Leg Press» e dettaglio «Serie 2 · 118 kg × 8»
   function liveLabel(label) {
@@ -854,12 +849,11 @@
     const k = txt.indexOf(' · serie ');
     return k < 0 ? { exercise: txt, detail: '' } : { exercise: txt.slice(0, k), detail: 'Serie ' + txt.slice(k + 9) };
   }
-  function liveSync(endMs, next, startMs) {
-    if (!N.live || !(endMs || timer.end)) return Promise.resolve(null);
+  function liveSync() {
+    if (!N.live || !timer.end) return;
     const a = store.get('active', null);
-    const l = liveLabel(next || $('#timerNext').textContent);
-    return liveCall(() => N.live.start({ start: startMs || timer.start || Date.now(), end: endMs || timer.end, exercise: l.exercise, detail: l.detail, workout: (a && a.name) || 'Allenamento' }))
-      .then((r) => { if (r) liveDiag.last = r.ok ? 'avviata o aggiornata' : 'non avviata: ' + (r.reason || 'motivo sconosciuto'); return r; });
+    const l = liveLabel($('#timerNext').textContent);
+    liveCall(() => N.live.start({ start: timer.start || Date.now(), end: timer.end, exercise: l.exercise, detail: l.detail, workout: (a && a.name) || 'Allenamento' }));
   }
   // App nativa: notifica di fine recupero, arriva anche a schermo bloccato o con l'app in background
   function timerNotify() {
@@ -1411,16 +1405,6 @@
     if (commonAct(t, act)) return;
     if (act === 'eat') { toggleEaten(Number(t.dataset.si)); render(); }
     else if (act === 'crea') { toggleCreatine(); render(); }
-    else if (act === 'live-test') {
-      const out = $('#liveDiag');
-      if (out) out.textContent = 'Provo…';
-      liveSync(Date.now() + 30000, 'Prossima: Prova, blocca il telefono · serie 1 · 20 kg × 10', Date.now()).then(() => (N.live ? liveCall(() => N.live.status()) : null)).then((st) => {
-        const el = $('#liveDiag'); if (!el) return;
-        const yes = (v) => (v ? 'sì' : 'no');
-        el.textContent = !N.live ? 'Plugin non trovato nell’app.'
-          : `Esito: ${liveDiag.last}. ` + (st ? `iOS ${st.ios} · supportata ${yes(st.supported)} · permesso ${yes(st.enabled)} · Info.plist ${yes(st.plist)} · estensione ${yes(st.extension)} · attive ${st.open == null ? '—' : st.open}` : 'Stato non disponibile.');
-      });
-    }
     else if (act === 'skip-open') { openSheet(skipSheetHtml()); }
     else if (act === 'recover-open') { openSheet(recoverSheetHtml()); }
     else if (act === 'skip-undo') { setDayOv(dkey(new Date()), null); logDay(); buzz(); render(); }

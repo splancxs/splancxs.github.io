@@ -136,8 +136,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           BUILD: ${{ github.run_number }}
         run: |
-          # pulizia: la vecchia app di prova di HealthKit non serve più
+          # pulizia: le vecchie app di prova (HealthKit, Live Activity) non servono più
           gh release delete healthkit-test --repo "${{ github.repository }}" --yes --cleanup-tag || true
+          gh release delete liveactivity-test --repo "${{ github.repository }}" --yes --cleanup-tag || true
           gh release delete build-log --repo "${{ github.repository }}" --yes --cleanup-tag || true
           gh release create "build-$BUILD" Recomp.ipa altstore-source.json \
             --repo "${{ github.repository }}" --title "Recomp · compilazione $BUILD" \

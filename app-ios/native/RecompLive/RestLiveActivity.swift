@@ -75,31 +75,38 @@ struct RestLockScreen: View {
     }
 }
 
-// Apple Watch: Smart Stack (spazio piccolo, si legge in un colpo d'occhio)
+// Apple Watch: Smart Stack. Tre righe a tutta larghezza (etichetta con icona, timer, esercizio):
+// l'icona non ruba più spazio al nome dell'esercizio, che si rimpicciolisce invece di essere tagliato.
 struct RestWatchView: View {
     let context: ActivityViewContext<RestAttributes>
 
     var body: some View {
         let s = context.state
-        HStack(alignment: .center, spacing: 8) {
-            VStack(alignment: .leading, spacing: 1) {
-                Text(context.isStale ? "Recupero finito" : "Recupero")
-                    .font(.caption2.weight(.semibold)).foregroundColor(lime)
-                if context.isStale {
-                    Text("Via!").font(.system(size: 30, weight: .heavy, design: .rounded)).foregroundColor(.white)
-                } else {
-                    Text(timerInterval: span(s.end), countsDown: true)
-                        .font(.system(size: 30, weight: .heavy, design: .rounded))
-                        .monospacedDigit().foregroundColor(.white)
-                }
-                Text(s.exercise).font(.caption2).foregroundColor(.white.opacity(0.7)).lineLimit(1)
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 5) {
+                Image(systemName: context.isStale ? "checkmark" : "dumbbell.fill")
+                    .font(.system(size: 11, weight: .bold))
+                Text(context.isStale ? "RECUPERO FINITO" : "RECUPERO")
+                    .font(.system(size: 12, weight: .bold)).tracking(0.6)
+                Spacer(minLength: 0)
             }
-            Spacer(minLength: 0)
-            Image(systemName: context.isStale ? "checkmark.circle.fill" : "dumbbell.fill")
-                .font(.system(size: 20, weight: .bold)).foregroundColor(lime)
+            .foregroundColor(lime)
+            Group {
+                if context.isStale {
+                    Text("Via!").foregroundColor(lime)
+                } else {
+                    Text(timerInterval: span(s.end), countsDown: true).foregroundColor(.white)
+                }
+            }
+            .font(.system(size: 27, weight: .heavy, design: .rounded))
+            .monospacedDigit().lineLimit(1)
+            Text(s.exercise)
+                .font(.system(size: 13, weight: .semibold)).foregroundColor(.white.opacity(0.75))
+                .lineLimit(1).minimumScaleFactor(0.6)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
     }
 }
 
