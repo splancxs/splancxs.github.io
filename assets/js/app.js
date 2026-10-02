@@ -1391,8 +1391,19 @@
     else window.scrollTo(0, y);
     current = r;
     syncLock();
+    segFind();
   }
   window.addEventListener('hashchange', () => render(true));
+
+  // sotto-schede fisse (Piano, Scheda, Profilo): .stuck quando sono attaccate sotto la barra in alto (vedi style.css)
+  let segEl = null, segTop = 0;
+  function segFind() {
+    segEl = Array.from(main.querySelectorAll('.seg')).find((s) => getComputedStyle(s).position === 'sticky') || null;
+    segTop = segEl ? parseFloat(getComputedStyle(segEl).top) || 0 : 0;
+    segCheck();
+  }
+  function segCheck() { if (segEl) segEl.classList.toggle('stuck', segEl.getBoundingClientRect().top <= segTop + 1); }
+  window.addEventListener('scroll', segCheck, { passive: true });
 
   main.addEventListener('click', (ev) => {
     if (ev.target.classList.contains('sheet') && window.RCW) { window.RCW.click({ dataset: { w: 'pick-close' } }); return; }

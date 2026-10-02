@@ -878,9 +878,11 @@ main:focus, main:focus-visible { outline: none; }
 .sheet { overscroll-behavior: contain; }
 /* sotto-schede agganciate: fascia piena fino alla barra in alto e sfumatura sotto,
    così il contenuto che scorre non spunta sopra e non viene tagliato di netto */
-/* fascia di sfondo attorno alle sotto-schede fisse: la seconda ombra sale sotto la barra in alto e copre
-   anche gli angoli, così le schede che scorrono sotto non spuntano tra la barra e le sotto-schede */
-.seg { top: calc(var(--sat) + 71px); box-shadow: 0 0 0 10px var(--bg), 0 -18px 0 16px var(--bg); }
+/* fascia di sfondo attorno alle sotto-schede fisse. Quando sono attaccate sotto la barra in alto (.stuck, da app.js)
+   una seconda ombra sale fin sotto la barra e copre anche gli angoli, così le schede che scorrono sotto non spuntano;
+   prima no, altrimenti coprirebbe il titolo della pagina */
+.seg { top: calc(var(--sat) + 71px); box-shadow: 0 0 0 10px var(--bg); }
+.seg.stuck { box-shadow: 0 0 0 10px var(--bg), 0 -18px 0 16px var(--bg); }
 .seg.seg-static, .card .seg, .sheet .seg, .gsheet .seg { box-shadow: none; }
 @media (min-width: 900px) { .seg { top: 71px; } }
 /* stato della sincronizzazione */
