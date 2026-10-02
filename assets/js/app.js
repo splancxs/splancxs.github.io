@@ -1189,6 +1189,11 @@
         <div class="seg seg-static" role="radiogroup" aria-label="Tema">${[['auto', 'Automatico'], ['light', 'Chiaro'], ['dark', 'Scuro']].map(([v, l]) => `<button type="button" role="radio" data-act="theme" data-v="${v}" aria-checked="${theme === v}" aria-selected="${theme === v}">${l}</button>`).join('')}</div>
         <p class="tiny muted">Automatico segue il tema dell'iPhone.</p>
       </section>
+      <section class="card stack">
+        <h2>Superserie</h2>
+        <label class="row small" style="justify-content:space-between;cursor:pointer"><span>Braccia in superserie nei giorni Limbs</span><input type="checkbox" data-act="superserie"${store.get('superserie', true) !== false ? ' checked' : ''} style="width:22px;height:22px;accent-color:var(--ink)"></label>
+        <p class="tiny muted">Spento: bicipiti e tricipiti si fanno separati, prima tutte le serie di uno poi dell’altro, con 60–75″ di recupero (timer e Live Activity partono anche lì). Circa 6–7 minuti in più.</p>
+      </section>
       ${syncCard()}
       ${nativeCards()}
       <section class="card stack">
@@ -1476,6 +1481,8 @@
       store.set('shop', s); t.closest('li').classList.toggle('got', t.checked);
       const tot = Object.keys(shoppingList()); const b = t.closest('.card').querySelector('.badge');
       if (b) b.textContent = `${tot.filter((id) => s[id]).length}/${tot.length}`;
+    } else if (t.dataset.act === 'superserie') {
+      store.set('superserie', t.checked);
     } else if (t.dataset.act === 'rem') {
       setReminder(t.dataset.k, t.checked);
     } else if (t.dataset.act === 'crea-time') {

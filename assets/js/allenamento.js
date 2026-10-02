@@ -204,18 +204,29 @@
     </div></div>`;
   }
 
+  // Superserie sì/no (Profilo). Con «no» il primo esercizio della coppia prende il recupero del secondo:
+  // si calcola al momento, così vale anche per un allenamento già iniziato
+  const superOn = () => K().store.get('superserie', true) !== false;
+  function restOf(a, it) {
+    if (it.rest > 0 || !it.sup || superOn()) return it.rest;
+    const mate = a.items.find((x) => x !== it && x.sup && x.sup.slice(0, -1) === it.sup.slice(0, -1));
+    return mate && mate.rest > 0 ? mate.rest : 75;
+  }
+
   function itemCard(a, it, i) {
     const k = K();
     const e = exOf(it.ex);
     let n = 0;
     const nums = it.sets.map((s) => (s.type === 'n' ? ++n : 0));
     const sg = suggestion(it);
-    const next = it.sup && it.sup.endsWith('a') ? a.items.find((x) => x.sup === it.sup.replace('a', 'b')) : null;
-    return `<article class="card wx${it.sup ? ' sup' : ''}" id="wx-${i}">
+    const sup = superOn() ? it.sup : '';
+    const rest = restOf(a, it);
+    const next = sup && sup.endsWith('a') ? a.items.find((x) => x.sup === sup.replace('a', 'b')) : null;
+    return `<article class="card wx${sup ? ' sup' : ''}" id="wx-${i}">
       <div class="wx-h">
         ${anim(e, 'sm')}
-        <div class="wx-t">${it.sup ? `<span class="badge on">${k.esc(it.sup)}</span> ` : ''}<h3>${k.esc(e.n)}</h3>
-          <div class="ex-meta"><span>${k.esc(e.m)}</span><span><b>${it.sets.length} × ${it.lo}–${it.hi}</b>${e.unit === 'sec' ? '″' : ''}</span><span>Rec. <b>${it.rest > 0 ? k.restTxt(it.rest) : 'superserie'}</b></span></div></div>
+        <div class="wx-t">${sup ? `<span class="badge on">${k.esc(sup)}</span> ` : ''}<h3>${k.esc(e.n)}</h3>
+          <div class="ex-meta"><span>${k.esc(e.m)}</span><span><b>${it.sets.length} × ${it.lo}–${it.hi}</b>${e.unit === 'sec' ? '″' : ''}</span><span>Rec. <b>${rest > 0 ? k.restTxt(rest) : 'superserie'}</b></span></div></div>
         <div class="wx-menu">
           <button type="button" class="x-btn" data-w="move" data-d="-1" data-i="${i}" aria-label="Sposta su"${i === 0 ? ' disabled' : ''}>↑</button>
           <button type="button" class="x-btn" data-w="move" data-d="1" data-i="${i}" aria-label="Sposta giù"${i === a.items.length - 1 ? ' disabled' : ''}>↓</button>
@@ -224,7 +235,7 @@
           <button type="button" class="x-btn" data-w="remove" data-i="${i}" aria-label="Togli ${k.esc(e.n)}">${k.I.trash}</button>
         </div>
       </div>
-      ${next ? `<p class="sup-note">Superserie ${k.tip('superserie')} dopo ogni serie passa subito a ${k.esc(exOf(next.ex).n)}.</p>` : ''}
+      ${next ? `<p class="sup-note">Superserie ${k.tip('superserie')} dopo ogni serie passa subito a ${k.esc(exOf(next.ex).n)}. <button type="button" class="chip" data-w="sup-off">Falli separati</button></p>` : ''}
       <p class="sugg ${sg.cls}" style="margin:0 14px 8px">${k.esc(sg.txt)} ${k.tip('progressione')}</p>
       ${it.showNote || it.note ? `<textarea class="wnote" data-wi="note" data-i="${i}" rows="2" placeholder="Nota (sedile, impugnatura, sensazioni…)">${k.esc(it.note || '')}</textarea>` : ''}
       <div class="wsets">
@@ -837,6 +848,7 @@
     switch (w) {
       case 'tab': ui.tab = t.dataset.tab; ui.detail = ui.exDetail = ui.summary = null; k.render(); return true;
       case 'start': start(t.dataset.rid || null); return true;
+      case 'sup-off': k.store.set('superserie', false); k.buzz(); k.render(); return true;
       case 'resume': ui.tab = 'routine'; ui.detail = ui.exDetail = ui.summary = ui.edit = null; return false; // lascia navigare il link
       case 'finish': finish(); return true;
       case 'discard': if (confirm("Annullare l'allenamento? Le serie di oggi non verranno salvate.")) { setActive(null); k.stopTimer(); k.render(true); } return true;
@@ -847,7 +859,8 @@
           if (s.kg == null && exOf(it.ex).unit !== 'sec') s.kg = ph.kg;
           if (s.r == null) s.r = ph.r;
           s.done = true;
-          if (it.rest > 0) k.startTimer(it.rest, nextLabel(a, i, j));
+          const rest = restOf(a, it);
+          if (rest > 0) k.startTimer(rest, nextLabel(a, i, j));
           k.buzz('MEDIUM');
         } else s.done = false;
         setActive(a); k.render(); return true;
