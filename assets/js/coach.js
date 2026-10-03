@@ -285,8 +285,12 @@
     if (!hist.length) L.push('Nessun allenamento registrato.');
     hist.forEach((w) => {
       const vol = w.items.reduce((a, it) => a + it.sets.filter((s) => s.type !== 'w').reduce((b, s) => b + (s.kg > 0 && s.r > 0 ? s.kg * s.r : 0), 0), 0);
-      L.push(`${dk(w.start)} ${w.name} (${Math.round((w.end - w.start) / 60000)} min, volume ${Math.round(vol)} kg): ` + w.items.map((it) => `${WD().exOf(it.ex).n}: ${setsTxt(it)}`).join(' | '));
+      const hk = `${w.hr ? `, battito medio ${w.hr}` : ''}${w.kcal ? `, ${w.kcal} kcal attive` : ''}${w.watch ? ', fatto con l’orologio' : ''}`;
+      L.push(`${dk(w.start)} ${w.name} (${Math.round((w.end - w.start) / 60000)} min, volume ${Math.round(vol)} kg${hk}): ` + w.items.map((it) => `${WD().exOf(it.ex).n}: ${setsTxt(it)}`).join(' | '));
     });
+    const act = k.store.get('activity', {});
+    const ad = Object.keys(act).sort().slice(-14);
+    if (ad.length) L.push('', 'MOVIMENTO (da Salute, per giorno: passi e calorie attive; il consumo stimato del piano non li conta)', ad.map((d) => `${d} ${act[d].steps} passi, ${act[d].kcal} kcal attive`).join('; '));
     const sk = Object.keys(WD().skipped()).sort();
     L.push(`Allenamenti segnati come saltati: ${sk.length ? sk.join(', ') : 'nessuno'}.`);
     L.push(`Ultimi ${f.win} giorni: previsti ${f.expected}, registrati ${f.done}.`);

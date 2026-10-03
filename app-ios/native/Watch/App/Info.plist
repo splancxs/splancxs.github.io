@@ -20,8 +20,13 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Recomp legge battito e calorie durante l'allenamento per mostrarteli sull'orologio.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Recomp salva i tuoi allenamenti in Salute, così contano negli anelli Attività.</string>
 	<key>WKBackgroundModes</key>
 	<array>
+		<string>workout-processing</string>
 		<string>physical-therapy</string>
 	</array>
 	<key>WKApplication</key>

@@ -79,7 +79,7 @@
     try { return (Cap.Plugins && Cap.Plugins[name]) || (Cap.registerPlugin ? Cap.registerPlugin(name) : null); } catch (e) { return null; }
   };
   const N = { notif: plugin('LocalNotifications'), haptics: plugin('Haptics'), status: plugin('StatusBar'), browser: plugin('Browser'), app: plugin('App'),
-    live: plugin('RestActivity'), tabs: plugin('NativeTabs'), watch: plugin('WatchBridge') }; // RestActivity, NativeTabs e WatchBridge: plugin di Recomp (app-ios/native)
+    live: plugin('RestActivity'), tabs: plugin('NativeTabs'), watch: plugin('WatchBridge'), health: plugin('Health') }; // RestActivity, NativeTabs, WatchBridge e Health: plugin di Recomp (app-ios/native)
   const safe = (p) => { try { return Promise.resolve(p).catch(() => null); } catch (e) { return Promise.resolve(null); } };
   // pagina web esterna: nell'app si apre in una finestra di Safari dentro Recomp, sul sito in una nuova scheda
   function openWeb(url) {
@@ -181,7 +181,14 @@
     const tabs = N.tabs ? `<section class="card stack"><h2>Barra in basso</h2>
       <label class="row small" style="justify-content:space-between;cursor:pointer"><span>Barra di iOS (Liquid Glass)</span><input type="checkbox" data-act="ntabs"${store.get('nativeTabs', true) !== false ? ' checked' : ''} style="width:22px;height:22px;accent-color:var(--ink)"></label>
       <p class="tiny muted">La barra nativa di iOS, con il vetro di iOS 26 che rifrange la pagina. Spenta, torna quella disegnata dall’app.</p></section>` : '';
-    return notif + tabs;
+    const h = store.get('health', {});
+    const hl = health.ok ? `<section class="card stack"><h2>Salute</h2>
+      ${h.on ? `<p class="small">Collegata. Le pesate di Salute arrivano qui (nei giorni in cui non ne hai già una), quelle dell’app e i pasti segnati vanno in Salute, passi e calorie attive li vede anche il Coach. Gli allenamenti fatti con l’orologio vanno in Salute da soli.</p>
+        <div class="row"><button type="button" class="chip" data-act="health-sync">Sincronizza ora</button></div>`
+        : `<p class="small">Collega Salute: peso nei due sensi, pasti segnati in Nutrizione, passi e calorie attive per il Coach.</p>
+        <div class="row"><button type="button" class="btn" data-act="health-on">Collega Salute</button></div>`}
+      <p class="tiny muted">I permessi si cambiano in Salute → Condivisione → App → Recomp.</p></section>` : '';
+    return notif + hl + tabs;
   }
 
   function installCard() {
@@ -393,7 +400,7 @@
     items.sort((a, b) => a.t - b.t);
     const next = items.find((x) => !x.done && x.t >= nm - 60) || items.find((x) => !x.done);
     if (!next) {
-      return `<section class="card adesso done"><p class="eyebrow">Adesso</p><h2>Giornata completata 🎉</h2><p class="small muted">Hai segnato tutti i pasti${w ? " e fatto l'allenamento" : ''}. Domani si continua.</p></section>`;
+      return `<section class="card adesso done"><p class="eyebrow">Adesso</p><h2>Giornata completata <span class="done-tick" aria-hidden="true">${I.check}</span></h2><p class="small muted">Hai segnato tutti i pasti${w ? " e fatto l'allenamento" : ''}. Domani si continua.</p></section>`;
     }
     const late = next.t - nm < -15;
     const when = late ? 'da segnare' : inMin(next.t - nm);
@@ -471,6 +478,7 @@
     Object.keys(all).forEach((k) => { if ((fromKey(key) - fromKey(k)) / 86400000 > 60) delete all[k]; });
     store.set('eaten', all);
     logDay();
+    healthMeal(si, arr.has(si));
     buzz(arr.has(si) ? 'MEDIUM' : 'LIGHT');
   }
   // Diario: per ogni giorno salva quanto hai davvero spuntato (kcal e macro) rispetto al piano di quel giorno.
@@ -1458,6 +1466,61 @@
     const route = m[1].replace(/\/+$/, '') || 'oggi';
     if (location.hash !== '#/' + route) location.hash = '#/' + route; else render(true);
   }
+  /* ---------------- Salute (app iPhone installata da Xcode) ---------------- */
+  // Peso nei due sensi, pasti segnati in Nutrizione, passi e calorie attive (rc.activity) per l'app e il Coach.
+  // rc.health ({ on, wT }) resta sul dispositivo. Con l'app installata da AltStore Salute non c'è e tutto resta spento.
+  const health = { ok: false };
+  const healthOn = () => health.ok && !!store.get('health', {}).on;
+  function healthInit() {
+    if (!N.health) return;
+    safe(N.health.available()).then((r) => {
+      health.ok = !!(r && r.ok);
+      if (current === 'profilo') render();
+      healthSync();
+    });
+  }
+  function healthConnect() {
+    safe(N.health.authorize()).then((r) => {
+      if (r && r.ok) { store.set('health', { ...store.get('health', {}), on: true }); buzz('MEDIUM'); healthSync(true); }
+      render();
+    });
+  }
+  function healthSync(all) {
+    if (!healthOn()) return;
+    const h = store.get('health', {});
+    const since = all || !h.wT ? Date.now() - 90 * 86400000 : h.wT - 86400000;
+    safe(N.health.weights({ since })).then((r) => {
+      const items = (r && r.items) || [];
+      const ws = rawWeights();
+      const have = new Set(ws.map((w) => w.d)); // anche i giorni cancellati: una pesata tolta a mano non torna
+      let added = 0;
+      items.forEach((x) => {
+        const d = dkey(new Date(x.t));
+        if (have.has(d) || !(x.kg >= 35 && x.kg <= 150)) return; // quel giorno c'è già una pesata dell'app: vince quella
+        ws.push({ d, kg: Math.round(x.kg * 100) / 100, t: Date.now(), src: 'salute' });
+        have.add(d);
+        added++;
+      });
+      if (added) store.set('weights', ws);
+      store.set('health', { ...store.get('health', {}), wT: Date.now() });
+      if (added && (current === 'progressi' || current === 'oggi')) render();
+    });
+    safe(N.health.activity({ days: 14 })).then((r) => {
+      const days = (r && r.days) || [];
+      if (days.length) store.set('activity', Object.fromEntries(days.map((x) => [x.d, { steps: Math.round(x.steps || 0), kcal: Math.round(x.kcal || 0) }])));
+    });
+  }
+  // la pesata del giorno va in Salute alle 8 di quel giorno (rifarla lo stesso giorno la sostituisce)
+  function healthWeight(e) { if (healthOn()) safe(N.health.saveWeight({ d: e.d, kg: e.kg, t: fromKey(e.d).getTime() + 8 * 3600000 })); }
+  function healthMeal(si, eaten) {
+    if (!healthOn()) return;
+    const m = todayPlan().meals.find((x) => x.si === si);
+    if (!m || m.free) return;
+    const id = `${dkey(new Date())}-${si}`;
+    if (eaten) safe(N.health.saveMeal({ id, t: Date.now(), k: m.tot.k, p: m.tot.p, c: m.tot.c, f: m.tot.fa, name: D.recipes[m.code].name }));
+    else safe(N.health.deleteMeal({ id }));
+  }
+
   /* ---------------- Apple Watch (app iPhone) ---------------- */
   // Stato di oggi per l'app Watch (WatchBridge): pasti, kcal e macro, creatina, serie in corso e recupero.
   // Numeri interi e niente orario dentro: se non cambia niente, il plugin non rimanda lo stesso stato.
@@ -1496,7 +1559,7 @@
       if (!e) return;
       if (e.a === 'eat' && Number.isInteger(e.si)) { markEaten(e.si); render(); }
       else if (e.a === 'crea') { if (!creaOn(dkey(new Date()))) { toggleCreatine(); render(); } }
-      else if (e.a === 'set' && window.RCW && window.RCW.watch) window.RCW.watch.done(Number(e.i), Number(e.j));
+      else if (e.a === 'set' && window.RCW && window.RCW.watch) window.RCW.watch.done(Number(e.i), Number(e.j), e.kg, e.r);
       else if (e.a === 'wo' && typeof e.w === 'string' && window.RCW && window.RCW.watch) { // allenamento fatto sull'orologio
         let w = null;
         try { w = window.RCW.watch.importWorkout(JSON.parse(e.w)); } catch (err) { w = null; }
@@ -1526,6 +1589,8 @@
     if (commonAct(t, act)) return;
     if (act === 'eat') { toggleEaten(Number(t.dataset.si)); render(); }
     else if (act === 'crea') { toggleCreatine(); render(); }
+    else if (act === 'health-on') { healthConnect(); }
+    else if (act === 'health-sync') { healthSync(true); buzz(); }
     else if (act === 'skip-open') { openSheet(skipSheetHtml()); }
     else if (act === 'recover-open') { openSheet(recoverSheetHtml()); }
     else if (act === 'skip-undo') { setDayOv(dkey(new Date()), null); logDay(); buzz(); render(); }
@@ -1651,6 +1716,7 @@
     if (w != null) e.w = r1(w);
     ws.push(e);
     store.set('weights', ws);
+    healthWeight(e);
     buzz('MEDIUM');
     render();
   });
@@ -1944,6 +2010,8 @@
     }
     if (N.tabs) safe(N.tabs.launchUrl()).then((r) => { if (r && r.url) openAppUrl(r.url); }); // dal simulatore
     watchStart();
+    healthInit();
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') healthSync(); });
     scheduleReminders();
     scheduleCreatine();
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') creatineSoon(); });

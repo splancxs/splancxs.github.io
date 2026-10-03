@@ -32,7 +32,7 @@ end
 # 1. app Watch (una sola destinazione, come le app Watch di Xcode 14 e successivi)
 watch = project.new_target(:application, 'RecompWatch', :watchos, '10.0', nil, :swift)
 wgroup = project.main_group.new_group('RecompWatch', 'RecompWatch')
-watch.add_file_references(%w[RecompWatchApp.swift WatchStore.swift WatchModel.swift].map { |f| wgroup.new_reference(f) })
+watch.add_file_references(%w[RecompWatchApp.swift WatchStore.swift WatchModel.swift RepCounter.swift HealthWorkout.swift].map { |f| wgroup.new_reference(f) })
 watch.add_resources([wgroup.new_reference('Assets.xcassets')])
 %w[Info.plist RecompWatch.entitlements].each { |f| wgroup.new_reference(f) }
 watch_settings(watch, 'io.github.splancxs.recomp.watchkitapp', 'RecompWatch', version, build) do |s|
@@ -55,7 +55,10 @@ embed_ext = watch.new_copy_files_build_phase('Embed Foundation Extensions')
 embed_ext.symbol_dst_subfolder_spec = :plug_ins
 embed_ext.add_file_reference(widgets.product_reference, true).settings = { 'ATTRIBUTES' => ['RemoveHeadersOnCopy'] }
 
-# 3. l'app iPhone contiene l'app Watch nella cartella Watch
+# 3. permesso Salute anche per l'app iPhone (file copiato da prepara.sh)
+app.build_configurations.each { |c| c.build_settings['CODE_SIGN_ENTITLEMENTS'] = 'App/App.entitlements' }
+
+# 4. l'app iPhone contiene l'app Watch nella cartella Watch
 app.add_dependency(watch)
 embed_watch = app.new_copy_files_build_phase('Embed Watch Content')
 embed_watch.symbol_dst_subfolder_spec = :products_directory

@@ -22,6 +22,10 @@ struct WatchWorkout: Codable, Hashable {
     var set: Int?
     var of: Int?
     var target: String?
+    var kg: Double?
+    var r: Int?
+    var unit: String?
+    var inc: Double?
     var left: Int?
     var done: Bool?
 }

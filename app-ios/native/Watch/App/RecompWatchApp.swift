@@ -2,11 +2,17 @@ import SwiftUI
 
 // App per Apple Watch, stile sportivo come l'app: scritte condensate maiuscole, numeri grandi, lime pieno con testo scuro.
 // Pagine da scorrere con la corona: Allenamento (prima, se oggi c'è da allenarsi), Oggi, Pasti.
+// Le schermate sono pensate per lo schermo più piccolo (Apple Watch SE da 40 mm).
 @main
 struct RecompWatchApp: App {
     @StateObject private var store = WatchStore()
     var body: some Scene {
-        WindowGroup { RootView().environmentObject(store) }
+        WindowGroup {
+            RootView()
+                .environmentObject(store)
+                .environmentObject(store.health)
+                .environmentObject(store.counter)
+        }
     }
 }
 
@@ -82,6 +88,142 @@ func pageTint(_ color: Color, _ strength: Double = 0.3) -> LinearGradient {
     LinearGradient(colors: [color.opacity(strength), .black], startPoint: .top, endPoint: .center)
 }
 
+// battito e calorie dell'allenamento in Salute (se è attivo)
+struct HeartLine: View {
+    @EnvironmentObject var health: HealthWorkout
+    var body: some View {
+        if health.running {
+            HStack(spacing: 3) {
+                Image(systemName: "heart.fill").foregroundStyle(Palette.p)
+                Text(health.heartRate.map(String.init) ?? "--").font(.sport(16)).monospacedDigit()
+                if health.kcal > 0 { Text("· \(health.kcal) kcal").font(.system(size: 11)).foregroundStyle(.secondary) }
+            }
+            .font(.system(size: 12))
+        }
+    }
+}
+
+// MARK: serie (la stessa schermata per l'allenamento dal polso e per quello avviato sull'iPhone)
+
+// Nome dell'esercizio, riquadri kg e ripetizioni (la corona cambia quello selezionato), FATTO.
+// Le ripetizioni contate dal polso (prova) riempiono il riquadro finché non lo cambi a mano.
+struct SetEditor: View {
+    @EnvironmentObject var counter: RepCounter
+    let key: String       // cambia a ogni nuova serie: riparto dai valori suggeriti
+    let name: String
+    let kg: Double?
+    let reps: Int
+    let unit: String
+    let inc: Double
+    let onDone: (Double?, Int) -> Void
+
+    @State private var kgValue: Double = 0
+    @State private var repsValue: Double = 0
+    @State private var editingKg = true
+    @State private var crown: Double = 0
+    @State private var touched = false      // ripetizioni cambiate a mano: il conteggio non le sovrascrive più
+    @FocusState private var crownFocus: Bool // la corona cambia i valori invece di scorrere le pagine
+
+    private var sec: Bool { unit == "sec" }
+    private var step: Double { inc > 0 ? inc : 2.5 }
+    private var counted: Bool { !sec && !touched && counter.reps >= 3 }
+    private var shownReps: Int { counted ? counter.reps : Int(repsValue) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(shortName(name).uppercased()).font(.sport(22)).lineLimit(1).minimumScaleFactor(0.5)
+            HStack(spacing: 6) {
+                if !sec {
+                    ValueBox(value: fmtKg(kgValue), unit: "kg", selected: editingKg) { editingKg = true; crown = kgValue }
+                }
+                ValueBox(value: "\(shownReps)", unit: sec ? "secondi" : counted ? "contate" : "ripetizioni",
+                         selected: !editingKg || sec, accent: counted) {
+                    if counted { repsValue = Double(counter.reps) }
+                    editingKg = false
+                    crown = repsValue
+                }
+            }
+            .focusable(true)
+            .focused($crownFocus)
+            .digitalCrownRotation($crown, from: 0, through: editingKg && !sec ? 400 : 120, by: editingKg && !sec ? step : 1,
+                                  sensitivity: .low, isContinuous: false, isHapticFeedbackEnabled: true)
+            .onChange(of: crown) { _, v in
+                if editingKg && !sec {
+                    kgValue = max(0, (v / step).rounded() * step)
+                } else if v.rounded() != repsValue {
+                    repsValue = max(1, v.rounded())
+                    touched = true
+                }
+            }
+            Button {
+                counter.stop()
+                onDone(sec ? nil : kgValue, shownReps)
+            } label: { Label("FATTO", systemImage: "checkmark") }
+                .buttonStyle(LimeButton())
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .task(id: key) { load() }
+        .onDisappear { counter.stop() }
+    }
+
+    private func load() {
+        kgValue = kg ?? 0
+        repsValue = Double(reps)
+        editingKg = !sec && kg != nil
+        crown = editingKg ? kgValue : repsValue
+        touched = false
+        crownFocus = true
+        if !sec { counter.start() }
+    }
+}
+
+struct ValueBox: View {
+    let value: String
+    let unit: String
+    let selected: Bool
+    var accent = false
+    let tap: () -> Void
+    var body: some View {
+        VStack(spacing: -2) {
+            Text(value).font(.sport(32)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.6)
+                .foregroundStyle(accent ? Palette.lime : .white)
+            Text(unit).font(.system(size: 10, weight: .semibold)).foregroundStyle(selected || accent ? Palette.lime : .secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 4)
+        .background(Color.white.opacity(selected ? 0.16 : 0.07), in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(selected ? Palette.lime : .clear, lineWidth: 2))
+        .onTapGesture(perform: tap)
+    }
+}
+
+// conto alla rovescia del recupero, con la serie dopo
+struct RestView: View {
+    let end: Date
+    let next: String?
+    var onAdd: (() -> Void)?
+    var onSkip: (() -> Void)?
+    var body: some View {
+        VStack(spacing: 3) {
+            Text(timerInterval: Date()...end, countsDown: true)
+                .font(.sport(54)).monospacedDigit()
+            HeartLine()
+            if let next {
+                Text(next).font(.system(size: 13)).foregroundStyle(.secondary).multilineTextAlignment(.center).lineLimit(2)
+            }
+            if onAdd != nil || onSkip != nil {
+                HStack(spacing: 8) {
+                    if let onAdd { Button("+15″", action: onAdd) }
+                    if let onSkip { Button("Salta", action: onSkip) }
+                }
+                .font(.sport(17))
+                .padding(.top, 2)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
 // MARK: allenamento
 
 struct WorkoutPage: View {
@@ -146,33 +288,33 @@ struct StartView: View {
 // allenamento in corso sull'orologio: serie da fare, recupero, fine
 struct SessionView: View {
     @EnvironmentObject var store: WatchStore
-    @State private var kg: Double = 0
-    @State private var reps: Double = 0
-    @State private var editingKg = true
-    @State private var crown: Double = 0
     @State private var showList = false
     @State private var askEnd = false
-    @FocusState private var crownFocus: Bool   // la corona cambia kg e ripetizioni invece di scorrere le pagine
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { ctx in
             if let s = store.session {
                 if let end = s.restEnd, end > ctx.date {
-                    rest(s, end)
+                    RestView(end: end, next: s.restNext, onAdd: { store.addRest(15) }, onSkip: { store.skipRest() })
                 } else if let c = s.current {
-                    setView(s, c)
+                    let it = s.items[c[0]], set = it.sets[c[1]]
+                    SetEditor(key: "\(c[0])-\(c[1])", name: it.n, kg: set.kg, reps: set.r, unit: it.unit, inc: it.inc) { kg, reps in
+                        store.complete(kg: kg, reps: reps)
+                    }
                 } else {
                     done(s)
                 }
             }
         }
-        .navigationTitle(sessionTitle)
+        .navigationTitle(title)
         .containerBackground(pageTint(Palette.lime, store.session?.restEnd != nil ? 0.55 : 0.3), for: .tabView)
         .containerBackground(pageTint(Palette.lime, store.session?.restEnd != nil ? 0.55 : 0.3), for: .navigation)
         .toolbar {
             if store.session?.current != nil {
                 ToolbarItemGroup(placement: .bottomBar) {
                     Button { showList = true } label: { Image(systemName: "list.bullet") }
+                    Spacer()
+                    HeartLine()
                     Spacer()
                     Button { askEnd = true } label: { Image(systemName: "flag.checkered") }
                 }
@@ -183,68 +325,14 @@ struct SessionView: View {
             Button("Salva e termina") { store.finish() }
             Button("Annulla senza salvare", role: .destructive) { store.cancel() }
         }
-        .onAppear(perform: load)
-        .onChange(of: store.session?.current) { _, _ in load() }
     }
 
-    private var sessionTitle: String {
+    // titolo in alto: serie o recupero (lo schermo del SE 40 mm è basso: niente riga in più nella pagina)
+    private var title: String {
         guard let s = store.session else { return "" }
         if let end = s.restEnd, end > Date() { return "Recupero" }
         if let c = s.current { return "Serie \(c[1] + 1)/\(s.items[c[0]].sets.count)" }
         return s.name
-    }
-
-    // valori della serie da fare: quelli suggeriti dall'app, poi li cambi con la corona
-    private func load() {
-        guard let s = store.session, let c = s.current else { return }
-        let it = s.items[c[0]], set = it.sets[c[1]]
-        kg = set.kg ?? 0
-        reps = Double(set.r)
-        editingKg = it.unit != "sec" && set.kg != nil
-        crown = editingKg ? kg : reps
-        crownFocus = true
-    }
-
-    private func setView(_ s: WorkoutSession, _ c: [Int]) -> some View {
-        let it = s.items[c[0]]
-        let step = it.inc > 0 ? it.inc : 2.5
-        let sec = it.unit == "sec"
-        return VStack(alignment: .leading, spacing: 4) {
-            Text(shortName(it.n).uppercased()).font(.sport(22)).lineLimit(1).minimumScaleFactor(0.5)
-            HStack(spacing: 6) {
-                if !sec {
-                    ValueBox(value: fmtKg(kg), unit: "kg", selected: editingKg) { editingKg = true; crown = kg }
-                }
-                ValueBox(value: "\(Int(reps))", unit: sec ? "secondi" : "ripetizioni", selected: !editingKg || sec) { editingKg = false; crown = reps }
-            }
-            .focusable(true)
-            .focused($crownFocus)
-            .digitalCrownRotation($crown, from: 0, through: editingKg ? 400 : 120, by: editingKg ? step : 1,
-                                  sensitivity: .low, isContinuous: false, isHapticFeedbackEnabled: true)
-            .onChange(of: crown) { _, v in
-                if editingKg && !sec { kg = max(0, (v / step).rounded() * step) } else { reps = max(1, v.rounded()) }
-            }
-            Button { store.complete(kg: sec ? nil : kg, reps: Int(reps)) } label: { Label("FATTO", systemImage: "checkmark") }
-                .buttonStyle(LimeButton())
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private func rest(_ s: WorkoutSession, _ end: Date) -> some View {
-        VStack(spacing: 4) {
-            Text(timerInterval: Date()...end, countsDown: true)
-                .font(.sport(54)).monospacedDigit()
-            if let next = s.restNext {
-                Text(next).font(.system(size: 13)).foregroundStyle(.secondary).multilineTextAlignment(.center).lineLimit(2)
-            }
-            HStack(spacing: 8) {
-                Button("+15″") { store.addRest(15) }
-                Button("Salta") { store.skipRest() }
-            }
-            .font(.sport(17))
-            .padding(.top, 2)
-        }
-        .frame(maxWidth: .infinity)
     }
 
     private func done(_ s: WorkoutSession) -> some View {
@@ -253,30 +341,13 @@ struct SessionView: View {
                 Text("FINITO!").font(.sport(40)).foregroundStyle(Palette.lime)
                 Text("\(s.done) serie · \(fmtKg(s.volume)) kg di volume").font(.system(size: 14, weight: .semibold))
                 Text("\(max(1, Int(Date().timeIntervalSince(s.start) / 60))) minuti. Ora il cardio!").font(.system(size: 13)).foregroundStyle(.secondary)
+                HeartLine()
                 Button { store.finish() } label: { Label("SALVA", systemImage: "square.and.arrow.down") }
                     .buttonStyle(LimeButton())
                     .padding(.top, 4)
-                Text("Va nella cronologia dell'iPhone, anche se ora il telefono è lontano.").font(.system(size: 11)).foregroundStyle(.secondary)
+                Text("Va nella cronologia dell'iPhone e in Salute, anche se ora il telefono è lontano.").font(.system(size: 11)).foregroundStyle(.secondary)
             }
         }
-    }
-}
-
-struct ValueBox: View {
-    let value: String
-    let unit: String
-    let selected: Bool
-    let tap: () -> Void
-    var body: some View {
-        VStack(spacing: -2) {
-            Text(value).font(.sport(32)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.6)
-            Text(unit).font(.system(size: 10, weight: .semibold)).foregroundStyle(selected ? Palette.lime : .secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 4)
-        .background(Color.white.opacity(selected ? 0.16 : 0.07), in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(selected ? Palette.lime : .clear, lineWidth: 2))
-        .onTapGesture(perform: tap)
     }
 }
 
@@ -293,7 +364,7 @@ struct ExerciseList: View {
                 dismiss()
             } label: {
                 HStack {
-                    Text(it.n).font(.system(size: 14, weight: .semibold)).lineLimit(2)
+                    Text(shortName(it.n)).font(.system(size: 14, weight: .semibold)).lineLimit(2)
                     Spacer(minLength: 4)
                     Text("\(done)/\(it.sets.count)").font(.sport(17)).foregroundStyle(done == it.sets.count ? Palette.lime : .secondary)
                 }
@@ -304,33 +375,30 @@ struct ExerciseList: View {
     }
 }
 
-// allenamento avviato sull'iPhone: l'orologio lo segue (serve l'app del telefono aperta)
+// allenamento avviato sull'iPhone: stessa schermata, i dati arrivano dal telefono (serve l'app del telefono aperta)
 struct PhoneWorkoutView: View {
     @EnvironmentObject var store: WatchStore
     let s: WatchSnapshot
     let w: WatchWorkout
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { _ in
-            VStack(alignment: .leading, spacing: 4) {
-                if let rest = s.rest {
-                    Tag(text: "Recupero")
-                    Text(timerInterval: Date()...rest, countsDown: true).font(.sport(56)).monospacedDigit()
-                    if let next = s.restNext { Text(next).font(.system(size: 13)).foregroundStyle(.secondary).lineLimit(3) }
-                } else if w.done == true {
+            if let rest = s.rest {
+                RestView(end: rest, next: s.restNext)
+            } else if w.done == true {
+                VStack(alignment: .leading, spacing: 4) {
                     Text("TUTTE LE SERIE FATTE").font(.sport(24))
                     Text("Termina l'allenamento dall'iPhone e fai il cardio.").font(.system(size: 13)).foregroundStyle(.secondary)
-                } else {
-                    Tag(text: "Serie \(w.set ?? 1)/\(w.of ?? 1) · iPhone")
-                    Text(shortName(w.ex ?? "").uppercased()).font(.sport(22)).lineLimit(2).minimumScaleFactor(0.6)
-                    Text(w.target ?? "").font(.sport(32)).foregroundStyle(Palette.lime).lineLimit(1).minimumScaleFactor(0.6)
-                    Button { store.phoneSetDone() } label: { Label("FATTO", systemImage: "checkmark") }
-                        .buttonStyle(LimeButton())
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                SetEditor(key: "\(w.i ?? 0)-\(w.j ?? 0)", name: w.ex ?? "", kg: w.kg, reps: w.r ?? 8,
+                          unit: w.unit ?? "reps", inc: w.inc ?? 2.5) { kg, reps in
+                    store.phoneSetDone(kg: kg, reps: reps)
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .navigationTitle(w.name)
-        .containerBackground(pageTint(Palette.lime), for: .tabView)
+        .navigationTitle(s.rest != nil ? "Recupero" : w.done == true ? w.name : "Serie \(w.set ?? 1)/\(w.of ?? 1)")
+        .containerBackground(pageTint(Palette.lime, s.rest != nil ? 0.55 : 0.3), for: .tabView)
     }
 }
 

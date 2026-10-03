@@ -859,15 +859,20 @@
         return {
           name: a.name, ex: e.n.split(' · ')[0], i, j, set: j + 1, of: it.sets.length,
           target: e.unit === 'sec' ? `${r}″` : kg != null ? `${k.fmtKg(kg)} kg × ${r}` : `${r} ripetizioni`,
+          kg: e.unit === 'sec' ? null : kg, r, unit: e.unit === 'sec' ? 'sec' : 'reps', inc: e.inc || 2.5,
           left: a.items.reduce((n, x) => n + x.sets.filter((y) => !y.done).length, 0),
         };
       }
       return { name: a.name, done: true };
     },
-    done(i, j) {
+    // kg e ripetizioni possono arrivare cambiati con la corona dell'orologio
+    done(i, j, kg, r) {
       const a = getActive();
       const s = a && a.items[i] && a.items[i].sets[j];
       if (!s || s.done) return false;
+      if (typeof kg === 'number' && isFinite(kg) && kg >= 0) s.kg = kg;
+      if (typeof r === 'number' && isFinite(r) && r > 0) s.r = Math.round(r);
+      setActive(a);
       W.click({ dataset: { w: 'done', i: String(i), j: String(j) } }); // come il tocco sulla spunta della serie
       return true;
     },
@@ -894,7 +899,10 @@
         sets: it.sets.map((s) => ({ kg: num(s.kg), r: num(s.r), type: 'n' })).filter((s) => s.r != null),
       })).filter((it) => it.sets.length);
       if (!items.length) return null;
-      return saveWorkout({ id: w.id, rid: typeof w.rid === 'string' ? w.rid : null, name: String(w.name || 'Allenamento'), start: num(w.start) || Date.now(), end: num(w.end) || Date.now(), items, watch: 1 });
+      const extra = {};
+      if (num(w.hr)) extra.hr = Math.round(w.hr); // battito medio e calorie attive registrati in Salute dall'orologio
+      if (num(w.kcal)) extra.kcal = Math.round(w.kcal);
+      return saveWorkout({ id: w.id, rid: typeof w.rid === 'string' ? w.rid : null, name: String(w.name || 'Allenamento'), start: num(w.start) || Date.now(), end: num(w.end) || Date.now(), items, watch: 1, ...extra });
     },
   };
   W.data = { history, exOf, routines, analyze, skipped, e1rm }; // letti dal Coach (coach.js)

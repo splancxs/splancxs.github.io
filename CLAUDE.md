@@ -40,4 +40,5 @@ App personale di dieta e allenamento: un sito statico (GitHub Pages, https://spl
   nativa con il Liquid Glass di iOS 26). Vanno registrati in `packageClassList` (lo fa `prepara.sh`).
 - Estensione `native/RecompLive` (Live Activity su schermata di blocco, Dynamic Island e Apple Watch): da iOS 18;
   `add-live-activity.rb` la aggiunge al progetto e deve girare dopo `npx cap sync`.
-- Firma gratuita: niente HealthKit né funzioni che richiedono l'account sviluppatore a pagamento.
+- Firma gratuita (Apple ID senza abbonamento): HealthKit funziona, ma solo installando da Xcode (AltStore lo toglie);
+  push notification e Siri invece richiedono l'account sviluppatore a pagamento.

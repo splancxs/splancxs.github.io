@@ -781,6 +781,10 @@ h2 { font-size: 1.45rem; font-weight: 800; text-transform: uppercase; letter-spa
 .adesso .chip { background: transparent; color: var(--accent-ink); border-color: rgba(27, 36, 0, .35); }
 .adesso.done { background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
 .adesso.done .eyebrow { color: var(--muted); }
+/* giornata completata: scheda scura, quindi testo chiaro (non quello scuro pensato per la scheda lime) */
+.adesso.done .small { color: var(--muted); }
+.done-tick { display: inline-grid; place-items: center; width: 1.1em; height: 1.1em; margin-left: 4px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); vertical-align: -0.12em; }
+.done-tick svg { width: 0.7em; height: 0.7em; stroke-width: 3; }
 
 /* riga palestra, barra allenamento in corso, mini-guida: lime pieno */
 .evrow.gym, .tl.gym .tl-body { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }

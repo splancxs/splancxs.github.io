@@ -78,6 +78,8 @@ func fmtKg(_ kg: Double) -> String {
 final class WatchStore: NSObject, ObservableObject, WCSessionDelegate, WKExtendedRuntimeSessionDelegate {
     @Published var snap: WatchSnapshot? = WatchShared.load()
     @Published var session: WorkoutSession? = WatchStore.loadSession()
+    let health = HealthWorkout()   // allenamento in Salute: battito, calorie, anelli
+    let counter = RepCounter()     // ripetizioni contate dal polso (prova)
 
     private var restTimer: Timer?
     private var runtime: WKExtendedRuntimeSession?
@@ -133,11 +135,13 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate, WKExtende
         send(["a": "crea"])
     }
 
-    // serie dell'allenamento avviato sull'iPhone (quando l'app del telefono è aperta)
-    func phoneSetDone() {
+    // serie dell'allenamento avviato sull'iPhone (quando l'app del telefono è aperta), con kg e ripetizioni fatti
+    func phoneSetDone(kg: Double?, reps: Int) {
         guard let w = snap?.wo, let i = w.i, let j = w.j else { return }
-        WKInterfaceDevice.current().play(.click)
-        send(["a": "set", "i": i, "j": j])
+        WKInterfaceDevice.current().play(.success)
+        var message: [String: Any] = ["a": "set", "i": i, "j": j, "r": reps]
+        if let kg { message["kg"] = kg }
+        send(message)
     }
 
     // MARK: allenamento sull'orologio
@@ -162,7 +166,8 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate, WKExtende
         save()
         WKInterfaceDevice.current().play(.start)
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
-        startRuntime()
+        // allenamento in Salute; se non è permesso, sessione «fisioterapia» per restare attivi col polso giù
+        health.start { [weak self] ok in if !ok { self?.startRuntime() } }
     }
 
     // «Fatto»: salva kg e ripetizioni fatti, poi recupero (se previsto) e serie dopo
@@ -212,8 +217,14 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate, WKExtende
         save()
     }
 
-    // fine allenamento: le serie fatte vanno all'iPhone (consegna garantita) e la sessione si chiude
+    // fine allenamento: si chiude in Salute, poi le serie fatte (con battito medio e calorie) vanno all'iPhone
+    // con consegna garantita, e la sessione si chiude
     func finish() {
+        guard session != nil else { return }
+        health.finish { [weak self] hr, kcal in self?.sendWorkout(hr: hr, kcal: kcal) }
+    }
+
+    private func sendWorkout(hr: Int?, kcal: Int) {
         guard let s = session else { return }
         let items: [[String: Any]] = s.items.compactMap { it in
             let sets = it.sets.filter(\.done).map { set -> [String: Any] in
@@ -224,19 +235,28 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate, WKExtende
             return sets.isEmpty ? nil : ["ex": it.ex, "lo": it.lo, "hi": it.hi, "sets": sets]
         }
         if !items.isEmpty {
-            let w: [String: Any] = ["id": s.id, "rid": s.rid, "name": s.name,
+            var w: [String: Any] = ["id": s.id, "rid": s.rid, "name": s.name,
                                     "start": s.start.timeIntervalSince1970 * 1000, "end": Date().timeIntervalSince1970 * 1000, "items": items]
+            if let hr { w["hr"] = hr }
+            if kcal > 0 { w["kcal"] = kcal }
             if let data = try? JSONSerialization.data(withJSONObject: w), let json = String(data: data, encoding: .utf8) {
                 send(["a": "wo", "w": json], queued: true)
             }
         }
-        cancel()
+        close()
     }
 
+    // annullato senza salvare: niente all'iPhone né in Salute
     func cancel() {
+        health.discard()
+        close()
+    }
+
+    private func close() {
         session = nil
         save()
         armRest()
+        counter.stop()
         runtime?.invalidate()
         runtime = nil
         WKInterfaceDevice.current().play(.stop)

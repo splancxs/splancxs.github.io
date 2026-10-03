@@ -37,8 +37,13 @@ if [ -n "${WATCH:-}" ]; then
   cp -R native/Watch/App/. native/Watch/Shared/. ios/App/RecompWatch/
   cp -R native/Watch/Widgets/. native/Watch/Shared/. ios/App/RecompWatchWidgets/
   cp resources/icon-1024.png ios/App/RecompWatch/Assets.xcassets/AppIcon.appiconset/
+  # Salute sull'iPhone: permesso HealthKit e testi della richiesta di accesso (AltStore toglierebbe il permesso)
+  cp native/App/App.entitlements ios/App/App/
+  plutil -replace RecompHealth -bool YES ios/App/App/Info.plist
+  plutil -replace NSHealthShareUsageDescription -string "Recomp legge le pesate, i passi e le calorie attive per il tuo percorso." ios/App/App/Info.plist
+  plutil -replace NSHealthUpdateUsageDescription -string "Recomp salva in Salute le pesate e i pasti che segni." ios/App/App/Info.plist
   ruby add-watch.rb
 fi
-# i plugin di Recomp (RestActivity, NativeTabs, WatchBridge) vanno nell'elenco che Capacitor legge all'avvio (come notifiche e vibrazione):
+# i plugin di Recomp (RestActivity, NativeTabs, WatchBridge, Health) vanno nell'elenco che Capacitor legge all'avvio (come notifiche e vibrazione):
 # così l'app li trova in window.Capacitor.Plugins. "cap sync" riscrive il file, quindi si aggiungono dopo.
-node -e "const fs=require('fs'),f='ios/App/App/capacitor.config.json',c=JSON.parse(fs.readFileSync(f,'utf8'));c.packageClassList=[...new Set([...(c.packageClassList||[]),'RestActivityPlugin','NativeTabsPlugin','WatchBridgePlugin'])];fs.writeFileSync(f,JSON.stringify(c,null,2));console.log('Plugin registrati:',c.packageClassList.join(', '))"
+node -e "const fs=require('fs'),f='ios/App/App/capacitor.config.json',c=JSON.parse(fs.readFileSync(f,'utf8'));c.packageClassList=[...new Set([...(c.packageClassList||[]),'RestActivityPlugin','NativeTabsPlugin','WatchBridgePlugin','HealthPlugin'])];fs.writeFileSync(f,JSON.stringify(c,null,2));console.log('Plugin registrati:',c.packageClassList.join(', '))"
