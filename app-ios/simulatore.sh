@@ -6,11 +6,13 @@
 #   app-ios/simulatore.sh vai piano      apre una sezione (oggi, piano, scheda, progressi, profilo, coach)
 #   app-ios/simulatore.sh vai piano chiaro   la stessa con il tema chiaro (chiaro, scuro, auto)
 #   app-ios/simulatore.sh foto [nome]    screenshot del simulatore in app-ios/screenshots/
+#   app-ios/simulatore.sh orologio [nome]   screenshot dell'Apple Watch simulato (abbinato all'iPhone)
 # Modello: SIM="iPhone 17 Pro" app-ios/simulatore.sh   (di base quello già acceso, se no l'iPhone Pro più recente)
 set -euo pipefail
 cd "$(dirname "$0")"
 BUNDLE=io.github.splancxs.recomp
 APP=build/Build/Products/Debug-iphonesimulator/App.app
+export WATCH=1 # nel simulatore anche l'app per Apple Watch (prepara.sh)
 
 need() { command -v "$1" >/dev/null 2>&1 || { echo "Manca $1: $2" >&2; exit 1; }; }
 need xcodebuild "installa Xcode dall'App Store, aprilo una volta e accetta la licenza"
@@ -48,18 +50,56 @@ build() {
   local target="-project ios/App/App.xcodeproj"
   [ -d ios/App/App.xcworkspace ] && target="-workspace ios/App/App.xcworkspace"
   echo "Compilo per il simulatore…"
-  xcodebuild $target -scheme App -configuration Debug -sdk iphonesimulator -destination "id=$UDID" \
-    -derivedDataPath build CODE_SIGNING_ALLOWED=NO -quiet build
+  # niente -sdk: l'app Watch dentro l'app iPhone va compilata per watchOS. Firma «locale» (-): serve al gruppo
+  # condiviso tra app Watch e complicazione, e nel simulatore non chiede nessun account.
+  xcodebuild $target -scheme App -configuration Debug -destination "id=$UDID" \
+    -derivedDataPath build CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=NO -quiet build
+}
+
+# Apple Watch simulato abbinato all'iPhone; se non c'è, abbino il primo libero (di preferenza un Series da 42 mm)
+watch_pick() {
+  { xcrun simctl list pairs -j; echo '@@'; xcrun simctl list devices available -j; } | PHONE="$UDID" node -e '
+    let s = "";
+    process.stdin.on("data", (d) => (s += d)).on("end", () => {
+      const [pairsJ, devsJ] = s.split("@@");
+      const pairs = Object.values(JSON.parse(pairsJ).pairs);
+      const mine = pairs.find((p) => p.phone.udid === process.env.PHONE);
+      if (mine) return console.log(mine.watch.udid);
+      const taken = new Set(pairs.map((p) => p.watch.udid));
+      const watches = [];
+      for (const [rt, ds] of Object.entries(JSON.parse(devsJ).devices)) if (/watchOS/.test(rt)) for (const d of ds) if (!taken.has(d.udid)) watches.push(d);
+      watches.sort((a, b) => /Series.*42mm/.test(b.name) - /Series.*42mm/.test(a.name));
+      if (!watches.length) { console.error("Nessun Apple Watch simulato: in Xcode scarica watchOS da Settings > Components"); process.exit(1); }
+      console.log(watches[0].udid + " nuovo");
+    });'
+}
+watch_udid() {
+  local w; w=$(watch_pick)
+  # abbinamento nuovo: lascio a iPhone e orologio il tempo di sincronizzarsi, altrimenti l'iPhone non vede l'app Watch
+  if [[ "$w" == *" nuovo" ]]; then w=${w% nuovo}; xcrun simctl pair "$w" "$UDID" >/dev/null; sleep 20; fi
+  echo "$w"
+}
+
+watch_run() {
+  local wapp="$APP/Watch/RecompWatch.app"
+  [ -d "$wapp" ] || return 0
+  WUDID=$(watch_udid)
+  xcrun simctl boot "$WUDID" 2>/dev/null || true
+  xcrun simctl bootstatus "$WUDID" -b >/dev/null
+  xcrun simctl install "$WUDID" "$wapp"
+  xcrun simctl launch "$WUDID" "$BUNDLE.watchkitapp" >/dev/null || true
+  echo "Recomp aperta anche sull'Apple Watch simulato."
 }
 
 run() {
   xcrun simctl boot "$UDID" 2>/dev/null || true
-  open -a Simulator
+  open -a "$(xcode-select -p)/Applications/Simulator.app" # col percorso: da un collegamento remoto «open -a Simulator» non lo trova
   xcrun simctl bootstatus "$UDID" -b >/dev/null
   xcrun simctl terminate "$UDID" "$BUNDLE" 2>/dev/null || true
   xcrun simctl install "$UDID" "$APP"
   xcrun simctl launch "$UDID" "$BUNDLE" >/dev/null
   echo "Recomp aperta nel simulatore."
+  watch_run
 }
 
 # solo il sito: lo copio dentro il progetto già pronto (senza "cap copy", che riscriverebbe l'elenco dei plugin)
@@ -86,13 +126,15 @@ case "${1:-}" in
   vai)
     url="recomp://${2:-oggi}"
     [ -n "${3:-}" ] && url="$url?tema=$3"
-    xcrun simctl openurl "$UDID" "$url"
+    # riavvio l'app con il link come argomento: «simctl openurl» farebbe comparire la richiesta di conferma di iOS
+    xcrun simctl launch --terminate-running-process "$UDID" "$BUNDLE" -recompUrl "$url" >/dev/null
     echo "Aperto $url" ;;
-  foto)
+  foto|orologio)
     mkdir -p screenshots
     out="screenshots/${2:-$(date +%H%M%S)}.png"
-    xcrun simctl io "$UDID" screenshot "$out" >/dev/null
+    dev="$UDID"; [ "$1" = orologio ] && dev=$(watch_udid)
+    xcrun simctl io "$dev" screenshot "$out" >/dev/null
     echo "app-ios/$out" ;;
   *)
-    sed -n '2,9p' "$0"; exit 1 ;;
+    sed -n '2,10p' "$0"; exit 1 ;;
 esac

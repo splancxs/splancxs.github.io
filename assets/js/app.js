@@ -79,7 +79,7 @@
     try { return (Cap.Plugins && Cap.Plugins[name]) || (Cap.registerPlugin ? Cap.registerPlugin(name) : null); } catch (e) { return null; }
   };
   const N = { notif: plugin('LocalNotifications'), haptics: plugin('Haptics'), status: plugin('StatusBar'), browser: plugin('Browser'), app: plugin('App'),
-    live: plugin('RestActivity'), tabs: plugin('NativeTabs') }; // RestActivity e NativeTabs: plugin di Recomp (app-ios/native)
+    live: plugin('RestActivity'), tabs: plugin('NativeTabs'), watch: plugin('WatchBridge') }; // RestActivity, NativeTabs e WatchBridge: plugin di Recomp (app-ios/native)
   const safe = (p) => { try { return Promise.resolve(p).catch(() => null); } catch (e) { return Promise.resolve(null); } };
   // pagina web esterna: nell'app si apre in una finestra di Safari dentro Recomp, sul sito in una nuova scheda
   function openWeb(url) {
@@ -848,6 +848,7 @@
     timer.end = 0; tEl.hidden = true; tEl.classList.remove('done');
     if (N.notif) safe(N.notif.cancel({ notifications: [{ id: TIMER_ID }] }));
     if (N.live) liveCall(() => N.live.end());
+    watchSync();
   }
   // App nativa: Live Activity del recupero (conto alla rovescia sulla schermata di blocco). Avvio, +15 e −15 la aggiornano.
   function liveCall(fn) { // un errore della Live Activity non deve mai fermare timer e notifiche
@@ -868,6 +869,7 @@
   // App nativa: notifica di fine recupero, arriva anche a schermo bloccato o con l'app in background
   function timerNotify() {
     liveSync();
+    watchSync();
     if (!N.notif) return;
     safe(N.notif.cancel({ notifications: [{ id: TIMER_ID }] })).then(() => safe(N.notif.schedule({ notifications: [{
       id: TIMER_ID, title: 'Recupero finito', body: 'Via con la prossima serie.', schedule: { at: new Date(timer.end), allowWhileIdle: true },
@@ -1450,10 +1452,52 @@
   function openAppUrl(url) {
     const m = String(url || '').match(/^recomp:\/\/([^?#]*)(?:\?(.*))?/);
     if (!m) return;
+    closeSheet(); // un pannello aperto (per esempio la guida iniziale) si chiude: il link porta alla pagina
     const tema = { chiaro: 'light', scuro: 'dark', auto: 'auto' }[new URLSearchParams(m[2] || '').get('tema')];
     if (tema) setTheme(tema);
     const route = m[1].replace(/\/+$/, '') || 'oggi';
     if (location.hash !== '#/' + route) location.hash = '#/' + route; else render(true);
+  }
+  /* ---------------- Apple Watch (app iPhone) ---------------- */
+  // Stato di oggi per l'app Watch (WatchBridge): pasti, kcal e macro, creatina, serie in corso e recupero.
+  // Numeri interi e niente orario dentro: se non cambia niente, il plugin non rimanda lo stesso stato.
+  let watchT = 0;
+  function watchSnapshot() {
+    const now = new Date();
+    const plan = todayPlan();
+    const eaten = eatenToday();
+    const meals = plan.meals.filter((m) => !m.free);
+    const sum = (f) => Math.round(meals.filter((m) => eaten.includes(m.si)).reduce((a, m) => a + m.tot[f], 0));
+    const wo = window.RCW && window.RCW.watch ? window.RCW.watch.state() : null;
+    return JSON.stringify({
+      date: dkey(now), day: D.week[dayIdx(now)].name, type: /^ON/.test(plan.conv || plan.day.type) ? 'ON' : 'OFF', // OFF_S, OFF_W… → OFF
+      kcal: sum('k'), kcalTarget: Math.round(plan.tot.k), p: sum('p'), pTarget: Math.round(plan.tot.p),
+      c: sum('c'), cTarget: Math.round(plan.tot.c), f: sum('fa'), fTarget: Math.round(plan.tot.fa),
+      meals: meals.map((m) => ({ si: m.si, time: m.time, label: m.label, name: D.recipes[m.code].name, k: Math.round(m.tot.k), p: Math.round(m.tot.p), eaten: eaten.includes(m.si) })),
+      crea: creaOn(dkey(now)),
+      wo,
+      restEnd: wo && timer.end > Date.now() ? timer.end : null,
+      restNext: wo && timer.end > Date.now() ? $('#timerNext').textContent : null,
+    });
+  }
+  function watchSync() {
+    if (!N.watch) return;
+    clearTimeout(watchT);
+    watchT = setTimeout(() => safe(N.watch.update({ snapshot: watchSnapshot() })), 400);
+  }
+  // tocchi sull'orologio: le stesse azioni dei pulsanti dell'app (arrivano anche a app chiusa, alla riapertura)
+  function watchStart() {
+    if (!N.watch) return;
+    safe(N.watch.addListener('action', (e) => {
+      if (!e) return;
+      if (e.a === 'eat' && Number.isInteger(e.si)) { markEaten(e.si); render(); }
+      else if (e.a === 'crea') { if (!creaOn(dkey(new Date()))) { toggleCreatine(); render(); } }
+      else if (e.a === 'set' && window.RCW && window.RCW.watch) window.RCW.watch.done(Number(e.i), Number(e.j));
+      watchSync();
+    }));
+    window.addEventListener('rc-change', watchSync);
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') watchSync(); });
+    watchSync();
   }
   function nativeTabsStop() {
     if (N.tabs) safe(N.tabs.remove());
@@ -1889,6 +1933,8 @@
       safe(N.app.addListener('appUrlOpen', (e) => openAppUrl(e && e.url)));
       safe(N.app.getLaunchUrl()).then((r) => { if (r && r.url) openAppUrl(r.url); });
     }
+    if (N.tabs) safe(N.tabs.launchUrl()).then((r) => { if (r && r.url) openAppUrl(r.url); }); // dal simulatore
+    watchStart();
     scheduleReminders();
     scheduleCreatine();
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') creatineSoon(); });

@@ -837,6 +837,34 @@
   };
 
   W.isActive = () => !!getActive();
+  // per l'Apple Watch (app.js → WatchBridge): la serie da fare adesso, e «Fatto» toccato sul polso
+  W.watch = {
+    state() {
+      const a = getActive();
+      if (!a) return null;
+      const k = K();
+      for (let i = 0; i < a.items.length; i++) {
+        const it = a.items[i];
+        const j = it.sets.findIndex((s) => !s.done);
+        if (j < 0) continue;
+        const e = exOf(it.ex); const ph = placeholder(it, j); const s = it.sets[j];
+        const kg = s.kg != null ? s.kg : ph.kg; const r = s.r != null ? s.r : ph.r;
+        return {
+          name: a.name, ex: e.n.split(' · ')[0], i, j, set: j + 1, of: it.sets.length,
+          target: e.unit === 'sec' ? `${r}″` : kg != null ? `${k.fmtKg(kg)} kg × ${r}` : `${r} ripetizioni`,
+          left: a.items.reduce((n, x) => n + x.sets.filter((y) => !y.done).length, 0),
+        };
+      }
+      return { name: a.name, done: true };
+    },
+    done(i, j) {
+      const a = getActive();
+      const s = a && a.items[i] && a.items[i].sets[j];
+      if (!s || s.done) return false;
+      W.click({ dataset: { w: 'done', i: String(i), j: String(j) } }); // come il tocco sulla spunta della serie
+      return true;
+    },
+  };
   W.data = { history, exOf, routines, analyze, skipped, e1rm }; // letti dal Coach (coach.js)
   W.weekStats = (a, b) => { const ws = history().filter((w) => w.start >= a && w.start < b); return { n: ws.length, prs: ws.reduce((s, w) => s + ((w.prs || []).length), 0) }; };
   W.doneToday = (rid) => { const k = K(); const today = k.dkey(new Date()); return history().some((w) => w.rid === rid && k.dkey(new Date(w.start)) === today); };

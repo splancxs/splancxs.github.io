@@ -5,7 +5,8 @@ import UIKit
 // che rifrange la pagina che ci scorre sotto. Il tocco su una voce arriva al JavaScript come evento "select".
 // JS: NativeTabs.show({ items: [{ title, icon }], selected, dark }) la mette (icon = nome di un simbolo SF),
 //     select({ index }) cambia la voce attiva, setHidden({ hidden }) la nasconde mentre è aperto un pannello,
-//     style({ dark }) segue il tema dell'app, remove() la toglie e torna la barra della pagina.
+//     style({ dark }) segue il tema dell'app, remove() la toglie e torna la barra della pagina,
+//     launchUrl() dà il link passato all'avvio dal simulatore (simulatore.sh «vai»).
 // Come RestActivityPlugin, Capacitor lo crea perché il workflow aggiunge "NativeTabsPlugin" a packageClassList.
 @objc(NativeTabsPlugin)
 public class NativeTabsPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
@@ -17,6 +18,7 @@ public class NativeTabsPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
         CAPPluginMethod(name: "setHidden", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "style", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "remove", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "launchUrl", returnType: CAPPluginReturnPromise),
     ]
     private var bar: UITabBar?
 
@@ -105,6 +107,12 @@ public class NativeTabsPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
             self.bar = nil
             call.resolve()
         }
+    }
+
+    // «xcrun simctl launch … -recompUrl recomp://piano»: gli argomenti di avvio finiscono nelle UserDefaults
+    // (solo per quell'avvio). Così il simulatore apre una sezione senza la richiesta di conferma che iOS mostra per i link.
+    @objc func launchUrl(_ call: CAPPluginCall) {
+        call.resolve(["url": UserDefaults.standard.string(forKey: "recompUrl") ?? ""])
     }
 
     // arriva anche quando si tocca la voce già attiva: la pagina allora torna in cima
