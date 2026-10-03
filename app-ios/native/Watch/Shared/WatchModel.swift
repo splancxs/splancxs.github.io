@@ -26,6 +26,33 @@ struct WatchWorkout: Codable, Hashable {
     var done: Bool?
 }
 
+// una scheda (Torso A, Limbs B…) con kg e ripetizioni suggeriti per ogni serie, come nella Scheda dell'app
+struct PlanSet: Codable, Hashable {
+    var kg: Double?
+    var r: Int
+}
+
+struct PlanItem: Codable, Hashable {
+    var ex: String
+    var n: String
+    var unit: String   // "reps" oppure "sec"
+    var inc: Double    // passo del carico (2,5 kg sulle macchine, 5 sulla Leg Press…)
+    var lo: Int
+    var hi: Int
+    var rest: Int      // secondi di recupero (0 = superserie: si passa subito all'esercizio abbinato)
+    var sup: String?
+    var sets: [PlanSet]
+}
+
+struct WatchPlan: Codable, Identifiable, Hashable {
+    var rid: String
+    var name: String
+    var day: String
+    var items: [PlanItem]
+    var id: String { rid }
+    var setCount: Int { items.reduce(0) { $0 + $1.sets.count } }
+}
+
 struct WatchSnapshot: Codable, Hashable {
     var date: String
     var day: String
@@ -43,6 +70,11 @@ struct WatchSnapshot: Codable, Hashable {
     var wo: WatchWorkout?
     var restEnd: Double?   // fine del recupero in millisecondi, come in JavaScript
     var restNext: String?
+    var plans: [WatchPlan]?
+    var todayRid: String?
+    var doneToday: Bool?
+
+    var todayPlan: WatchPlan? { plans?.first { $0.rid == todayRid } }
 
     var left: Int { max(0, kcalTarget - kcal) }
     var progress: Double { kcalTarget > 0 ? min(1, Double(kcal) / Double(kcalTarget)) : 0 }
@@ -74,6 +106,13 @@ enum WatchShared {
     }
     static func save(_ snapshot: WatchSnapshot) {
         if let data = try? JSONEncoder().encode(snapshot) { defaults.set(data, forKey: key) }
+    }
+}
+
+// carattere sportivo dell'app: condensato e pesante (i titoli vanno anche in maiuscolo)
+extension Font {
+    static func sport(_ size: CGFloat, _ weight: Font.Weight = .heavy) -> Font {
+        .system(size: size, weight: weight).width(.compressed)
     }
 }
 

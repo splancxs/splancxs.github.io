@@ -1469,12 +1469,16 @@
     const meals = plan.meals.filter((m) => !m.free);
     const sum = (f) => Math.round(meals.filter((m) => eaten.includes(m.si)).reduce((a, m) => a + m.tot[f], 0));
     const wo = window.RCW && window.RCW.watch ? window.RCW.watch.state() : null;
+    const ov = dayOv(dkey(now));
+    const todayRid = ov && ov.skip ? null : (ov && ov.rid) || plan.day.wo || null; // la scheda di oggi (saltata, recuperata…)
     return JSON.stringify({
       date: dkey(now), day: D.week[dayIdx(now)].name, type: /^ON/.test(plan.conv || plan.day.type) ? 'ON' : 'OFF', // OFF_S, OFF_W… → OFF
       kcal: sum('k'), kcalTarget: Math.round(plan.tot.k), p: sum('p'), pTarget: Math.round(plan.tot.p),
       c: sum('c'), cTarget: Math.round(plan.tot.c), f: sum('fa'), fTarget: Math.round(plan.tot.fa),
       meals: meals.map((m) => ({ si: m.si, time: m.time, label: m.label, name: D.recipes[m.code].name, k: Math.round(m.tot.k), p: Math.round(m.tot.p), eaten: eaten.includes(m.si) })),
       crea: creaOn(dkey(now)),
+      plans: window.RCW && window.RCW.watch ? window.RCW.watch.plans() : [],
+      todayRid, doneToday: !!(todayRid && window.RCW && window.RCW.doneToday(todayRid)),
       wo,
       restEnd: wo && timer.end > Date.now() ? timer.end : null,
       restNext: wo && timer.end > Date.now() ? $('#timerNext').textContent : null,
@@ -1493,6 +1497,11 @@
       if (e.a === 'eat' && Number.isInteger(e.si)) { markEaten(e.si); render(); }
       else if (e.a === 'crea') { if (!creaOn(dkey(new Date()))) { toggleCreatine(); render(); } }
       else if (e.a === 'set' && window.RCW && window.RCW.watch) window.RCW.watch.done(Number(e.i), Number(e.j));
+      else if (e.a === 'wo' && typeof e.w === 'string' && window.RCW && window.RCW.watch) { // allenamento fatto sull'orologio
+        let w = null;
+        try { w = window.RCW.watch.importWorkout(JSON.parse(e.w)); } catch (err) { w = null; }
+        if (w) { buzz('HEAVY'); render(); }
+      }
       watchSync();
     }));
     window.addEventListener('rc-change', watchSync);

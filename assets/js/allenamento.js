@@ -377,7 +377,19 @@
     }
     const pending = a.items.reduce((acc, it) => acc + it.sets.filter((s) => !s.done && (s.kg != null || s.r != null)).length, 0);
     if (!confirm(`Terminare l'allenamento?${pending ? `\n${pending} serie compilate ma non spuntate verranno ignorate.` : ''}`)) return;
-    const w = { id: a.id, rid: a.rid, name: a.name, start: a.start, end: Date.now(), items, t: Date.now() };
+    const w = saveWorkout({ id: a.id, rid: a.rid, name: a.name, start: a.start, end: Date.now(), items });
+    setActive(null);
+    k.stopTimer(); // fine sessione: niente recupero né notifica rimasti attivi
+    ui.summary = w.id;
+    k.buzz('HEAVY');
+    k.render(true);
+    if (w.prs.length) setTimeout(confetti, 120);
+  }
+  // salva un allenamento finito nella cronologia, con i record battuti (dall'app o dall'Apple Watch)
+  function saveWorkout(base) {
+    const k = K();
+    const items = base.items;
+    const w = { ...base, t: Date.now() };
     // record personali battuti rispetto alla cronologia precedente
     w.prs = [];
     items.forEach((it) => {
@@ -396,12 +408,7 @@
     const all = k.store.get('workouts', []).filter((x) => x.id !== w.id);
     all.push(w);
     k.store.set('workouts', all);
-    setActive(null);
-    k.stopTimer(); // fine sessione: niente recupero né notifica rimasti attivi
-    ui.summary = w.id;
-    k.buzz('HEAVY');
-    k.render(true);
-    if (w.prs.length) setTimeout(confetti, 120);
+    return w;
   }
 
   /* ---------------- analisi di un allenamento (solo dati registrati, nessun voto) ---------------- */
@@ -863,6 +870,31 @@
       if (!s || s.done) return false;
       W.click({ dataset: { w: 'done', i: String(i), j: String(j) } }); // come il tocco sulla spunta della serie
       return true;
+    },
+    // le schede con kg e ripetizioni suggeriti per ogni serie (gli stessi della Scheda) e il recupero vero
+    plans() {
+      return routines().map((r) => ({
+        rid: r.id, name: r.name, day: r.day || '',
+        items: r.items.map((it) => {
+          const e = exOf(it.ex);
+          return {
+            ex: it.ex, n: e.n.split(' · ')[0], unit: e.unit === 'sec' ? 'sec' : 'reps', inc: e.inc || 2.5,
+            lo: it.lo, hi: it.hi, rest: restOf({ items: r.items }, it), sup: superOn() ? (it.sup || '') : '',
+            sets: Array.from({ length: it.s }, (_, j) => { const ph = placeholder(it, j); return { kg: ph.kg, r: ph.r }; }),
+          };
+        }),
+      }));
+    },
+    // allenamento fatto sull'orologio: { id, rid, name, start, end, items: [{ ex, lo, hi, sets: [{ kg, r }] }] }
+    importWorkout(w) {
+      const num = (v) => (typeof v === 'number' && isFinite(v) ? v : null);
+      if (!w || typeof w.id !== 'string' || !Array.isArray(w.items) || history().some((x) => x.id === w.id)) return null; // già arrivato
+      const items = w.items.filter((it) => it && typeof it.ex === 'string' && Array.isArray(it.sets)).map((it) => ({
+        ex: it.ex, lo: num(it.lo) || 8, hi: num(it.hi) || 12, note: '',
+        sets: it.sets.map((s) => ({ kg: num(s.kg), r: num(s.r), type: 'n' })).filter((s) => s.r != null),
+      })).filter((it) => it.sets.length);
+      if (!items.length) return null;
+      return saveWorkout({ id: w.id, rid: typeof w.rid === 'string' ? w.rid : null, name: String(w.name || 'Allenamento'), start: num(w.start) || Date.now(), end: num(w.end) || Date.now(), items, watch: 1 });
     },
   };
   W.data = { history, exOf, routines, analyze, skipped, e1rm }; // letti dal Coach (coach.js)

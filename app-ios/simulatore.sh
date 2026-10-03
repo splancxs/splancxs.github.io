@@ -2,11 +2,13 @@
 # Recomp nel simulatore iPhone di Xcode (solo su Mac, serve Xcode 26 per il Liquid Glass). Dalla cartella del repository:
 #   app-ios/simulatore.sh                prepara il progetto, compila e apre l'app (la prima volta qualche minuto)
 #   app-ios/simulatore.sh web            dopo una modifica a index.html o assets/: ricopia il sito, ricompila e riapre (meno di un minuto)
-#   app-ios/simulatore.sh app            dopo una modifica ai file Swift in app-ios/native: ricompila e riapre
+#   app-ios/simulatore.sh app            dopo una modifica ai file Swift in app-ios/native (anche l'app Watch): ricompila e riapre
 #   app-ios/simulatore.sh vai piano      apre una sezione (oggi, piano, scheda, progressi, profilo, coach)
 #   app-ios/simulatore.sh vai piano chiaro   la stessa con il tema chiaro (chiaro, scuro, auto)
 #   app-ios/simulatore.sh foto [nome]    screenshot del simulatore in app-ios/screenshots/
 #   app-ios/simulatore.sh orologio [nome]   screenshot dell'Apple Watch simulato (abbinato all'iPhone)
+#   app-ios/simulatore.sh orologio-vai pasti [TB|fine]   apre l'app Watch su una pagina (allenamento, oggi, pasti);
+#                                        con una scheda la avvia, con «fine» chiude l'allenamento di prova
 # Modello: SIM="iPhone 17 Pro" app-ios/simulatore.sh   (di base quello già acceso, se no l'iPhone Pro più recente)
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -56,9 +58,10 @@ build() {
     -derivedDataPath build CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=NO -quiet build
 }
 
-# Apple Watch simulato abbinato all'iPhone; se non c'è, abbino il primo libero (di preferenza un Series da 42 mm)
+# Apple Watch simulato abbinato all'iPhone; se non c'è, abbino il primo libero: di base un SE 3 da 40 mm, come quello
+# dell'utente (oppure quello scelto con OROLOGIO="Apple Watch Series 11 (46mm)")
 watch_pick() {
-  { xcrun simctl list pairs -j; echo '@@'; xcrun simctl list devices available -j; } | PHONE="$UDID" node -e '
+  { xcrun simctl list pairs -j; echo '@@'; xcrun simctl list devices available -j; } | PHONE="$UDID" OROLOGIO="${OROLOGIO:-}" node -e '
     let s = "";
     process.stdin.on("data", (d) => (s += d)).on("end", () => {
       const [pairsJ, devsJ] = s.split("@@");
@@ -68,7 +71,8 @@ watch_pick() {
       const taken = new Set(pairs.map((p) => p.watch.udid));
       const watches = [];
       for (const [rt, ds] of Object.entries(JSON.parse(devsJ).devices)) if (/watchOS/.test(rt)) for (const d of ds) if (!taken.has(d.udid)) watches.push(d);
-      watches.sort((a, b) => /Series.*42mm/.test(b.name) - /Series.*42mm/.test(a.name));
+      const want = process.env.OROLOGIO || "Apple Watch SE 3 (40mm)";
+      watches.sort((a, b) => (b.name === want) - (a.name === want));
       if (!watches.length) { console.error("Nessun Apple Watch simulato: in Xcode scarica watchOS da Settings > Components"); process.exit(1); }
       console.log(watches[0].udid + " nuovo");
     });'
@@ -122,6 +126,11 @@ case "${1:-}" in
     [ -d ios/App ] || { echo "Prima lancia app-ios/simulatore.sh senza parametri"; exit 1; }
     cp native/Shared/RestAttributes.swift native/App/*.swift ios/App/App/
     cp native/Shared/RestAttributes.swift native/RecompLive/* ios/App/RecompLive/
+    if [ -d ios/App/RecompWatch ]; then # app Watch e complicazione
+      cp -R native/Watch/App/. native/Watch/Shared/. ios/App/RecompWatch/
+      cp -R native/Watch/Widgets/. native/Watch/Shared/. ios/App/RecompWatchWidgets/
+      cp resources/icon-1024.png ios/App/RecompWatch/Assets.xcassets/AppIcon.appiconset/
+    fi
     web && build && run ;;
   vai)
     url="recomp://${2:-oggi}"
@@ -129,6 +138,12 @@ case "${1:-}" in
     # riavvio l'app con il link come argomento: «simctl openurl» farebbe comparire la richiesta di conferma di iOS
     xcrun simctl launch --terminate-running-process "$UDID" "$BUNDLE" -recompUrl "$url" >/dev/null
     echo "Aperto $url" ;;
+  orologio-vai)
+    WUDID=$(watch_udid)
+    args=(-recompPage "${2:-oggi}")
+    case "${3:-}" in "") ;; fine) args+=(-recompStop YES) ;; *) args+=(-recompStart "$3") ;; esac
+    xcrun simctl launch --terminate-running-process "$WUDID" "$BUNDLE.watchkitapp" "${args[@]}" >/dev/null
+    case "${3:-}" in "") echo "Orologio: pagina ${2:-oggi}" ;; fine) echo "Orologio: allenamento di prova chiuso" ;; *) echo "Orologio: scheda $3 avviata" ;; esac ;;
   foto|orologio)
     mkdir -p screenshots
     out="screenshots/${2:-$(date +%H%M%S)}.png"
@@ -136,5 +151,5 @@ case "${1:-}" in
     xcrun simctl io "$dev" screenshot "$out" >/dev/null
     echo "app-ios/$out" ;;
   *)
-    sed -n '2,10p' "$0"; exit 1 ;;
+    sed -n '2,11p' "$0"; exit 1 ;;
 esac

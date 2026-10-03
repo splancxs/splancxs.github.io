@@ -1,7 +1,7 @@
 import SwiftUI
 
-// App per Apple Watch: tre pagine da scorrere con la corona.
-// Allenamento (solo con un allenamento in corso sull'iPhone), Oggi (kcal, macro, creatina, prossimo pasto), Pasti.
+// App per Apple Watch, stile sportivo come l'app: scritte condensate maiuscole, numeri grandi, lime pieno con testo scuro.
+// Pagine da scorrere con la corona: Allenamento (prima, se oggi c'è da allenarsi), Oggi, Pasti.
 @main
 struct RecompWatchApp: App {
     @StateObject private var store = WatchStore()
@@ -12,15 +12,28 @@ struct RecompWatchApp: App {
 
 struct RootView: View {
     @EnvironmentObject var store: WatchStore
+    // simulatore: «simctl launch … -recompPage pasti» apre una pagina, «-recompStart TB» avvia una scheda,
+    // «-recompStop YES» chiude l'allenamento in corso senza salvarlo (argomenti di avvio)
+    @State private var page = UserDefaults.standard.string(forKey: "recompPage") ?? ""
     var body: some View {
         NavigationStack {
             if let s = store.snap, s.isToday {
-                TabView {
-                    if s.wo != nil { WorkoutPage(s: s) }
-                    TodayPage(s: s)
-                    MealsPage(s: s)
+                let workoutFirst = store.session != nil || s.wo != nil || (s.todayPlan != nil && s.doneToday != true)
+                TabView(selection: $page) {
+                    if workoutFirst { WorkoutPage(s: s).tag("allenamento") }
+                    TodayPage(s: s).tag("oggi")
+                    MealsPage(s: s).tag("pasti")
+                    if !workoutFirst { WorkoutPage(s: s).tag("allenamento") }
                 }
                 .tabViewStyle(.verticalPage)
+                .onAppear {
+                    if page.isEmpty { page = workoutFirst ? "allenamento" : "oggi" }
+                    if UserDefaults.standard.bool(forKey: "recompStop"), store.session != nil { store.cancel() }
+                    if store.session == nil, let rid = UserDefaults.standard.string(forKey: "recompStart"),
+                       let p = s.plans?.first(where: { $0.rid == rid }) { store.start(p); page = "allenamento" }
+                }
+            } else if store.session != nil {
+                SessionView()
             } else {
                 WaitingView()
             }
@@ -28,53 +41,300 @@ struct RootView: View {
     }
 }
 
+// MARK: elementi comuni
+
 // pulsante pieno lime con testo scuro, come nell'app
 struct LimeButton: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 16, weight: .bold))
+            .font(.sport(19))
             .foregroundStyle(Palette.ink)
-            .frame(maxWidth: .infinity, minHeight: 44)
+            .frame(maxWidth: .infinity, minHeight: 42)
             .background(Palette.lime.opacity(configuration.isPressed ? 0.7 : 1), in: Capsule())
     }
 }
+
+// riquadro scuro toccabile (schede, creatina)
+struct CardButton: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.white.opacity(configuration.isPressed ? 0.18 : 0.1), in: RoundedRectangle(cornerRadius: 14))
+    }
+}
+
+struct Tag: View {
+    let text: String
+    var color: Color = Palette.lime
+    var body: some View { Text(text.uppercased()).font(.sport(14, .bold)).foregroundStyle(color).tracking(0.5) }
+}
+
+// nomi lunghi accorciati per lo schermo dell'orologio: «Panca inclinata 30° con manubri» → «Panca inclinata 30°»
+func shortName(_ n: String) -> String {
+    if n.count > 18, let r = n.range(of: " con ") { return String(n[..<r.lowerBound]) }
+    return n
+}
+
+// sfondo della pagina: un velo di colore in alto che sfuma nel nero
+func pageTint(_ color: Color, _ strength: Double = 0.3) -> LinearGradient {
+    LinearGradient(colors: [color.opacity(strength), .black], startPoint: .top, endPoint: .center)
+}
+
+// MARK: allenamento
 
 struct WorkoutPage: View {
     @EnvironmentObject var store: WatchStore
     let s: WatchSnapshot
     var body: some View {
-        // ogni secondo ricontrolla se il recupero è finito
-        TimelineView(.periodic(from: .now, by: 1)) { _ in
-            let w = s.wo ?? WatchWorkout(name: "")
-            ScrollView {
-                VStack(alignment: .leading, spacing: 6) {
-                    if let rest = s.rest {
-                        Text("RECUPERO").font(.system(size: 13, weight: .bold)).foregroundStyle(Palette.lime)
-                        Text(timerInterval: Date()...rest, countsDown: true)
-                            .font(.system(size: 44, weight: .heavy, design: .rounded)).monospacedDigit()
-                        if let next = s.restNext {
-                            Text(next).font(.system(size: 14)).foregroundStyle(.secondary).lineLimit(3)
-                        }
-                    } else if w.done == true {
-                        Text("Tutte le serie fatte").font(.system(size: 18, weight: .bold))
-                        Text("Termina l'allenamento dall'iPhone e fai il cardio.").font(.system(size: 14)).foregroundStyle(.secondary)
-                    } else {
-                        Text(w.ex ?? "").font(.system(size: 19, weight: .bold)).lineLimit(2).minimumScaleFactor(0.7)
-                        Text("Serie \(w.set ?? 1) di \(w.of ?? 1)").font(.system(size: 14)).foregroundStyle(.secondary)
-                        Text(w.target ?? "").font(.system(size: 26, weight: .heavy, design: .rounded)).foregroundStyle(Palette.lime)
-                            .minimumScaleFactor(0.6).lineLimit(1)
-                        Button { store.setDone() } label: { Label("Fatto", systemImage: "checkmark") }
-                            .buttonStyle(LimeButton())
-                            .padding(.top, 4)
-                        if let left = w.left { Text("\(left) serie in tutto ancora da fare").font(.system(size: 12)).foregroundStyle(.secondary) }
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .navigationTitle(w.name)
+        if store.session != nil {
+            SessionView()
+        } else if let w = s.wo {
+            PhoneWorkoutView(s: s, w: w)
+        } else {
+            StartView(s: s)
         }
     }
 }
+
+// scelta della scheda: quella di oggi in grande, le altre sotto
+struct StartView: View {
+    @EnvironmentObject var store: WatchStore
+    let s: WatchSnapshot
+    var body: some View {
+        let plans = s.plans ?? []
+        ScrollView {
+            VStack(alignment: .leading, spacing: 8) {
+                if let p = s.todayPlan {
+                    Tag(text: s.doneToday == true ? "Fatto oggi ✓" : "Oggi")
+                    Text(p.name.uppercased()).font(.sport(36)).lineLimit(1).minimumScaleFactor(0.6)
+                    Text("\(p.items.count) esercizi · \(p.setCount) serie").font(.system(size: 13)).foregroundStyle(.secondary)
+                    Button { store.start(p) } label: { Label("INIZIA", systemImage: "play.fill") }
+                        .buttonStyle(LimeButton())
+                        .padding(.top, 2)
+                } else {
+                    Tag(text: "Oggi")
+                    Text("RIPOSO").font(.sport(36))
+                    Text("Se vuoi allenarti lo stesso, scegli una scheda.").font(.system(size: 13)).foregroundStyle(.secondary)
+                }
+                let others = plans.filter { $0.rid != s.todayPlan?.rid }
+                if !others.isEmpty {
+                    Tag(text: "Altre schede", color: .secondary).padding(.top, 8)
+                    ForEach(others) { p in
+                        Button { store.start(p) } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 0) {
+                                    Text(p.name.uppercased()).font(.sport(19))
+                                    Text(p.day.isEmpty ? "\(p.setCount) serie" : p.day).font(.system(size: 12)).foregroundStyle(.secondary)
+                                }
+                                Spacer(minLength: 4)
+                                Image(systemName: "play.circle.fill").font(.system(size: 22)).foregroundStyle(Palette.lime)
+                            }
+                        }
+                        .buttonStyle(CardButton())
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .navigationTitle("Allenamento")
+        .containerBackground(pageTint(Palette.lime), for: .tabView)
+    }
+}
+
+// allenamento in corso sull'orologio: serie da fare, recupero, fine
+struct SessionView: View {
+    @EnvironmentObject var store: WatchStore
+    @State private var kg: Double = 0
+    @State private var reps: Double = 0
+    @State private var editingKg = true
+    @State private var crown: Double = 0
+    @State private var showList = false
+    @State private var askEnd = false
+    @FocusState private var crownFocus: Bool   // la corona cambia kg e ripetizioni invece di scorrere le pagine
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { ctx in
+            if let s = store.session {
+                if let end = s.restEnd, end > ctx.date {
+                    rest(s, end)
+                } else if let c = s.current {
+                    setView(s, c)
+                } else {
+                    done(s)
+                }
+            }
+        }
+        .navigationTitle(sessionTitle)
+        .containerBackground(pageTint(Palette.lime, store.session?.restEnd != nil ? 0.55 : 0.3), for: .tabView)
+        .containerBackground(pageTint(Palette.lime, store.session?.restEnd != nil ? 0.55 : 0.3), for: .navigation)
+        .toolbar {
+            if store.session?.current != nil {
+                ToolbarItemGroup(placement: .bottomBar) {
+                    Button { showList = true } label: { Image(systemName: "list.bullet") }
+                    Spacer()
+                    Button { askEnd = true } label: { Image(systemName: "flag.checkered") }
+                }
+            }
+        }
+        .sheet(isPresented: $showList) { ExerciseList() }
+        .confirmationDialog("Terminare l'allenamento?", isPresented: $askEnd, titleVisibility: .visible) {
+            Button("Salva e termina") { store.finish() }
+            Button("Annulla senza salvare", role: .destructive) { store.cancel() }
+        }
+        .onAppear(perform: load)
+        .onChange(of: store.session?.current) { _, _ in load() }
+    }
+
+    private var sessionTitle: String {
+        guard let s = store.session else { return "" }
+        if let end = s.restEnd, end > Date() { return "Recupero" }
+        if let c = s.current { return "Serie \(c[1] + 1)/\(s.items[c[0]].sets.count)" }
+        return s.name
+    }
+
+    // valori della serie da fare: quelli suggeriti dall'app, poi li cambi con la corona
+    private func load() {
+        guard let s = store.session, let c = s.current else { return }
+        let it = s.items[c[0]], set = it.sets[c[1]]
+        kg = set.kg ?? 0
+        reps = Double(set.r)
+        editingKg = it.unit != "sec" && set.kg != nil
+        crown = editingKg ? kg : reps
+        crownFocus = true
+    }
+
+    private func setView(_ s: WorkoutSession, _ c: [Int]) -> some View {
+        let it = s.items[c[0]]
+        let step = it.inc > 0 ? it.inc : 2.5
+        let sec = it.unit == "sec"
+        return VStack(alignment: .leading, spacing: 4) {
+            Text(shortName(it.n).uppercased()).font(.sport(22)).lineLimit(1).minimumScaleFactor(0.5)
+            HStack(spacing: 6) {
+                if !sec {
+                    ValueBox(value: fmtKg(kg), unit: "kg", selected: editingKg) { editingKg = true; crown = kg }
+                }
+                ValueBox(value: "\(Int(reps))", unit: sec ? "secondi" : "ripetizioni", selected: !editingKg || sec) { editingKg = false; crown = reps }
+            }
+            .focusable(true)
+            .focused($crownFocus)
+            .digitalCrownRotation($crown, from: 0, through: editingKg ? 400 : 120, by: editingKg ? step : 1,
+                                  sensitivity: .low, isContinuous: false, isHapticFeedbackEnabled: true)
+            .onChange(of: crown) { _, v in
+                if editingKg && !sec { kg = max(0, (v / step).rounded() * step) } else { reps = max(1, v.rounded()) }
+            }
+            Button { store.complete(kg: sec ? nil : kg, reps: Int(reps)) } label: { Label("FATTO", systemImage: "checkmark") }
+                .buttonStyle(LimeButton())
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func rest(_ s: WorkoutSession, _ end: Date) -> some View {
+        VStack(spacing: 4) {
+            Text(timerInterval: Date()...end, countsDown: true)
+                .font(.sport(54)).monospacedDigit()
+            if let next = s.restNext {
+                Text(next).font(.system(size: 13)).foregroundStyle(.secondary).multilineTextAlignment(.center).lineLimit(2)
+            }
+            HStack(spacing: 8) {
+                Button("+15″") { store.addRest(15) }
+                Button("Salta") { store.skipRest() }
+            }
+            .font(.sport(17))
+            .padding(.top, 2)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func done(_ s: WorkoutSession) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("FINITO!").font(.sport(40)).foregroundStyle(Palette.lime)
+                Text("\(s.done) serie · \(fmtKg(s.volume)) kg di volume").font(.system(size: 14, weight: .semibold))
+                Text("\(max(1, Int(Date().timeIntervalSince(s.start) / 60))) minuti. Ora il cardio!").font(.system(size: 13)).foregroundStyle(.secondary)
+                Button { store.finish() } label: { Label("SALVA", systemImage: "square.and.arrow.down") }
+                    .buttonStyle(LimeButton())
+                    .padding(.top, 4)
+                Text("Va nella cronologia dell'iPhone, anche se ora il telefono è lontano.").font(.system(size: 11)).foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+struct ValueBox: View {
+    let value: String
+    let unit: String
+    let selected: Bool
+    let tap: () -> Void
+    var body: some View {
+        VStack(spacing: -2) {
+            Text(value).font(.sport(32)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.6)
+            Text(unit).font(.system(size: 10, weight: .semibold)).foregroundStyle(selected ? Palette.lime : .secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 4)
+        .background(Color.white.opacity(selected ? 0.16 : 0.07), in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(selected ? Palette.lime : .clear, lineWidth: 2))
+        .onTapGesture(perform: tap)
+    }
+}
+
+struct ExerciseList: View {
+    @EnvironmentObject var store: WatchStore
+    @Environment(\.dismiss) private var dismiss
+    var body: some View {
+        let items = store.session?.items ?? []
+        List(Array(items.enumerated()), id: \.offset) { pair in
+            let i = pair.offset, it = pair.element
+            let done = it.sets.filter(\.done).count
+            Button {
+                store.focus(i)
+                dismiss()
+            } label: {
+                HStack {
+                    Text(it.n).font(.system(size: 14, weight: .semibold)).lineLimit(2)
+                    Spacer(minLength: 4)
+                    Text("\(done)/\(it.sets.count)").font(.sport(17)).foregroundStyle(done == it.sets.count ? Palette.lime : .secondary)
+                }
+            }
+            .disabled(done == it.sets.count)
+        }
+        .navigationTitle("Esercizi")
+    }
+}
+
+// allenamento avviato sull'iPhone: l'orologio lo segue (serve l'app del telefono aperta)
+struct PhoneWorkoutView: View {
+    @EnvironmentObject var store: WatchStore
+    let s: WatchSnapshot
+    let w: WatchWorkout
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { _ in
+            VStack(alignment: .leading, spacing: 4) {
+                if let rest = s.rest {
+                    Tag(text: "Recupero")
+                    Text(timerInterval: Date()...rest, countsDown: true).font(.sport(56)).monospacedDigit()
+                    if let next = s.restNext { Text(next).font(.system(size: 13)).foregroundStyle(.secondary).lineLimit(3) }
+                } else if w.done == true {
+                    Text("TUTTE LE SERIE FATTE").font(.sport(24))
+                    Text("Termina l'allenamento dall'iPhone e fai il cardio.").font(.system(size: 13)).foregroundStyle(.secondary)
+                } else {
+                    Tag(text: "Serie \(w.set ?? 1)/\(w.of ?? 1) · iPhone")
+                    Text(shortName(w.ex ?? "").uppercased()).font(.sport(22)).lineLimit(2).minimumScaleFactor(0.6)
+                    Text(w.target ?? "").font(.sport(32)).foregroundStyle(Palette.lime).lineLimit(1).minimumScaleFactor(0.6)
+                    Button { store.phoneSetDone() } label: { Label("FATTO", systemImage: "checkmark") }
+                        .buttonStyle(LimeButton())
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .navigationTitle(w.name)
+        .containerBackground(pageTint(Palette.lime), for: .tabView)
+    }
+}
+
+// MARK: oggi
 
 struct TodayPage: View {
     @EnvironmentObject var store: WatchStore
@@ -83,100 +343,116 @@ struct TodayPage: View {
         ScrollView {
             VStack(spacing: 10) {
                 ZStack {
-                    Circle().stroke(Color.white.opacity(0.15), lineWidth: 9)
+                    Circle().stroke(Color.white.opacity(0.12), lineWidth: 11)
                     Circle().trim(from: 0, to: s.progress)
-                        .stroke(Palette.lime, style: StrokeStyle(lineWidth: 9, lineCap: .round))
+                        .stroke(Palette.lime, style: StrokeStyle(lineWidth: 11, lineCap: .round))
                         .rotationEffect(.degrees(-90))
-                    VStack(spacing: 0) {
-                        Text("\(s.left)").font(.system(size: 30, weight: .heavy, design: .rounded)).monospacedDigit()
-                        Text("kcal rimaste").font(.system(size: 11)).foregroundStyle(.secondary)
+                    VStack(spacing: -2) {
+                        Text("\(s.left)").font(.sport(42)).monospacedDigit()
+                        Text("KCAL RIMASTE").font(.sport(12, .bold)).foregroundStyle(.secondary)
                     }
                 }
-                .frame(width: 112, height: 112)
-                HStack(spacing: 6) {
-                    MacroPill(letter: "P", value: s.p, target: s.pTarget, color: Palette.p)
-                    MacroPill(letter: "C", value: s.c, target: s.cTarget, color: Palette.c)
-                    MacroPill(letter: "G", value: s.f, target: s.fTarget, color: Palette.f)
+                .frame(width: 124, height: 124)
+                VStack(spacing: 6) {
+                    MacroBar(name: "Proteine", value: s.p, target: s.pTarget, color: Palette.p)
+                    MacroBar(name: "Carboidrati", value: s.c, target: s.cTarget, color: Palette.c)
+                    MacroBar(name: "Grassi", value: s.f, target: s.fTarget, color: Palette.f)
                 }
                 if let m = s.nextMeal {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("\(m.time) · \(m.label.uppercased())").font(.system(size: 12, weight: .bold)).foregroundStyle(Palette.lime)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Tag(text: "\(m.time) · \(m.label)")
                         Text(m.name).font(.system(size: 15, weight: .semibold)).lineLimit(3)
-                        Text("\(m.k) kcal · P \(m.p)").font(.system(size: 13)).foregroundStyle(.secondary)
-                        Button { store.eat(m) } label: { Label("Mangiato", systemImage: "checkmark") }
+                        Text("\(m.k) kcal · P \(m.p) g").font(.system(size: 13)).foregroundStyle(.secondary)
+                        Button { store.eat(m) } label: { Label("MANGIATO", systemImage: "checkmark") }
                             .buttonStyle(LimeButton())
-                            .padding(.top, 2)
+                            .padding(.top, 3)
                     }
                     .padding(10)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
                 } else {
-                    Text("Pasti di oggi tutti segnati").font(.system(size: 14, weight: .semibold)).foregroundStyle(.secondary)
+                    Text("PASTI DI OGGI TUTTI SEGNATI").font(.sport(16)).foregroundStyle(Palette.lime)
                 }
                 Button { store.creatine() } label: {
-                    Label(s.crea ? "Creatina presa" : "Creatina 3–5 g", systemImage: s.crea ? "checkmark.circle.fill" : "pills")
-                        .frame(maxWidth: .infinity)
+                    HStack {
+                        Image(systemName: s.crea ? "checkmark.circle.fill" : "pills.fill").foregroundStyle(s.crea ? Palette.lime : .white)
+                        Text(s.crea ? "CREATINA PRESA" : "CREATINA 3–5 G").font(.sport(17))
+                        Spacer()
+                    }
                 }
-                .tint(s.crea ? Palette.lime : .gray)
+                .buttonStyle(CardButton())
                 .disabled(s.crea)
             }
         }
         .navigationTitle("\(s.day) · \(s.type)")
+        .containerBackground(pageTint(Palette.lime, 0.18), for: .tabView)
     }
 }
 
-struct MacroPill: View {
-    let letter: String
+struct MacroBar: View {
+    let name: String
     let value: Int
     let target: Int
     let color: Color
     var body: some View {
-        VStack(spacing: 1) {
-            Text(letter).font(.system(size: 11, weight: .heavy)).foregroundStyle(color)
-            Text("\(value)").font(.system(size: 15, weight: .bold, design: .rounded)).monospacedDigit()
-            Text("/\(target)").font(.system(size: 10)).foregroundStyle(.secondary)
+        VStack(spacing: 2) {
+            HStack {
+                Text(name.uppercased()).font(.sport(13, .bold)).foregroundStyle(color)
+                Spacer()
+                Text("\(value)").font(.sport(15)).monospacedDigit() + Text(" / \(target) g").font(.system(size: 11)).foregroundColor(.secondary)
+            }
+            ProgressView(value: target > 0 ? min(1, Double(value) / Double(target)) : 0)
+                .tint(color)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 5)
-        .background(color.opacity(0.18), in: RoundedRectangle(cornerRadius: 10))
     }
 }
+
+// MARK: pasti
 
 struct MealsPage: View {
     @EnvironmentObject var store: WatchStore
     let s: WatchSnapshot
     var body: some View {
         List(s.meals) { m in
+            // schermo piccolo (SE 40 mm): ora e kcal sulla prima riga, il nome del pasto da solo, poi il piatto
             Button {
                 store.eat(m)
             } label: {
-                HStack(spacing: 8) {
+                HStack(alignment: .top, spacing: 6) {
                     Image(systemName: m.eaten ? "checkmark.circle.fill" : "circle")
                         .foregroundStyle(m.eaten ? Palette.lime : .secondary)
-                        .font(.system(size: 20))
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text("\(m.time) · \(m.label)").font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: 17))
+                        .padding(.top, 1)
+                    VStack(alignment: .leading, spacing: 0) {
+                        HStack(alignment: .firstTextBaseline) {
+                            Text(m.time).font(.sport(15)).foregroundStyle(m.eaten ? .secondary : Palette.lime)
+                            Spacer(minLength: 2)
+                            Text("\(m.k)").font(.sport(15)).monospacedDigit() + Text(" kcal").font(.system(size: 10)).foregroundColor(.secondary)
+                        }
+                        Text(m.label.uppercased()).font(.sport(18)).lineLimit(1).minimumScaleFactor(0.6)
                         Text(m.name).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(2)
                     }
-                    Spacer(minLength: 2)
-                    Text("\(m.k)").font(.system(size: 14, weight: .bold, design: .rounded)).monospacedDigit()
                 }
                 .opacity(m.eaten ? 0.6 : 1)
             }
-            .disabled(m.eaten)
         }
         .navigationTitle("Pasti")
+        .containerBackground(pageTint(Palette.lime, 0.12), for: .tabView)
     }
 }
 
 struct WaitingView: View {
     var body: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "iphone.radiowaves.left.and.right").font(.system(size: 30)).foregroundStyle(Palette.lime)
-            Text("Apri Recomp sull'iPhone").font(.system(size: 16, weight: .bold)).multilineTextAlignment(.center)
-            Text("Il piano di oggi arriva da lì.").font(.system(size: 13)).foregroundStyle(.secondary).multilineTextAlignment(.center)
+        ScrollView {
+            VStack(spacing: 6) {
+                Image(systemName: "iphone.radiowaves.left.and.right").font(.system(size: 28)).foregroundStyle(Palette.lime)
+                Text("APRI RECOMP SULL'IPHONE").font(.sport(20)).multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("Il piano di oggi arriva da lì.").font(.system(size: 13)).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity)
         }
-        .padding()
         .navigationTitle("Recomp")
     }
 }

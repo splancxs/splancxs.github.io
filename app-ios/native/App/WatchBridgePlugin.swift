@@ -4,7 +4,8 @@ import WatchConnectivity
 
 // Ponte tra l'app iPhone e l'app per Apple Watch (WatchConnectivity).
 // JS: WatchBridge.update({ snapshot: "<json>" }) manda all'orologio lo stato di oggi (pasti, kcal, creatina, serie in corso);
-//     WatchBridge.addListener("action", …) riceve i tocchi sull'orologio: { a: "eat", si } · { a: "crea" } · { a: "set", i, j }.
+//     WatchBridge.addListener("action", …) riceve i tocchi sull'orologio: { a: "eat", si } · { a: "crea" } · { a: "set", i, j }
+//     · { a: "wo", w: "<json>" } (allenamento fatto sull'orologio, da salvare nella cronologia).
 // Le azioni arrivate con l'app chiusa restano in coda finché il JavaScript non si mette in ascolto.
 // Come gli altri plugin di Recomp, Capacitor lo crea perché prepara.sh aggiunge "WatchBridgePlugin" a packageClassList.
 @objc(WatchBridgePlugin)
@@ -43,7 +44,7 @@ public class WatchBridgePlugin: CAPPlugin, CAPBridgedPlugin, WCSessionDelegate {
     private func forward(_ message: [String: Any]) {
         guard let action = message["a"] as? String else { return }
         var data: [String: Any] = ["a": action]
-        for key in ["si", "i", "j"] { if let n = message[key] as? Int { data[key] = n } }
+        for (key, value) in message where value is String || value is NSNumber { data[key] = value } // numeri, testi e il JSON dell'allenamento
         DispatchQueue.main.async { self.notifyListeners("action", data: data, retainUntilConsumed: true) }
     }
 
