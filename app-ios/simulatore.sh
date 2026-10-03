@@ -15,6 +15,12 @@ APP=build/Build/Products/Debug-iphonesimulator/App.app
 need() { command -v "$1" >/dev/null 2>&1 || { echo "Manca $1: $2" >&2; exit 1; }; }
 need xcodebuild "installa Xcode dall'App Store, aprilo una volta e accetta la licenza"
 need node "installa Node.js (versione LTS) da https://nodejs.org"
+# il Terminale deve usare Xcode e non i soli «strumenti da riga di comando», che non hanno il simulatore
+if ! xcrun --find simctl >/dev/null 2>&1; then
+  echo "Il Terminale non sta usando Xcode. Lancia (chiede la password del Mac):" >&2
+  echo "  sudo xcode-select -s /Applications/Xcode.app/Contents/Developer && sudo xcodebuild -runFirstLaunch" >&2
+  exit 1
+fi
 
 # simulatore da usare: quello acceso, altrimenti il più recente (preferendo un Pro), oppure quello scelto con SIM
 pick() {
