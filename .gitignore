@@ -2,3 +2,5 @@
 app-ios/node_modules/
 app-ios/www/
 app-ios/ios/
+app-ios/build/
+app-ios/screenshots/

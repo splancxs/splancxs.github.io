@@ -78,7 +78,7 @@
     if (!isNative) return null;
     try { return (Cap.Plugins && Cap.Plugins[name]) || (Cap.registerPlugin ? Cap.registerPlugin(name) : null); } catch (e) { return null; }
   };
-  const N = { notif: plugin('LocalNotifications'), haptics: plugin('Haptics'), status: plugin('StatusBar'), browser: plugin('Browser'),
+  const N = { notif: plugin('LocalNotifications'), haptics: plugin('Haptics'), status: plugin('StatusBar'), browser: plugin('Browser'), app: plugin('App'),
     live: plugin('RestActivity'), tabs: plugin('NativeTabs') }; // RestActivity e NativeTabs: plugin di Recomp (app-ios/native)
   const safe = (p) => { try { return Promise.resolve(p).catch(() => null); } catch (e) { return Promise.resolve(null); } };
   // pagina web esterna: nell'app si apre in una finestra di Safari dentro Recomp, sul sito in una nuova scheda
@@ -1446,6 +1446,15 @@
       syncLock();
     });
   }
+  // link recomp://piano?tema=chiaro (app-ios/simulatore.sh «vai», Comandi Rapidi): apre la sezione e, se indicato, cambia tema
+  function openAppUrl(url) {
+    const m = String(url || '').match(/^recomp:\/\/([^?#]*)(?:\?(.*))?/);
+    if (!m) return;
+    const tema = { chiaro: 'light', scuro: 'dark', auto: 'auto' }[new URLSearchParams(m[2] || '').get('tema')];
+    if (tema) setTheme(tema);
+    const route = m[1].replace(/\/+$/, '') || 'oggi';
+    if (location.hash !== '#/' + route) location.hash = '#/' + route; else render(true);
+  }
   function nativeTabsStop() {
     if (N.tabs) safe(N.tabs.remove());
     ntabs.on = false; ntabs.hidden = false;
@@ -1876,6 +1885,10 @@
   if (isNative) {
     if (!(window.RCW && window.RCW.isActive())) stopTimer(); // nessuna notifica di recupero rimasta da una sessione chiusa
     nativeTabsStart();
+    if (N.app) {
+      safe(N.app.addListener('appUrlOpen', (e) => openAppUrl(e && e.url)));
+      safe(N.app.getLaunchUrl()).then((r) => { if (r && r.url) openAppUrl(r.url); });
+    }
     scheduleReminders();
     scheduleCreatine();
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') creatineSoon(); });

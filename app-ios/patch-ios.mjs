@@ -1,5 +1,5 @@
 // Adatta il progetto Xcode generato da "npx cap add ios" (gira su macOS, dentro GitHub Actions):
-// solo verticale, icona e schermata di avvio di Recomp, Live Activity del recupero.
+// solo verticale, icona e schermata di avvio di Recomp, Live Activity del recupero, link recomp://.
 import { execFileSync } from 'node:child_process';
 import { copyFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -13,6 +13,8 @@ pl('-replace', 'UISupportedInterfaceOrientations', '-json', '["UIInterfaceOrient
 pl('-replace', 'UIViewControllerBasedStatusBarAppearance', '-bool', 'YES');
 pl('-replace', 'ITSAppUsesNonExemptEncryption', '-bool', 'NO');
 pl('-replace', 'NSSupportsLiveActivities', '-bool', 'YES'); // conto alla rovescia del recupero sulla schermata di blocco
+// link recomp://piano, recomp://scheda… aprono quella sezione (simulatore.sh «vai», Comandi Rapidi)
+pl('-replace', 'CFBundleURLTypes', '-json', JSON.stringify([{ CFBundleURLName: 'io.github.splancxs.recomp', CFBundleURLSchemes: ['recomp'] }]));
 
 // 2. Icona e schermata di avvio (ridimensionate con sips alla misura di ogni file del template)
 function fill(dir, src) {
