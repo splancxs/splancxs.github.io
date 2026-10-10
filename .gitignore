@@ -4,6 +4,9 @@ app-ios/package-lock.json
 app-ios/www/
 app-ios/ios/
 app-ios/build/
+app-ios/build-device/
 app-ios/screenshots/
 # appunti personali per passare il lavoro tra computer: mai su GitHub
 passaggio.md
+# xtool (installazione dal PC Windows): configurazione locale con l UDID dell orologio
+app-ios/xtool/config.sh

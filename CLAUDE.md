@@ -40,5 +40,14 @@ App personale di dieta e allenamento: un sito statico (GitHub Pages, https://spl
   nativa con il Liquid Glass di iOS 26). Vanno registrati in `packageClassList` (lo fa `prepara.sh`).
 - Estensione `native/RecompLive` (Live Activity su schermata di blocco, Dynamic Island e Apple Watch): da iOS 18;
   `add-live-activity.rb` la aggiunge al progetto e deve girare dopo `npx cap sync`.
-- Firma gratuita (Apple ID senza abbonamento): HealthKit funziona, ma solo installando da Xcode (AltStore lo toglie);
-  push notification e Siri invece richiedono l'account sviluppatore a pagamento.
+- Firma gratuita (Apple ID senza abbonamento): HealthKit funziona, ma solo installando da Xcode o da xtool (AltStore lo
+  toglie); push notification e Siri invece richiedono l'account sviluppatore a pagamento.
+
+## Installare dal PC Windows (xtool, senza Mac)
+- `app-ios/xtool/` costruisce e installa l'app iPhone **e l'app Apple Watch** da Windows (WSL + xtool + Apple ID gratuito).
+  Rinnovo della firma ogni 7 giorni: `powershell -ExecutionPolicy Bypass -File app-ios\xtool\windows\installa.ps1`
+  (iPhone collegato e sbloccato, orologio acceso, sbloccato e al polso). Tutto è spiegato in `app-ios/xtool/README.md`.
+- Ordine obbligato: prima l'app iPhone, poi l'app Watch installata direttamente sull'orologio (il comando lo fa già).
+- L'app iPhone di xtool è `io.github.splancxs.recomp.prova` (nome «Recomp»), diversa da quella di Xcode/AltStore: cambia
+  firma e identificativo, quindi i dati locali non passano da una all'altra (restano nel Sync).
+- `app-ios/xtool/config.sh` (UDID dell'orologio) non va mai su GitHub.

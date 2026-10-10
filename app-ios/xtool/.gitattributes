@@ -1,0 +1,4 @@
+# gli script girano in Linux: fine riga sempre «\n», anche se il repository è clonato su Windows
+*.sh text eol=lf
+*.py text eol=lf
+*.modello text eol=lf

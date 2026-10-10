@@ -1,0 +1,11 @@
+{
+  "appId": "io.github.splancxs.recomp",
+  "appName": "Recomp",
+  "webDir": "public",
+  "ios": { "contentInset": "never", "backgroundColor": "#0d0e0f" },
+  "plugins": { "LocalNotifications": { "iconColor": "#c4f031" } },
+  "packageClassList": [
+    "AppPlugin", "CAPBrowserPlugin", "HapticsPlugin", "LocalNotificationsPlugin", "StatusBarPlugin",
+    "NativeTabsPlugin", "RestActivityPlugin", "HealthPlugin", "WatchBridgePlugin"
+  ]
+}

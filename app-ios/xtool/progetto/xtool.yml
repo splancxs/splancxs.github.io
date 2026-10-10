@@ -1,0 +1,12 @@
+version: 1
+product: RecompProva
+bundleID: io.github.splancxs.recomp.prova
+infoPath: Info.plist
+iconPath: Resources/AppIcon.png
+entitlementsPath: App.entitlements
+resources:
+- Resources/capacitor.config.json
+- Resources/public
+extensions:
+- product: RecompLive
+  infoPath: RecompLive-Info.plist

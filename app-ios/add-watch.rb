@@ -66,4 +66,9 @@ embed_watch.dst_path = '$(CONTENTS_FOLDER_PATH)/Watch'
 embed_watch.add_file_reference(watch.product_reference, true).settings = { 'ATTRIBUTES' => ['RemoveHeadersOnCopy'] }
 
 project.save
+
+# 5. schema per compilare l'app Watch da sola sull'orologio: serve a Xcode per registrare l'orologio sull'Apple ID
+scheme = Xcodeproj::XCScheme.new
+scheme.configure_with_targets(watch, nil, launch_target: true)
+scheme.save_as(project.path, 'RecompWatch', true)
 puts 'App Watch e complicazione aggiunte al progetto.'
