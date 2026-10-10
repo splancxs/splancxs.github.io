@@ -11,39 +11,32 @@ struct RecompWatchApp: App {
             RootView()
                 .environmentObject(store)
                 .environmentObject(store.health)
-                .environmentObject(store.counter)
         }
     }
 }
 
+// Una pagina «Oggi» che dice tutto (kcal, macro, prossimo pasto, allenamento); da lì si entra nei Pasti e nelle schede.
+// L'allenamento in corso (sull'orologio o avviato sull'iPhone) prende tutto lo schermo finché non finisce.
 struct RootView: View {
     @EnvironmentObject var store: WatchStore
-    // simulatore: «simctl launch … -recompPage pasti» apre una pagina, «-recompStart TB» avvia una scheda,
-    // «-recompStop YES» chiude l'allenamento in corso senza salvarlo (argomenti di avvio)
-    @State private var page = UserDefaults.standard.string(forKey: "recompPage") ?? ""
     var body: some View {
         NavigationStack {
-            if let s = store.snap, s.isToday {
-                let workoutFirst = store.session != nil || s.wo != nil || (s.todayPlan != nil && s.doneToday != true)
-                TabView(selection: $page) {
-                    if workoutFirst { WorkoutPage(s: s).tag("allenamento") }
-                    TodayPage(s: s).tag("oggi")
-                    MealsPage(s: s).tag("pasti")
-                    if !workoutFirst { WorkoutPage(s: s).tag("allenamento") }
-                }
-                .tabViewStyle(.verticalPage)
-                .onAppear {
-                    if page.isEmpty { page = workoutFirst ? "allenamento" : "oggi" }
-                    if UserDefaults.standard.bool(forKey: "recompStop"), store.session != nil { store.cancel() }
-                    if store.session == nil, let rid = UserDefaults.standard.string(forKey: "recompStart"),
-                       let p = s.plans?.first(where: { $0.rid == rid }) { store.start(p); page = "allenamento" }
-                }
-            } else if store.session != nil {
+            if store.session != nil {
                 SessionView()
+            } else if let s = store.snap, s.isToday {
+                if let w = s.wo { PhoneWorkoutView(s: s, w: w) } else { TodayHome(s: s) }
             } else {
                 WaitingView()
             }
         }
+    }
+}
+
+extension View {
+    // sfondo della pagina: vale sia dentro una navigazione sia in una vista a pagine
+    func pageBackground(_ color: Color = Palette.lime, _ strength: Double = 0.3) -> some View {
+        self.containerBackground(pageTint(color, strength), for: .tabView)
+            .containerBackground(pageTint(color, strength), for: .navigation)
     }
 }
 
@@ -74,7 +67,7 @@ struct CardButton: ButtonStyle {
 struct Tag: View {
     let text: String
     var color: Color = Palette.lime
-    var body: some View { Text(text.uppercased()).font(.sport(14, .bold)).foregroundStyle(color).tracking(0.5) }
+    var body: some View { Text(text.uppercased()).font(.sport(14, .bold)).foregroundStyle(color).tracking(0.5).lineLimit(1).minimumScaleFactor(0.6) }
 }
 
 // nomi lunghi accorciati per lo schermo dell'orologio: «Panca inclinata 30° con manubri» → «Panca inclinata 30°»
@@ -106,9 +99,7 @@ struct HeartLine: View {
 // MARK: serie (la stessa schermata per l'allenamento dal polso e per quello avviato sull'iPhone)
 
 // Nome dell'esercizio, riquadri kg e ripetizioni (la corona cambia quello selezionato), FATTO.
-// Le ripetizioni contate dal polso (prova) riempiono il riquadro finché non lo cambi a mano.
 struct SetEditor: View {
-    @EnvironmentObject var counter: RepCounter
     let key: String       // cambia a ogni nuova serie: riparto dai valori suggeriti
     let name: String
     let kg: Double?
@@ -121,13 +112,10 @@ struct SetEditor: View {
     @State private var repsValue: Double = 0
     @State private var editingKg = true
     @State private var crown: Double = 0
-    @State private var touched = false      // ripetizioni cambiate a mano: il conteggio non le sovrascrive più
     @FocusState private var crownFocus: Bool // la corona cambia i valori invece di scorrere le pagine
 
     private var sec: Bool { unit == "sec" }
     private var step: Double { inc > 0 ? inc : 2.5 }
-    private var counted: Bool { !sec && !touched && counter.reps >= 3 }
-    private var shownReps: Int { counted ? counter.reps : Int(repsValue) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -136,9 +124,7 @@ struct SetEditor: View {
                 if !sec {
                     ValueBox(value: fmtKg(kgValue), unit: "kg", selected: editingKg) { editingKg = true; crown = kgValue }
                 }
-                ValueBox(value: "\(shownReps)", unit: sec ? "secondi" : counted ? "contate" : "ripetizioni",
-                         selected: !editingKg || sec, accent: counted) {
-                    if counted { repsValue = Double(counter.reps) }
+                ValueBox(value: "\(Int(repsValue))", unit: sec ? "secondi" : "ripetizioni", selected: !editingKg || sec) {
                     editingKg = false
                     crown = repsValue
                 }
@@ -152,18 +138,16 @@ struct SetEditor: View {
                     kgValue = max(0, (v / step).rounded() * step)
                 } else if v.rounded() != repsValue {
                     repsValue = max(1, v.rounded())
-                    touched = true
                 }
             }
             Button {
-                counter.stop()
-                onDone(sec ? nil : kgValue, shownReps)
+                onDone(sec ? nil : kgValue, Int(repsValue))
             } label: { Label("FATTO", systemImage: "checkmark") }
                 .buttonStyle(LimeButton())
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 4)
         .task(id: key) { load() }
-        .onDisappear { counter.stop() }
     }
 
     private func load() {
@@ -171,9 +155,7 @@ struct SetEditor: View {
         repsValue = Double(reps)
         editingKg = !sec && kg != nil
         crown = editingKg ? kgValue : repsValue
-        touched = false
         crownFocus = true
-        if !sec { counter.start() }
     }
 }
 
@@ -221,28 +203,16 @@ struct RestView: View {
             }
         }
         .frame(maxWidth: .infinity)
+        .padding(.horizontal, 4)
     }
 }
 
 // MARK: allenamento
 
-struct WorkoutPage: View {
-    @EnvironmentObject var store: WatchStore
-    let s: WatchSnapshot
-    var body: some View {
-        if store.session != nil {
-            SessionView()
-        } else if let w = s.wo {
-            PhoneWorkoutView(s: s, w: w)
-        } else {
-            StartView(s: s)
-        }
-    }
-}
-
 // scelta della scheda: quella di oggi in grande, le altre sotto
 struct StartView: View {
     @EnvironmentObject var store: WatchStore
+    @Environment(\.dismiss) private var dismiss
     let s: WatchSnapshot
     var body: some View {
         let plans = s.plans ?? []
@@ -279,9 +249,12 @@ struct StartView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 6)   // le scritte non devono toccare il bordo curvo dello schermo
         }
         .navigationTitle("Allenamento")
-        .containerBackground(pageTint(Palette.lime), for: .tabView)
+        .pageBackground()
+        // quando parte l'allenamento torno alla pagina principale, che si trasforma nella schermata della serie
+        .onChange(of: store.session != nil) { _, started in if started { dismiss() } }
     }
 }
 
@@ -291,39 +264,71 @@ struct SessionView: View {
     @State private var showList = false
     @State private var askEnd = false
 
+    // due pagine, si scorre di lato: la serie (o il recupero) e il riepilogo con la fine dell'allenamento
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { ctx in
-            if let s = store.session {
-                if let end = s.restEnd, end > ctx.date {
-                    RestView(end: end, next: s.restNext, onAdd: { store.addRest(15) }, onSkip: { store.skipRest() })
-                } else if let c = s.current {
-                    let it = s.items[c[0]], set = it.sets[c[1]]
-                    SetEditor(key: "\(c[0])-\(c[1])", name: it.n, kg: set.kg, reps: set.r, unit: it.unit, inc: it.inc) { kg, reps in
-                        store.complete(kg: kg, reps: reps)
+        TabView {
+            TimelineView(.periodic(from: .now, by: 1)) { ctx in
+                if let s = store.session {
+                    if let end = s.restEnd, end > ctx.date {
+                        RestView(end: end, next: s.restNext, onAdd: { store.addRest(15) }, onSkip: { store.skipRest() })
+                    } else if let c = s.current {
+                        let it = s.items[c[0]], set = it.sets[c[1]]
+                        VStack(spacing: 6) {
+                            SetEditor(key: "\(c[0])-\(c[1])", name: it.n, kg: set.kg, reps: set.r, unit: it.unit, inc: it.inc) { kg, reps in
+                                store.complete(kg: kg, reps: reps)
+                            }
+                            HeartLine()
+                        }
+                    } else {
+                        done(s)
                     }
-                } else {
-                    done(s)
                 }
             }
-        }
-        .navigationTitle(title)
-        .containerBackground(pageTint(Palette.lime, store.session?.restEnd != nil ? 0.55 : 0.3), for: .tabView)
-        .containerBackground(pageTint(Palette.lime, store.session?.restEnd != nil ? 0.55 : 0.3), for: .navigation)
-        .toolbar {
-            if store.session?.current != nil {
-                ToolbarItemGroup(placement: .bottomBar) {
-                    Button { showList = true } label: { Image(systemName: "list.bullet") }
-                    Spacer()
-                    HeartLine()
-                    Spacer()
-                    Button { askEnd = true } label: { Image(systemName: "flag.checkered") }
-                }
+            .navigationTitle(title)
+            .pageBackground(Palette.lime, store.session?.restEnd != nil ? 0.55 : 0.3)
+
+            if let s = store.session {
+                summary(s)
+                    .navigationTitle("Riepilogo")
+                    .pageBackground(Palette.lime, 0.2)
             }
         }
+        .tabViewStyle(.page)
         .sheet(isPresented: $showList) { ExerciseList() }
         .confirmationDialog("Terminare l'allenamento?", isPresented: $askEnd, titleVisibility: .visible) {
             Button("Salva e termina") { store.finish() }
             Button("Annulla senza salvare", role: .destructive) { store.cancel() }
+        }
+    }
+
+    // pagina 2: a che serie sono, da quanto mi alleno, battito e calorie; da qui si vede la lista e si termina
+    private func summary(_ s: WorkoutSession) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Tag(text: "Tempo")
+                    Spacer(minLength: 0)
+                    Text(timerInterval: s.start...Date.distantFuture, countsDown: false, showsHours: false)
+                        .font(.sport(30)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.6)
+                }
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Tag(text: "Serie")
+                    Spacer(minLength: 0)
+                    Text("\(s.done)").font(.sport(30)).monospacedDigit() + Text("/\(s.total)").font(.system(size: 14)).foregroundColor(.secondary)
+                }
+                ProgressView(value: s.total > 0 ? Double(s.done) / Double(s.total) : 0).tint(Palette.lime)
+                HeartLine()
+                Button { showList = true } label: {
+                    HStack { Image(systemName: "list.bullet").foregroundStyle(Palette.lime); Text("ESERCIZI").font(.sport(17)); Spacer() }
+                }
+                .buttonStyle(CardButton())
+                .padding(.top, 2)
+                Button { askEnd = true } label: {
+                    HStack { Image(systemName: "flag.checkered").foregroundStyle(Palette.lime); Text("TERMINA").font(.sport(17)); Spacer() }
+                }
+                .buttonStyle(CardButton())
+            }
+            .padding(.horizontal, 6)
         }
     }
 
@@ -347,6 +352,7 @@ struct SessionView: View {
                     .padding(.top, 4)
                 Text("Va nella cronologia dell'iPhone e in Salute, anche se ora il telefono è lontano.").font(.system(size: 11)).foregroundStyle(.secondary)
             }
+            .padding(.horizontal, 6)
         }
     }
 }
@@ -390,6 +396,7 @@ struct PhoneWorkoutView: View {
                     Text("Termina l'allenamento dall'iPhone e fai il cardio.").font(.system(size: 13)).foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 6)
             } else {
                 SetEditor(key: "\(w.i ?? 0)-\(w.j ?? 0)", name: w.ex ?? "", kg: w.kg, reps: w.r ?? 8,
                           unit: w.unit ?? "reps", inc: w.inc ?? 2.5) { kg, reps in
@@ -398,49 +405,40 @@ struct PhoneWorkoutView: View {
             }
         }
         .navigationTitle(s.rest != nil ? "Recupero" : w.done == true ? w.name : "Serie \(w.set ?? 1)/\(w.of ?? 1)")
-        .containerBackground(pageTint(Palette.lime, s.rest != nil ? 0.55 : 0.3), for: .tabView)
+        .pageBackground(Palette.lime, s.rest != nil ? 0.55 : 0.3)
     }
 }
 
 // MARK: oggi
 
-struct TodayPage: View {
+// Un solo schermo che dice tutto: kcal rimaste e macro in alto, poi il prossimo pasto con «Mangiato»,
+// l'allenamento di oggi, i pasti e la creatina. Pensato per il SE da 40 mm: niente righe sprecate.
+struct TodayHome: View {
     @EnvironmentObject var store: WatchStore
     let s: WatchSnapshot
+
     var body: some View {
         ScrollView {
-            VStack(spacing: 10) {
-                ZStack {
-                    Circle().stroke(Color.white.opacity(0.12), lineWidth: 11)
-                    Circle().trim(from: 0, to: s.progress)
-                        .stroke(Palette.lime, style: StrokeStyle(lineWidth: 11, lineCap: .round))
-                        .rotationEffect(.degrees(-90))
-                    VStack(spacing: -2) {
-                        Text("\(s.left)").font(.sport(42)).monospacedDigit()
-                        Text("KCAL RIMASTE").font(.sport(12, .bold)).foregroundStyle(.secondary)
+            VStack(spacing: 8) {
+                HStack(spacing: 8) {
+                    ZStack {
+                        Circle().stroke(Color.white.opacity(0.12), lineWidth: 7)
+                        Circle().trim(from: 0, to: s.progress)
+                            .stroke(Palette.lime, style: StrokeStyle(lineWidth: 7, lineCap: .round))
+                            .rotationEffect(.degrees(-90))
+                        VStack(spacing: -4) {
+                            Text("\(s.left)").font(.sport(22)).monospacedDigit().minimumScaleFactor(0.6).lineLimit(1)
+                            Text("KCAL").font(.sport(9, .bold)).foregroundStyle(.secondary)
+                        }
+                    }
+                    .frame(width: 64, height: 64)
+                    VStack(spacing: 5) {
+                        MacroRow(letter: "P", value: s.p, target: s.pTarget, color: Palette.p)
+                        MacroRow(letter: "C", value: s.c, target: s.cTarget, color: Palette.c)
+                        MacroRow(letter: "G", value: s.f, target: s.fTarget, color: Palette.f)
                     }
                 }
-                .frame(width: 124, height: 124)
-                VStack(spacing: 6) {
-                    MacroBar(name: "Proteine", value: s.p, target: s.pTarget, color: Palette.p)
-                    MacroBar(name: "Carboidrati", value: s.c, target: s.cTarget, color: Palette.c)
-                    MacroBar(name: "Grassi", value: s.f, target: s.fTarget, color: Palette.f)
-                }
-                if let m = s.nextMeal {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Tag(text: "\(m.time) · \(m.label)")
-                        Text(m.name).font(.system(size: 15, weight: .semibold)).lineLimit(3)
-                        Text("\(m.k) kcal · P \(m.p) g").font(.system(size: 13)).foregroundStyle(.secondary)
-                        Button { store.eat(m) } label: { Label("MANGIATO", systemImage: "checkmark") }
-                            .buttonStyle(LimeButton())
-                            .padding(.top, 3)
-                    }
-                    .padding(10)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
-                } else {
-                    Text("PASTI DI OGGI TUTTI SEGNATI").font(.sport(16)).foregroundStyle(Palette.lime)
-                }
+                nextMeal
                 Button { store.creatine() } label: {
                     HStack {
                         Image(systemName: s.crea ? "checkmark.circle.fill" : "pills.fill").foregroundStyle(s.crea ? Palette.lime : .white)
@@ -450,24 +448,71 @@ struct TodayPage: View {
                 }
                 .buttonStyle(CardButton())
                 .disabled(s.crea)
+                NavigationLink { MealsPage(s: s) } label: {
+                    HStack {
+                        Image(systemName: "fork.knife").foregroundStyle(Palette.lime)
+                        Text("PASTI").font(.sport(17))
+                        Spacer(minLength: 4)
+                        Text("\(s.meals.filter(\.eaten).count)/\(s.meals.count)").font(.sport(17)).monospacedDigit().foregroundStyle(.secondary)
+                    }
+                }
+                .buttonStyle(CardButton())
+                workoutCard
+            }
+            .padding(.horizontal, 6)   // l'anello e i riquadri non devono toccare il bordo curvo dello schermo
+        }
+        .pageBackground(Palette.lime, 0.18)   // niente titolo: lo schermo del SE da 40 mm è basso
+    }
+
+    @ViewBuilder private var nextMeal: some View {
+        if let m = s.nextMeal {
+            VStack(alignment: .leading, spacing: 3) {
+                Tag(text: "\(m.time) · \(m.label)")
+                Text(m.name).font(.system(size: 14, weight: .semibold)).lineLimit(3)
+                Text("\(m.k) kcal · P \(m.p) g").font(.system(size: 12)).foregroundStyle(.secondary)
+                Button { store.eat(m) } label: { Label("MANGIATO", systemImage: "checkmark") }
+                    .buttonStyle(LimeButton())
+                    .padding(.top, 2)
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
+        } else {
+            Text("PASTI DI OGGI TUTTI SEGNATI").font(.sport(16)).foregroundStyle(Palette.lime).multilineTextAlignment(.center)
+        }
+    }
+
+    private var workoutCard: some View {
+        NavigationLink { StartView(s: s) } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: 0) {
+                    Tag(text: s.doneToday == true ? "Allenamento fatto" : "Allenamento")
+                    Text(s.todayPlan?.name.uppercased() ?? "RIPOSO").font(.sport(22)).lineLimit(1).minimumScaleFactor(0.6)
+                    if let p = s.todayPlan {
+                        Text("\(p.items.count) esercizi · \(p.setCount) serie").font(.system(size: 11)).foregroundStyle(.secondary)
+                    }
+                }
+                Spacer(minLength: 4)
+                Image(systemName: s.doneToday == true ? "checkmark.circle.fill" : s.todayPlan == nil ? "chevron.right" : "play.circle.fill")
+                    .font(.system(size: 26)).foregroundStyle(Palette.lime)
             }
         }
-        .navigationTitle("\(s.day) · \(s.type)")
-        .containerBackground(pageTint(Palette.lime, 0.18), for: .tabView)
+        .buttonStyle(CardButton())
     }
 }
 
-struct MacroBar: View {
-    let name: String
+// una riga di macro: lettera, quanto fatto su quanto, barra
+struct MacroRow: View {
+    let letter: String
     let value: Int
     let target: Int
     let color: Color
     var body: some View {
-        VStack(spacing: 2) {
-            HStack {
-                Text(name.uppercased()).font(.sport(13, .bold)).foregroundStyle(color)
-                Spacer()
-                Text("\(value)").font(.sport(15)).monospacedDigit() + Text(" / \(target) g").font(.system(size: 11)).foregroundColor(.secondary)
+        VStack(spacing: 1) {
+            HStack(spacing: 2) {
+                Text(letter).font(.sport(12, .bold)).foregroundStyle(color)
+                Spacer(minLength: 0)
+                Text("\(value)").font(.sport(13)).monospacedDigit() + Text("/\(target)").font(.system(size: 10)).foregroundColor(.secondary)
             }
             ProgressView(value: target > 0 ? min(1, Double(value) / Double(target)) : 0)
                 .tint(color)
@@ -481,10 +526,12 @@ struct MealsPage: View {
     @EnvironmentObject var store: WatchStore
     let s: WatchSnapshot
     var body: some View {
-        List(s.meals) { m in
-            // schermo piccolo (SE 40 mm): ora e kcal sulla prima riga, il nome del pasto da solo, poi il piatto
-            Button {
-                store.eat(m)
+        // si legge lo stato aggiornato (non la copia passata): dopo «Mangiato» o un cambio piatto l'elenco si aggiorna da solo
+        let meals = store.snap?.meals ?? s.meals
+        List(meals) { m in
+            // schermo piccolo (SE 40 mm): ora e kcal sulla prima riga, il nome del pasto da solo, poi il piatto per intero
+            NavigationLink {
+                MealDetail(si: m.si)
             } label: {
                 HStack(alignment: .top, spacing: 6) {
                     Image(systemName: m.eaten ? "checkmark.circle.fill" : "circle")
@@ -498,14 +545,144 @@ struct MealsPage: View {
                             Text("\(m.k)").font(.sport(15)).monospacedDigit() + Text(" kcal").font(.system(size: 10)).foregroundColor(.secondary)
                         }
                         Text(m.label.uppercased()).font(.sport(18)).lineLimit(1).minimumScaleFactor(0.6)
-                        Text(m.name).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(2)
+                        Text(m.name).font(.system(size: 12)).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 .opacity(m.eaten ? 0.6 : 1)
             }
         }
         .navigationTitle("Pasti")
-        .containerBackground(pageTint(Palette.lime, 0.12), for: .tabView)
+        .pageBackground(Palette.lime, 0.12)
+    }
+}
+
+// dettaglio di un pasto: quanto pesare di ogni ingrediente, i numeri, «Mangiato» o «Annulla», e il cambio piatto
+struct MealDetail: View {
+    @EnvironmentObject var store: WatchStore
+    let si: Int
+    private var meal: WatchMeal? { store.snap?.meals.first { $0.si == si } }
+
+    var body: some View {
+        ScrollView {
+            if let m = meal {
+                VStack(alignment: .leading, spacing: 8) {
+                    // il nome del pasto è già nel titolo in alto: qui solo l'ora e il piatto
+                    VStack(alignment: .leading, spacing: 1) {
+                        Tag(text: m.time, color: m.eaten ? .secondary : Palette.lime)
+                        Text(m.name).font(.system(size: 15, weight: .semibold)).fixedSize(horizontal: false, vertical: true)
+                    }
+                    macros(m)
+                    // il pulsante sta subito sotto i numeri: non serve scorrere tutti gli ingredienti per segnare il pasto
+                    if m.eaten {
+                        Button { store.uneat(m) } label: { Label("ANNULLA", systemImage: "arrow.uturn.backward") }
+                            .buttonStyle(CardButton())
+                    } else {
+                        Button { store.eat(m) } label: { Label("MANGIATO", systemImage: "checkmark") }
+                            .buttonStyle(LimeButton())
+                    }
+                    ingredients(m)
+                    if let alt = m.alt, alt.count > 1 {
+                        NavigationLink { AltPicker(si: m.si) } label: {
+                            HStack {
+                                Image(systemName: "arrow.triangle.2.circlepath").foregroundStyle(Palette.lime)
+                                Text("CAMBIA PIATTO").font(.sport(17)).lineLimit(1).minimumScaleFactor(0.6)
+                                Spacer(minLength: 0)
+                            }
+                        }
+                        .buttonStyle(CardButton())
+                    }
+                }
+                .padding(.horizontal, 6)
+            }
+        }
+        .navigationTitle(meal?.label ?? "Pasto")
+        .pageBackground(Palette.lime, 0.12)
+    }
+
+    // kcal grandi e, sotto, proteine, carboidrati e grassi con i loro colori
+    private func macros(_ m: WatchMeal) -> some View {
+        HStack(alignment: .center, spacing: 8) {
+            // numero e «KCAL» impilati e centrati in altezza rispetto alle tre righe dei macro
+            VStack(spacing: -4) {
+                Text("\(m.k)").font(.sport(34)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.6)
+                Text("KCAL").font(.sport(11, .bold)).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+            VStack(alignment: .trailing, spacing: 0) {
+                macro("P", m.p, Palette.p)
+                if let c = m.c { macro("C", c, Palette.c) }
+                if let f = m.f { macro("G", f, Palette.f) }
+            }
+        }
+    }
+
+    private func macro(_ letter: String, _ v: Int, _ color: Color) -> some View {
+        (Text(letter + " ").font(.sport(12, .bold)).foregroundColor(color) + Text("\(v)").font(.sport(13)).monospacedDigit() + Text(" g").font(.system(size: 10)).foregroundColor(.secondary))
+    }
+
+    @ViewBuilder private func ingredients(_ m: WatchMeal) -> some View {
+        if let ing = m.ing {
+            VStack(spacing: 4) {
+                Tag(text: "Ingredienti", color: .secondary).frame(maxWidth: .infinity, alignment: .leading).padding(.top, 2)
+                ForEach(Array(ing.enumerated()), id: \.offset) { _, it in
+                    // il nome senza le parentesi («Insalata mista cruda (lattuga, pomodori…)» → «Insalata mista cruda»): sul polso non c'è spazio
+                    HStack(alignment: .center, spacing: 6) {
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text(it.n.components(separatedBy: " (").first ?? it.n).font(.system(size: 13, weight: .semibold))
+                                .lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                            if let h = it.h, !h.isEmpty { Text(h).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.7) }
+                        }
+                        Spacer(minLength: 2)
+                        Text("\(it.g)").font(.sport(20)).monospacedDigit().foregroundColor(Palette.lime) + Text(" \(it.u)").font(.system(size: 10)).foregroundColor(.secondary)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+                }
+            }
+        } else {
+            Text("Ingredienti in aggiornamento: apri Recomp sull'iPhone.").font(.system(size: 11)).foregroundStyle(.secondary)
+        }
+    }
+}
+
+// i piatti della stessa fascia, con la differenza di kcal rispetto a quello di adesso
+struct AltPicker: View {
+    @EnvironmentObject var store: WatchStore
+    @Environment(\.dismiss) private var dismiss
+    let si: Int
+
+    var body: some View {
+        let m = store.snap?.meals.first { $0.si == si }
+        List(m?.alt ?? []) { a in
+            Button {
+                if let m { store.swap(m, to: a) }
+                dismiss()
+            } label: {
+                HStack(alignment: .top, spacing: 6) {
+                    Image(systemName: a.cur == true ? "checkmark.circle.fill" : "circle")
+                        .foregroundStyle(a.cur == true ? Palette.lime : .secondary)
+                        .font(.system(size: 17))
+                        .padding(.top, 1)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(a.name).font(.system(size: 13, weight: .semibold)).fixedSize(horizontal: false, vertical: true)
+                        HStack(spacing: 4) {
+                            Text("\(a.k) kcal").font(.sport(13)).monospacedDigit()
+                            Text("P \(a.p)").font(.system(size: 11)).foregroundStyle(.secondary)
+                            if a.cur != true, let m {
+                                let d = a.k - m.k
+                                Text("\(d > 0 ? "+" : d < 0 ? "−" : "±")\(abs(d))").font(.system(size: 11, weight: .bold))
+                                    .foregroundStyle(d > 0 ? Palette.c : d < 0 ? Palette.lime : .secondary)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .navigationTitle("Cambia")
+        .pageBackground(Palette.lime, 0.12)
     }
 }
 
@@ -520,6 +697,7 @@ struct WaitingView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity)
+            .padding(.horizontal, 6)
         }
         .navigationTitle("Recomp")
     }

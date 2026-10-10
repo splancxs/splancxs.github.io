@@ -3,14 +3,39 @@ import SwiftUI
 
 // Stato di oggi mandato dall'app iPhone (app.js → WatchBridge). Lo usano l'app Watch e la complicazione sul quadrante,
 // che lo leggono dal gruppo condiviso: l'app lo salva a ogni aggiornamento.
+// un ingrediente da pesare: nome, quantità (g o ml) e l'aiuto in pezzi («2 fette», «1 vasetto da 150 g»)
+struct WatchIng: Codable, Hashable {
+    var n: String
+    var g: Int
+    var u: String
+    var h: String?
+}
+
+// un piatto con cui si può scambiare il pasto
+struct WatchAlt: Codable, Hashable, Identifiable {
+    var code: String
+    var name: String
+    var k: Int
+    var p: Int
+    var c: Int
+    var f: Int
+    var cur: Bool?
+    var id: String { code }
+}
+
 struct WatchMeal: Codable, Identifiable, Hashable {
     var si: Int
     var time: String
     var label: String
     var name: String
+    var code: String?
     var k: Int
     var p: Int
+    var c: Int?
+    var f: Int?
     var eaten: Bool
+    var ing: [WatchIng]?   // nil = ancora da aggiornare dall'iPhone (dopo uno scambio)
+    var alt: [WatchAlt]?
     var id: Int { si }
 }
 
@@ -57,6 +82,20 @@ struct WatchPlan: Codable, Identifiable, Hashable {
     var setCount: Int { items.reduce(0) { $0 + $1.sets.count } }
 }
 
+// stato di tutte le serie dell'allenamento attivo sull'iPhone (per tenere allineato l'orologio durante l'allenamento)
+struct WatchActItem: Codable, Hashable {
+    var ex: String
+    var s: [[Double?]?]   // per ogni serie: [kg, ripetizioni] se fatta, null se da fare
+}
+
+struct WatchAct: Codable, Hashable {
+    var id: String
+    var items: [WatchActItem]
+    var re: Double?       // fine del recupero sull'iPhone (ms), 0 = nessuno
+    var rv: Double?       // quando il recupero è cambiato per ultimo (ms)
+    var rn: String?
+}
+
 struct WatchSnapshot: Codable, Hashable {
     var date: String
     var day: String
@@ -77,6 +116,8 @@ struct WatchSnapshot: Codable, Hashable {
     var plans: [WatchPlan]?
     var todayRid: String?
     var doneToday: Bool?
+    var act: WatchAct?
+    var fin: [String]?    // allenamenti già salvati sull'iPhone nelle ultime 24 ore
 
     var todayPlan: WatchPlan? { plans?.first { $0.rid == todayRid } }
 

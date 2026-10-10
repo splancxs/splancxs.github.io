@@ -32,7 +32,7 @@ end
 # 1. app Watch (una sola destinazione, come le app Watch di Xcode 14 e successivi)
 watch = project.new_target(:application, 'RecompWatch', :watchos, '10.0', nil, :swift)
 wgroup = project.main_group.new_group('RecompWatch', 'RecompWatch')
-watch.add_file_references(%w[RecompWatchApp.swift WatchStore.swift WatchModel.swift RepCounter.swift HealthWorkout.swift].map { |f| wgroup.new_reference(f) })
+watch.add_file_references(%w[RecompWatchApp.swift WatchStore.swift WatchModel.swift HealthWorkout.swift].map { |f| wgroup.new_reference(f) })
 watch.add_resources([wgroup.new_reference('Assets.xcassets')])
 %w[Info.plist RecompWatch.entitlements].each { |f| wgroup.new_reference(f) }
 watch_settings(watch, 'io.github.splancxs.recomp.watchkitapp', 'RecompWatch', version, build) do |s|

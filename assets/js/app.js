@@ -825,7 +825,7 @@
   }
 
   /* ---------------- timer recupero ---------------- */
-  const timer = { start: 0, end: 0, id: 0, hide: 0, ctx: null, total: 1 };
+  const timer = { start: 0, end: 0, id: 0, hide: 0, ctx: null, total: 1, rv: 0 }; // rv: quando è cambiato per ultimo (lo confronta l'orologio)
   const tEl = document.getElementById('timer');
   function beep() {
     try {
@@ -853,7 +853,7 @@
   // chiude il timer e toglie la notifica programmata: usato dal pulsante ✕ e a fine allenamento
   function stopTimer() {
     clearInterval(timer.id); clearTimeout(timer.hide);
-    timer.end = 0; tEl.hidden = true; tEl.classList.remove('done');
+    timer.end = 0; timer.rv = Date.now(); tEl.hidden = true; tEl.classList.remove('done');
     if (N.notif) safe(N.notif.cancel({ notifications: [{ id: TIMER_ID }] }));
     if (N.live) liveCall(() => N.live.end());
     watchSync();
@@ -876,9 +876,12 @@
   }
   // App nativa: notifica di fine recupero, arriva anche a schermo bloccato o con l'app in background
   function timerNotify() {
+    timer.rv = Date.now();
     liveSync();
     watchSync();
     if (!N.notif) return;
+    const a = store.get('active', null);
+    if (a && a.fromWatch) { safe(N.notif.cancel({ notifications: [{ id: TIMER_ID }] })); return; } // allenamento anche sull'orologio: avvisa lui, niente notifica sul telefono
     safe(N.notif.cancel({ notifications: [{ id: TIMER_ID }] })).then(() => safe(N.notif.schedule({ notifications: [{
       id: TIMER_ID, title: 'Recupero finito', body: 'Via con la prossima serie.', schedule: { at: new Date(timer.end), allowWhileIdle: true },
     }] })));
@@ -897,10 +900,17 @@
     timer.end = Math.max(Date.now() + 1000, timer.end - 15000); tick(); timerNotify(); buzz();
   });
   $('#timerStop').addEventListener('click', stopTimer);
+  // recupero deciso dall'orologio (+15, salta): fine in millisecondi, 0 = chiuso
+  function watchRest(end, next) {
+    if (!(end > Date.now())) { if (timer.end) stopTimer(); return; }
+    if (!timer.end || tEl.classList.contains('done')) { startTimer(Math.max(1, Math.round((end - Date.now()) / 1000)), next); return; }
+    timer.end = end; timer.total = Math.max(timer.total, Math.round((end - timer.start) / 1000)); tick(); timerNotify();
+  }
   // rientrando nell'app: un recupero scaduto da più di un minuto, o rimasto senza allenamento in corso, non riparte
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible' || !timer.end) return;
     if (Date.now() > timer.end + 60000 || !(window.RCW && window.RCW.isActive())) stopTimer();
+    else if (Date.now() < timer.end) liveSync(); // la Live Activity parte solo con l'app in primo piano: se il recupero è nato col telefono in tasca, la accendo ora
   });
 
   /* ================= PROGRESSI ================= */
@@ -1532,19 +1542,31 @@
     const meals = plan.meals.filter((m) => !m.free);
     const sum = (f) => Math.round(meals.filter((m) => eaten.includes(m.si)).reduce((a, m) => a + m.tot[f], 0));
     const wo = window.RCW && window.RCW.watch ? window.RCW.watch.state() : null;
+    const live = timer.end > Date.now();
+    const act = window.RCW && window.RCW.watch ? window.RCW.watch.act() : null; // tutte le serie, per tenere allineato l'orologio
+    if (act) { act.re = live ? timer.end : 0; act.rv = timer.rv; act.rn = live ? $('#timerNext').textContent : ''; }
     const ov = dayOv(dkey(now));
     const todayRid = ov && ov.skip ? null : (ov && ov.rid) || plan.day.wo || null; // la scheda di oggi (saltata, recuperata…)
     return JSON.stringify({
       date: dkey(now), day: D.week[dayIdx(now)].name, type: /^ON/.test(plan.conv || plan.day.type) ? 'ON' : 'OFF', // OFF_S, OFF_W… → OFF
       kcal: sum('k'), kcalTarget: Math.round(plan.tot.k), p: sum('p'), pTarget: Math.round(plan.tot.p),
       c: sum('c'), cTarget: Math.round(plan.tot.c), f: sum('fa'), fTarget: Math.round(plan.tot.fa),
-      meals: meals.map((m) => ({ si: m.si, time: m.time, label: m.label, name: D.recipes[m.code].name, k: Math.round(m.tot.k), p: Math.round(m.tot.p), eaten: eaten.includes(m.si) })),
+      meals: meals.map((m) => ({
+        si: m.si, time: m.time, label: m.label, name: D.recipes[m.code].name, code: m.code,
+        k: Math.round(m.tot.k), p: Math.round(m.tot.p), c: Math.round(m.tot.c), f: Math.round(m.tot.fa), eaten: eaten.includes(m.si),
+        // ingredienti con i grammi da pesare (e l'aiuto «2 fette», «1 vasetto»…), e i piatti con cui si può scambiare
+        ing: m.lines.map((l) => ({ n: D.foods[l.f].n, g: l.g, u: l.f === 'latte_ps' || l.f === 'spremuta' ? 'ml' : 'g', h: unitHint(l.f, l.g) || undefined })),
+        alt: Object.keys(D.variants[m.slot]).map((code) => {
+          const t = sumLines(mealLines(m.slot, code));
+          return { code, name: D.recipes[code].name, k: Math.round(t.k), p: Math.round(t.p), c: Math.round(t.c), f: Math.round(t.fa), cur: code === m.code || undefined };
+        }),
+      })),
       crea: creaOn(dkey(now)),
       plans: window.RCW && window.RCW.watch ? window.RCW.watch.plans() : [],
       todayRid, doneToday: !!(todayRid && window.RCW && window.RCW.doneToday(todayRid)),
-      wo,
-      restEnd: wo && timer.end > Date.now() ? timer.end : null,
-      restNext: wo && timer.end > Date.now() ? $('#timerNext').textContent : null,
+      wo, act, fin: window.RCW && window.RCW.watch ? window.RCW.watch.fin() : [],
+      restEnd: wo && live ? timer.end : null,
+      restNext: wo && live ? $('#timerNext').textContent : null,
     });
   }
   function watchSync() {
@@ -1558,8 +1580,25 @@
     safe(N.watch.addListener('action', (e) => {
       if (!e) return;
       if (e.a === 'eat' && Number.isInteger(e.si)) { markEaten(e.si); render(); }
+      else if (e.a === 'uneat' && Number.isInteger(e.si)) { if (eatenToday().includes(e.si)) toggleEaten(e.si); render(); }
+      else if (e.a === 'swap' && Number.isInteger(e.si) && typeof e.code === 'string') {
+        const m = todayPlan().meals[e.si];
+        if (m && !m.free && D.variants[m.slot][e.code]) { setSwap(dayIdx(new Date()), e.si, e.code); buzz(); render(); }
+      }
       else if (e.a === 'crea') { if (!creaOn(dkey(new Date()))) { toggleCreatine(); render(); } }
       else if (e.a === 'set' && window.RCW && window.RCW.watch) window.RCW.watch.done(Number(e.i), Number(e.j), e.kg, e.r);
+      else if (e.a === 'wstart' && window.RCW && window.RCW.watch) window.RCW.watch.begin(e);
+      else if (e.a === 'wset' && window.RCW && window.RCW.watch) {
+        if (window.RCW.watch.setDone(e)) {
+          if (window.RCW.isActive() && typeof e.re === 'number') watchRest(e.re, String(e.rn || 'Recupero')); // il recupero è quello dell'orologio (anche se l'evento arriva in ritardo)
+          if (typeof e.t === 'number') timer.rv = e.t; // modifica dell'orologio: non gli rimando indietro il suo stesso recupero
+          render();
+        }
+      }
+      else if (e.a === 'wrest' && window.RCW && window.RCW.watch) {
+        if (window.RCW.isActive()) { watchRest(Number(e.end) || 0, String(e.next || 'Recupero')); if (typeof e.t === 'number') timer.rv = e.t; }
+      }
+      else if (e.a === 'wcancel' && window.RCW && window.RCW.watch) window.RCW.watch.cancel(e.id);
       else if (e.a === 'wo' && typeof e.w === 'string' && window.RCW && window.RCW.watch) { // allenamento fatto sull'orologio
         let w = null;
         try { w = window.RCW.watch.importWorkout(JSON.parse(e.w)); } catch (err) { w = null; }

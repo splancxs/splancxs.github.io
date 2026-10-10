@@ -24,7 +24,8 @@ def log(*a):
 
 async def main():
     azione = sys.argv[1] if len(sys.argv) > 1 else "info"
-    iphone = await create_using_usbmux(usbmux_address=ADDR)
+    # l'orologio si raggiunge solo con l'iPhone collegato via USB (via Wi-Fi companion_proxy chiude la connessione)
+    iphone = await create_using_usbmux(usbmux_address=ADDR, connection_type="USB")
     comp = CompanionProxyService(iphone)
     orologi = await comp.list()
     log("orologi abbinati all'iPhone:", orologi)

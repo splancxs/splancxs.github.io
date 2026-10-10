@@ -131,17 +131,21 @@
   const getActive = () => K().store.get('active', null);
   const setActive = (a) => K().store.set('active', a);
 
-  function start(rid) {
-    const k = K();
-    if (getActive()) { ui.tab = 'routine'; ui.summary = null; location.hash = '#/scheda'; k.render(); return; }
-    const r = rid ? routineOf(rid) : null;
-    const a = {
-      id: uid('w'), rid: r ? r.id : null, name: r ? r.name : 'Allenamento libero', start: Date.now(),
+  // allenamento attivo nuovo da una scheda (o libero, senza scheda); id e inizio arrivano dall'orologio se parte da lì
+  function newActive(r, id, start) {
+    return {
+      id, rid: r ? r.id : null, name: r ? r.name : 'Allenamento libero', start,
       items: r ? r.items.map((it) => ({
         ex: it.ex, lo: it.lo, hi: it.hi, rest: it.rest, sup: it.sup, kg: it.kg, note: '',
         sets: Array.from({ length: it.s }, () => ({ kg: null, r: null, type: 'n', done: false })),
       })) : [],
     };
+  }
+
+  function start(rid) {
+    const k = K();
+    if (getActive()) { ui.tab = 'routine'; ui.summary = null; location.hash = '#/scheda'; k.render(); return; }
+    const a = newActive(rid ? routineOf(rid) : null, uid('w'), Date.now());
     setActive(a);
     ui.tab = 'routine'; ui.summary = null; ui.detail = null; ui.exDetail = null;
     k.buzz('MEDIUM');
@@ -876,6 +880,38 @@
       W.click({ dataset: { w: 'done', i: String(i), j: String(j) } }); // come il tocco sulla spunta della serie
       return true;
     },
+    // allenamento partito dal polso: stesso id, stessa scheda; l'iPhone lo mostra in «In corso» (se ce n'è già uno non tocco niente)
+    begin(e) {
+      if (!e || typeof e.id !== 'string' || getActive() || history().some((x) => x.id === e.id)) return false;
+      const r = typeof e.rid === 'string' ? routineOf(e.rid) : null;
+      if (!r) return false;
+      setActive({ ...newActive(r, e.id, typeof e.start === 'number' && isFinite(e.start) ? e.start : Date.now()), fromWatch: 1 });
+      K().render();
+      return true;
+    },
+    // serie fatta sul polso durante un allenamento partito da lì: la spunto qui (parte anche il recupero)
+    setDone(e) {
+      if (!e || typeof e.id !== 'string') return false;
+      if (!getActive()) W.watch.begin(e); // l'avvio può arrivare dopo (consegna in differita)
+      const a = getActive();
+      if (!a || a.id !== e.id || !a.items[e.i] || a.items[e.i].ex !== e.ex) return false;
+      if (!a.fromWatch) { a.fromWatch = 1; setActive(a); } // l'orologio avvisa lui: l'iPhone non manda la notifica di fine recupero
+      return W.watch.done(Number(e.i), Number(e.j), typeof e.kg === 'number' ? e.kg : undefined, typeof e.r === 'number' ? e.r : undefined);
+    },
+    // allenamento annullato sul polso
+    cancel(id) {
+      const a = getActive();
+      if (!a || a.id !== id) return false;
+      setActive(null); K().stopTimer(); K().render(true);
+      return true;
+    },
+    // stato di tutte le serie, per l'orologio: [kg, ripetizioni] se fatta, null se da fare
+    act() {
+      const a = getActive();
+      return a ? { id: a.id, items: a.items.map((it) => ({ ex: it.ex, s: it.sets.map((s) => (s.done ? [s.kg, s.r] : null)) })) } : null;
+    },
+    // allenamenti salvati nelle ultime 24 ore: l'orologio capisce se l'iPhone ha già chiuso il suo
+    fin() { return history().filter((x) => x.start > Date.now() - 864e5).map((x) => x.id); },
     // le schede con kg e ripetizioni suggeriti per ogni serie (gli stessi della Scheda) e il recupero vero
     plans() {
       return routines().map((r) => ({
@@ -893,7 +929,18 @@
     // allenamento fatto sull'orologio: { id, rid, name, start, end, items: [{ ex, lo, hi, sets: [{ kg, r }] }] }
     importWorkout(w) {
       const num = (v) => (typeof v === 'number' && isFinite(v) ? v : null);
-      if (!w || typeof w.id !== 'string' || !Array.isArray(w.items) || history().some((x) => x.id === w.id)) return null; // già arrivato
+      if (!w || typeof w.id !== 'string' || !Array.isArray(w.items)) return null;
+      const live = getActive(); // l'allenamento in corso partito dal polso finisce qui
+      if (live && live.id === w.id) { setActive(null); K().stopTimer(); K().render(true); }
+      const old = history().find((x) => x.id === w.id);
+      if (old) { // già salvato (finito prima sull'iPhone): aggiungo solo battito e calorie dell'orologio
+        if ((num(w.hr) || num(w.kcal)) && !old.hr && !old.kcal) {
+          const all = K().store.get('workouts', []).filter((x) => x.id !== old.id);
+          all.push({ ...old, ...(num(w.hr) ? { hr: Math.round(w.hr) } : {}), ...(num(w.kcal) ? { kcal: Math.round(w.kcal) } : {}), watch: 1, t: Date.now() });
+          K().store.set('workouts', all);
+        }
+        return null;
+      }
       const items = w.items.filter((it) => it && typeof it.ex === 'string' && Array.isArray(it.sets)).map((it) => ({
         ex: it.ex, lo: num(it.lo) || 8, hi: num(it.hi) || 12, note: '',
         sets: it.sets.map((s) => ({ kg: num(s.kg), r: num(s.r), type: 'n' })).filter((s) => s.r != null),

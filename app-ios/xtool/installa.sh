@@ -27,6 +27,14 @@ if ! timeout 8 bash -c "exec 3<>/dev/tcp/${USBMUXD_SOCKET_ADDRESS%:*}/27015" 2>/
   exit 1
 fi
 
+# con il Wi-Fi attivo l'iPhone compare due volte (rete e USB) e xtool chiederebbe quale usare: scelgo io, USB se c'è il cavo
+if timeout 30 "$PMD" -m pymobiledevice3 usbmux list 2>/dev/null | grep -q '"ConnectionType": "USB"'; then
+  CONN=--usb
+else
+  CONN=--network
+  echo "Nota: iPhone senza cavo (Wi-Fi): l'app iPhone si installa, ma per l'orologio serve il cavo USB."
+fi
+
 P="$LAVORO/Recomp"
 APP="$P/xtool/RecompProva.app"
 
@@ -40,7 +48,7 @@ if [ "$COSA" = watch ]; then
   rm -rf "$APP/Watch"; mkdir -p "$APP/Watch"
   cp -R "$LAVORO/orologio/out/RecompWatch.app" "$APP/Watch/"
   rm -rf "$LAVORO/firmato"
-  XTOOL_KEEP_SIGNED="$LAVORO/firmato" "$XTOOL_PATCHATO" install "$APP" </dev/null
+  XTOOL_KEEP_SIGNED="$LAVORO/firmato" "$XTOOL_PATCHATO" install $CONN "$APP" </dev/null
   echo "3/3 Installo l'app Watch direttamente sull'orologio…"
   WATCH_UDID="$WATCH_UDID" "$PMD" "$QUI/orologio_installa.py" "$LAVORO/firmato/RecompProva.app/Watch/RecompWatch.app"
   echo "Fatto: guarda l'orologio (apri Recomp sull'iPhone se resta su «Apri Recomp sull'iPhone»)."
@@ -70,7 +78,7 @@ if [ "$COSA" != orologio ]; then
   rm -rf "$APP/Watch"; mkdir -p "$APP/Watch"
   cp -R "$LAVORO/orologio/out/RecompWatch.app" "$APP/Watch/"
   rm -rf "$LAVORO/firmato"
-  XTOOL_KEEP_SIGNED="$LAVORO/firmato" "$XTOOL_PATCHATO" install "$APP" </dev/null
+  XTOOL_KEEP_SIGNED="$LAVORO/firmato" "$XTOOL_PATCHATO" install $CONN "$APP" </dev/null
 fi
 
 if [ "$COSA" != iphone ]; then

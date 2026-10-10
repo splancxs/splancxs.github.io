@@ -43,6 +43,14 @@ App personale di dieta e allenamento: un sito statico (GitHub Pages, https://spl
 - Firma gratuita (Apple ID senza abbonamento): HealthKit funziona, ma solo installando da Xcode o da xtool (AltStore lo
   toglie); push notification e Siri invece richiedono l'account sviluppatore a pagamento.
 
+## App Apple Watch (`app-ios/native/Watch`)
+- Pagina «Oggi» (anello kcal, macro, prossimo pasto, creatina, Pasti, allenamento), Pasti con dettaglio (ingredienti e grammi,
+  Annulla, Cambia piatto), allenamento a due pagine (serie e riepilogo con «Termina»). I dati arrivano da `watchSnapshot()` in `app.js`.
+- Allenamento avviato dal polso: l'iPhone lo specchia in diretta (eventi `wstart`, `wset`, `wrest`, `wcancel`, `wo` →
+  `W.watch` in `allenamento.js`); se finisce o si annulla da una parte, si chiude anche dall'altra. Avvisa solo l'orologio
+  (tre vibrazioni senza suono): la notifica di fine recupero sull'iPhone è spenta per quegli allenamenti (`fromWatch`).
+- Il contatore automatico delle ripetizioni è stato tolto (poco affidabile): kg e ripetizioni si cambiano con la corona.
+
 ## Installare dal PC Windows (xtool, senza Mac)
 - `app-ios/xtool/` costruisce e installa l'app iPhone **e l'app Apple Watch** da Windows (WSL + xtool + Apple ID gratuito).
   Rinnovo della firma ogni 7 giorni: `powershell -ExecutionPolicy Bypass -File app-ios\xtool\windows\installa.ps1`
