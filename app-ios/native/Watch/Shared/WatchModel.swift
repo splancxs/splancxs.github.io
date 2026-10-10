@@ -100,7 +100,16 @@ struct WatchSnapshot: Codable, Hashable {
 }
 
 enum WatchShared {
-    static let group = "group.io.github.splancxs.recomp"
+    // Con Xcode il gruppo è «group.io.github.splancxs.recomp». Con xtool (Apple ID gratuito) gli identificativi hanno il
+    // prefisso «XTL-CODICE.» e xtool rinomina anche il gruppo in «group.XTL-CODICE.io.github.splancxs.recomp»:
+    // lo ricavo dall'identificativo dell'app (lo stesso per app Watch e complicazione).
+    static let group: String = {
+        let id = Bundle.main.bundleIdentifier ?? ""
+        if id.hasPrefix("XTL-"), let punto = id.firstIndex(of: ".") {
+            return "group.\(id[..<punto]).io.github.splancxs.recomp"
+        }
+        return "group.io.github.splancxs.recomp"
+    }()
     private static let key = "snapshot"
     private static var defaults: UserDefaults { UserDefaults(suiteName: group) ?? .standard }
 

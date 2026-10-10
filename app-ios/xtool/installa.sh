@@ -5,6 +5,7 @@
 #   installa.sh            iPhone + orologio (consigliato)
 #   installa.sh iphone     solo iPhone (poi però va rifatto anche l'orologio: l'iPhone «dimentica» l'app Watch)
 #   installa.sh orologio   solo l'app Watch, già costruita dall'ultima volta
+#   installa.sh watch      giro veloce dopo aver cambiato il codice dell'app Watch: ricompila solo l'orologio
 #
 # ORDINE OBBLIGATO: prima l'app iPhone, poi l'app Watch direttamente sull'orologio. Ogni volta che si reinstalla
 # l'app iPhone, l'iPhone ritiene l'app Watch non installata (WCSession: appInstalled NO) finché non si reinstalla l'orologio.
@@ -28,6 +29,23 @@ fi
 
 P="$LAVORO/Recomp"
 APP="$P/xtool/RecompProva.app"
+
+if [ "$COSA" = watch ]; then
+  # giro veloce per provare modifiche all'app Watch: ricompila solo l'orologio, ricorda l'app iPhone già costruita,
+  # la rifirma con l'app Watch nuova e rifà l'installazione (iPhone e poi orologio, nell'ordine obbligato)
+  [ -d "$APP" ] || { echo "Prima lancia «installa.sh» senza argomenti (serve l'app iPhone già costruita)."; exit 1; }
+  echo "1/3 Compilo l'app Watch…"
+  bash "$QUI/costruisci-orologio.sh"
+  echo "2/3 Rifirmo e reinstallo l'app iPhone con l'app Watch nuova…"
+  rm -rf "$APP/Watch"; mkdir -p "$APP/Watch"
+  cp -R "$LAVORO/orologio/out/RecompWatch.app" "$APP/Watch/"
+  rm -rf "$LAVORO/firmato"
+  XTOOL_KEEP_SIGNED="$LAVORO/firmato" "$XTOOL_PATCHATO" install "$APP" </dev/null
+  echo "3/3 Installo l'app Watch direttamente sull'orologio…"
+  WATCH_UDID="$WATCH_UDID" "$PMD" "$QUI/orologio_installa.py" "$LAVORO/firmato/RecompProva.app/Watch/RecompWatch.app"
+  echo "Fatto: guarda l'orologio (apri Recomp sull'iPhone se resta su «Apri Recomp sull'iPhone»)."
+  exit 0
+fi
 
 if [ "$COSA" != orologio ]; then
   echo "1/4 Preparo il progetto…"

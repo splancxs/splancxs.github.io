@@ -12,9 +12,10 @@ Uso:  python applica-patch.py /percorso/di/xtool-src      poi:  swift build -c r
     da un file xtool-entitlements.plist dentro il bundle (i binari fatti a mano non li hanno incorporati) e riscrive
     WKCompanionAppBundleIdentifier con il nuovo identificativo dell'app iPhone.
  4. I profili includono anche i dispositivi Apple Watch (prima solo iPhone, iPad, iPod).
- 5. Firma: ogni parte (app, estensioni, app Watch) usa i suoi permessi e il suo profilo (prima tutto con quelli
+5. Firma: ogni parte (app, estensioni, app Watch) usa i suoi permessi e il suo profilo (prima tutto con quelli
     dell'app principale), e con XTOOL_KEEP_SIGNED=<cartella> salva una copia dell'app firmata (serve per installare
     l'app Watch direttamente sull'orologio).
+ 6. I gruppi condivisi (App Groups) sono ammessi anche sui team gratuiti: la complicazione legge da lì i dati dell'app Watch.
 """
 import sys
 from pathlib import Path
@@ -180,6 +181,10 @@ patch("Sources/XKit/Signer/AutoSigner.swift", "XTOOL_KEEP_SIGNED", [(
         }
 
         return mainInfo.newBundleID""")])
+
+# 6 ─ i gruppi condivisi (App Groups) ammessi sui team gratuiti (la complicazione legge i dati dell'app Watch da lì)
+patch("Sources/XKit/DeveloperServices/App IDs/Entitlements/DeveloperServicesCapability.swift", "appGroups, isFree: true", [(
+    "DeveloperServicesCapability(.appGroups, isFree: false)", "DeveloperServicesCapability(.appGroups, isFree: true)")])
 
 # 5b ─ il firmatario in C++ (zsign, scaricato da SwiftPM in .build/checkouts): una risorsa di firma per ogni parte
 zup = R / ".build/checkouts/zsign/src/lib/Zupersign.cpp"

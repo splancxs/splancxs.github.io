@@ -18,6 +18,10 @@ powershell -ExecutionPolicy Bypass -File app-ios\xtool\windows\installa.ps1
 Fa, in ordine: prepara il progetto dal sito del repository e dai file nativi, compila l'app Watch, compila e firma
 l'app iPhone (con dentro l'app Watch) e la installa, poi installa l'app Watch **direttamente sull'orologio**.
 `installa.ps1 iphone` fa solo l'iPhone, `installa.ps1 orologio` solo l'orologio.
+Dopo aver cambiato il codice dell'app Watch (`app-ios/native/Watch/`): `installa.ps1 watch` ricompila solo l'orologio e
+rifà le due installazioni, senza ricompilare il sito e i plugin. Non esiste un simulatore dell'Apple Watch su Windows
+(è una parte di macOS): si prova sull'orologio vero. Per avere gli screenshot dell'orologio: app Watch dell'iPhone →
+Generali → Abilita screenshot; poi tasto laterale + corona insieme; le immagini finiscono in Foto sull'iPhone.
 
 > **Ordine obbligato**: prima l'app iPhone, poi l'orologio. Reinstallare l'app iPhone fa ritenere all'iPhone che l'app
 > Watch non sia installata (`WCSession: appInstalled NO`, e l'orologio resta su «Apri Recomp sull'iPhone») finché non
