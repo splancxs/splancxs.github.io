@@ -76,7 +76,7 @@ func fmtKg(_ kg: Double) -> String {
 // Riceve lo stato di oggi dall'iPhone e gli manda i tocchi (pasto mangiato, creatina, serie, allenamento finito).
 // I tocchi si vedono subito sull'orologio; l'iPhone poi conferma con lo stato aggiornato.
 // Se l'iPhone non è raggiungibile, transferUserInfo li consegna appena torna vicino.
-final class WatchStore: NSObject, ObservableObject, WCSessionDelegate, WKExtendedRuntimeSessionDelegate {
+final class WatchStore: NSObject, ObservableObject, WCSessionDelegate, WKExtendedRuntimeSessionDelegate, UNUserNotificationCenterDelegate {
     @Published var snap: WatchSnapshot? = WatchShared.load()
     @Published var session: WorkoutSession? = WatchStore.loadSession()
     let health = HealthWorkout()   // allenamento in Salute: battito, calorie, anelli
@@ -88,6 +88,7 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate, WKExtende
 
     override init() {
         super.init()
+        UNUserNotificationCenter.current().delegate = self
         if WCSession.isSupported() {
             WCSession.default.delegate = self
             WCSession.default.activate()
@@ -147,7 +148,7 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate, WKExtende
         session = s
         save()
         armRest()
-        if s.current == nil { WKInterfaceDevice.current().play(.success) }
+        if s.current == nil { WKInterfaceDevice.current().play(.click) }
     }
 
     private func store(_ snapshot: WatchSnapshot) {
@@ -224,7 +225,7 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate, WKExtende
     // serie dell'allenamento avviato sull'iPhone (quando l'app del telefono è aperta), con kg e ripetizioni fatti
     func phoneSetDone(kg: Double?, reps: Int) {
         guard let w = snap?.wo, let i = w.i, let j = w.j else { return }
-        WKInterfaceDevice.current().play(.success)
+        WKInterfaceDevice.current().play(.click)
         var message: [String: Any] = ["a": "set", "i": i, "j": j, "r": reps]
         if let kg { message["kg"] = kg }
         send(message)
@@ -281,7 +282,7 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate, WKExtende
         s.rt = Date()
         session = s
         save()
-        WKInterfaceDevice.current().play(.success)
+        WKInterfaceDevice.current().play(.click)   // serie fatta: solo un tocco, senza suono
         armRest()
         // all'iPhone: la serie fatta, con scheda e inizio (se l'avvio è rimasto indietro) e il recupero deciso qui
         var m: [String: Any] = ["a": "wset", "id": s.id, "rid": s.rid, "name": s.name, "start": s.start.timeIntervalSince1970 * 1000,
@@ -385,9 +386,10 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate, WKExtende
         let content = UNMutableNotificationContent()
         content.title = "Recupero finito"
         content.body = session?.restNext ?? "Via con la prossima serie"
-        content.sound = nil   // solo vibrazione, niente suono
+        content.sound = nil   // senza suono
+        // di riserva: arriva 3 secondi dopo la fine e solo se l'app non è più viva; se l'app c'è, restOver() la cancella prima
         center.add(UNNotificationRequest(identifier: "rest", content: content,
-                                         trigger: UNTimeIntervalNotificationTrigger(timeInterval: max(1, end.timeIntervalSinceNow), repeats: false)))
+                                         trigger: UNTimeIntervalNotificationTrigger(timeInterval: max(1, end.timeIntervalSinceNow + 3), repeats: false)))
     }
 
     private func restOver() {
@@ -395,16 +397,22 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate, WKExtende
         s.restEnd = nil
         session = s
         save()
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["rest"]) // l'app c'è: niente notifica doppia
         buzz()
     }
 
-    // fine recupero: tre vibrazioni distinte, così si sentono anche con il polso fermo e il braccio in tensione.
-    // «.notification» farebbe anche il suono di avviso: uso «.retry», che è solo vibrazione
+    // notifica con l'app aperta: si mostra lo stesso, ma mai con il suono
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
+                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner])
+    }
+
+    // fine recupero: la vibrazione «failure» (scelta dall'utente provando tutte), due volte. watchOS le abbina un suono
+    // e non c'è modo di toglierlo da qui: sparisce solo con l'orologio in silenzioso (la vibrazione resta)
     private func buzz() {
         let d = WKInterfaceDevice.current()
-        d.play(.retry)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { d.play(.retry) }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) { d.play(.retry) }
+        d.play(.failure)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { d.play(.failure) }
     }
 
     // sessione «fisioterapia»: l'app resta attiva anche col polso giù (fino a un'ora), così timer e vibrazione arrivano puntuali

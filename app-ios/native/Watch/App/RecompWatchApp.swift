@@ -1,4 +1,6 @@
 import SwiftUI
+import UserNotifications
+import WatchKit
 
 // App per Apple Watch, stile sportivo come l'app: scritte condensate maiuscole, numeri grandi, lime pieno con testo scuro.
 // Pagine da scorrere con la corona: Allenamento (prima, se oggi c'è da allenarsi), Oggi, Pasti.
@@ -183,27 +185,42 @@ struct ValueBox: View {
 struct RestView: View {
     let end: Date
     let next: String?
-    var onAdd: (() -> Void)?
+    var onLess: (() -> Void)?   // −15″: accorcia il recupero
     var onSkip: (() -> Void)?
     var body: some View {
-        VStack(spacing: 3) {
+        // lo schermo del SE 40 mm è basso: timer, serie dopo, due pulsanti e battito devono stare tutti senza scorrere
+        VStack(spacing: 5) {
             Text(timerInterval: Date()...end, countsDown: true)
-                .font(.sport(54)).monospacedDigit()
-            HeartLine()
+                .font(.sport(48)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.6)
             if let next {
-                Text(next).font(.system(size: 13)).foregroundStyle(.secondary).multilineTextAlignment(.center).lineLimit(2)
+                Text(next).font(.system(size: 12, weight: .medium)).multilineTextAlignment(.center).lineLimit(2)
+                    .minimumScaleFactor(0.85)
+                    .padding(.horizontal, 8).padding(.vertical, 5)
+                    .frame(maxWidth: .infinity)
+                    .background(Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
             }
-            if onAdd != nil || onSkip != nil {
-                HStack(spacing: 8) {
-                    if let onAdd { Button("+15″", action: onAdd) }
-                    if let onSkip { Button("Salta", action: onSkip) }
+            if onLess != nil || onSkip != nil {
+                HStack(spacing: 6) {
+                    if let onLess { Button("−15″", action: onLess).buttonStyle(PillButton(filled: false)) }
+                    if let onSkip { Button("SALTA", action: onSkip).buttonStyle(PillButton(filled: true)) }
                 }
-                .font(.sport(17))
-                .padding(.top, 2)
             }
+            HeartLine()
         }
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 4)
+    }
+}
+
+// pulsante a pillola: pieno lime (azione principale) o grigio scuro (secondaria)
+struct PillButton: ButtonStyle {
+    let filled: Bool
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.sport(17))
+            .foregroundStyle(filled ? Palette.ink : .white)
+            .frame(maxWidth: .infinity, minHeight: 34)
+            .background(filled ? Palette.lime.opacity(configuration.isPressed ? 0.7 : 1) : Color.white.opacity(configuration.isPressed ? 0.25 : 0.14), in: Capsule())
     }
 }
 
@@ -270,7 +287,7 @@ struct SessionView: View {
             TimelineView(.periodic(from: .now, by: 1)) { ctx in
                 if let s = store.session {
                     if let end = s.restEnd, end > ctx.date {
-                        RestView(end: end, next: s.restNext, onAdd: { store.addRest(15) }, onSkip: { store.skipRest() })
+                        RestView(end: end, next: s.restNext, onLess: { store.addRest(-15) }, onSkip: { store.skipRest() })
                     } else if let c = s.current {
                         let it = s.items[c[0]], set = it.sets[c[1]]
                         VStack(spacing: 6) {
@@ -458,6 +475,7 @@ struct TodayHome: View {
                 }
                 .buttonStyle(CardButton())
                 workoutCard
+
             }
             .padding(.horizontal, 6)   // l'anello e i riquadri non devono toccare il bordo curvo dello schermo
         }
