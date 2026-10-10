@@ -308,6 +308,8 @@ struct SessionView: View {
                 summary(s)
                     .navigationTitle("Riepilogo")
                     .pageBackground(Palette.lime, 0.2)
+                // la musica che stai ascoltando, con i comandi di sistema (come nell'app Allenamento di Apple)
+                NowPlayingView()
             }
         }
         .tabViewStyle(.page)
