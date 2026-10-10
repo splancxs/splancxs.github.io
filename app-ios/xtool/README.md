@@ -27,6 +27,11 @@ Generali → Abilita screenshot; poi tasto laterale + corona insieme; le immagin
 > Watch non sia installata (`WCSession: appInstalled NO`, e l'orologio resta su «Apri Recomp sull'iPhone») finché non
 > si reinstalla l'orologio. Il comando lo fa già nell'ordine giusto.
 
+**Senza cavo?** L'iPhone si installa anche via Wi-Fi (serve spegnere «Indirizzo Wi-Fi privato» per la rete di casa, così
+il servizio Apple di Windows lo riconosce, e tenerlo sveglio e sbloccato), ma il servizio che porta all'**orologio**
+(`companion_proxy`) chiude la connessione se l'iPhone è collegato via Wi-Fi: per l'orologio serve il cavo USB.
+Provato il 10/10/2026: `installa.ps1 watch` senza cavo installa l'iPhone ma si ferma all'orologio.
+
 Se «Non raggiungo l'iPhone»: apri l'app **Apple Devices** su Windows, collega e sblocca l'iPhone e, se hai riavviato il
 PC, lancia `windows\porta.ps1` (chiede il permesso di amministratore).
 

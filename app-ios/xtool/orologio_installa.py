@@ -138,6 +138,9 @@ async def main():
 try:
     asyncio.run(main())
 except Exception as e:  # noqa: BLE001
+    if type(e).__name__ == "ConnectionTerminatedError":
+        log("Il collegamento si è chiuso. Se l'iPhone è collegato via Wi-Fi (senza cavo) è normale: il servizio che porta "
+            "all'orologio funziona solo con il cavo USB. Collega l'iPhone al PC e rilancia «installa.ps1 orologio».")
     if type(e).__name__ == "DeviceNotFoundError":
         log("L'orologio non risponde: è spento, lontano dall'iPhone o bloccato? Accendilo, sbloccalo, tienilo al polso e rilancia.")
     log("ERRORE:", repr(e))
