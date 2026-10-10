@@ -1586,6 +1586,7 @@
         if (m && !m.free && D.variants[m.slot][e.code]) { setSwap(dayIdx(new Date()), e.si, e.code); buzz(); render(); }
       }
       else if (e.a === 'crea') { if (!creaOn(dkey(new Date()))) { toggleCreatine(); render(); } }
+      else if (e.a === 'uncrea') { if (creaOn(dkey(new Date()))) { toggleCreatine(); render(); } }
       else if (e.a === 'set' && window.RCW && window.RCW.watch) window.RCW.watch.done(Number(e.i), Number(e.j), e.kg, e.r);
       else if (e.a === 'wstart' && window.RCW && window.RCW.watch) window.RCW.watch.begin(e);
       else if (e.a === 'wset' && window.RCW && window.RCW.watch) {

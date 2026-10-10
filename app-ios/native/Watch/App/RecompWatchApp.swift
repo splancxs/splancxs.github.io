@@ -464,7 +464,6 @@ struct TodayHome: View {
                     }
                 }
                 .buttonStyle(CardButton())
-                .disabled(s.crea)
                 NavigationLink { MealsPage(s: s) } label: {
                     HStack {
                         Image(systemName: "fork.knife").foregroundStyle(Palette.lime)

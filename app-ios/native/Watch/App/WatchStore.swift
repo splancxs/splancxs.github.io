@@ -215,11 +215,12 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate, WKExtende
     }
 
     func creatine() {
-        guard var s = snap, !s.crea else { return }
-        s.crea = true
+        // un tocco la segna presa, un altro tocco la toglie
+        guard var s = snap else { return }
+        s.crea.toggle()
         store(s)
-        WKInterfaceDevice.current().play(.success)
-        send(["a": "crea"])
+        WKInterfaceDevice.current().play(s.crea ? .success : .click)
+        send(["a": s.crea ? "crea" : "uncrea"])
     }
 
     // serie dell'allenamento avviato sull'iPhone (quando l'app del telefono è aperta), con kg e ripetizioni fatti
