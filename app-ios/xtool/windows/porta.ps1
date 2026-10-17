@@ -8,9 +8,10 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 $alias = 'vEthernet (WSL (Hyper-V firewall))'
 $ip = (Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias $alias).IPAddress
 Write-Host "Indirizzo di Windows visto da Linux: $ip"
-if (-not (Get-NetFirewallRule -DisplayName 'WSL iPhone 27015' -ErrorAction SilentlyContinue)) {
-    New-NetFirewallRule -DisplayName 'WSL iPhone 27015' -Direction Inbound -InterfaceAlias $alias -Protocol TCP -LocalPort 27015 -Action Allow | Out-Null
-}
+# La scheda di rete di WSL cambia identificativo a ogni riavvio di WSL: una regola legata alla scheda smette di valere.
+# Per questo la regola guarda l'indirizzo di chi chiama (la rete privata di WSL, 172.16.0.0/12) e non la scheda; la ricreo sempre.
+Get-NetFirewallRule -DisplayName 'WSL iPhone 27015' -ErrorAction SilentlyContinue | Remove-NetFirewallRule
+New-NetFirewallRule -DisplayName 'WSL iPhone 27015' -Direction Inbound -Protocol TCP -LocalPort 27015 -LocalAddress $ip -RemoteAddress 172.16.0.0/12 -Action Allow | Out-Null
 netsh interface portproxy delete v4tov4 listenport=27015 listenaddress=$ip 2>$null | Out-Null
 netsh interface portproxy add v4tov4 listenport=27015 listenaddress=$ip connectaddress=127.0.0.1 connectport=27015
 Write-Host ''

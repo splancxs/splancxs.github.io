@@ -38,6 +38,16 @@ fi
 P="$LAVORO/Recomp"
 APP="$P/xtool/RecompProva.app"
 
+# Con l'Apple ID gratuito l'elenco dei dispositivi del team si svuota ogni 7 giorni (resta solo l'iPhone, che xtool rimette da solo).
+# Senza l'orologio nel team il profilo dell'app Watch non vale: «A valid provisioning profile for this executable was not found».
+if [ "$COSA" != iphone ]; then
+  ELENCO="$("$XTOOL_PATCHATO" ds devices list </dev/null 2>/dev/null || true)"
+  if ! printf '%s' "$ELENCO" | grep -q "$WATCH_UDID"; then
+    echo "Registro l'orologio sul team (l'elenco dei dispositivi si azzera ogni settimana)…"
+    "$XTOOL_PATCHATO" ds devices add --udid "$WATCH_UDID" --name "Apple Watch" </dev/null
+  fi
+fi
+
 if [ "$COSA" = watch ]; then
   # giro veloce per provare modifiche all'app Watch: ricompila solo l'orologio, ricorda l'app iPhone già costruita,
   # la rifirma con l'app Watch nuova e rifà l'installazione (iPhone e poi orologio, nell'ordine obbligato)
