@@ -170,7 +170,7 @@
     if (!f.days.length) return `Negli ultimi ${f.span} giorni non hai spuntato nessun pasto in Oggi: senza spunte non posso valutare quanto segui il piano.`;
     const kc = f.mean(f.okDays, (x) => x.k), tk = f.mean(f.okDays, (x) => x.tk), p = f.mean(f.okDays, (x) => x.p);
     return `Negli ultimi ${f.span} giorni hai spuntato pasti in ${f.days.length} giorn${f.days.length === 1 ? 'o' : 'i'}; in ${f.okDays.length} hai seguito almeno l’80% del piano.`
-      + (f.okDays.length ? ` In quei giorni: in media ${k.f0(kc)} kcal spuntate su ${k.f0(tk)} previste e ${k.f0(p)} g di proteine (obiettivo 140).` : '')
+      + (f.okDays.length ? ` In quei giorni: in media ${k.f0(kc)} kcal spuntate su ${k.f0(tk)} previste e ${k.f0(p)} g di proteine (obiettivo ${k.D.targets.ON.p}).` : '')
       + (f.creaDays ? ` Creatina presa ${f.creaDays} giorn${f.creaDays === 1 ? 'o' : 'i'} su ${f.span}.` : '');
   }
   function tTrain(f) {
@@ -251,9 +251,9 @@
     L.push('', 'PIANO ALIMENTARE',
       `Giorni ON (allenamento: ${onDays}): ${T.ON.k} kcal, proteine ${T.ON.p} g, carboidrati ${T.ON.c} g, grassi ${T.ON.f} g.`,
       `Giorni OFF (riposo): ${T.OFF.k} kcal, proteine ${T.OFF.p} g, carboidrati ${T.OFF.c} g, grassi ${T.OFF.f} g.`,
-      `Media pianificata: ${Math.round((nOn * T.ON.k + (7 - nOn) * T.OFF.k) / 7)} kcal al giorno. Consumo stimato: 2450 kcal nei giorni ON, 2100 nei giorni OFF, media 2300 (stima: passi e attività non sono registrati nell'app).`,
-      'Ritmo atteso: da -0.2 a -0.5 kg a settimana. Pasto libero la domenica a pranzo, non conteggiato (stima 800-1000 kcal).',
-      'Regole di correzione del piano: calo oltre 0.6 kg a settimana per 2 settimane -> +150 kcal; peso e girovita fermi per 2 settimane -> -100/150 kcal oppure +2000 passi; carichi in calo per 2 settimane -> +100 kcal nei giorni ON e più sonno. Nelle prime 2-3 settimane di creatina 0.5-1 kg in più è acqua.');
+      `Media pianificata: ${Math.round((nOn * T.ON.k + (7 - nOn) * T.OFF.k) / 7)} kcal al giorno. Consumo stimato: 2470 kcal nei giorni ON, 2070 nei giorni OFF, media 2300 (intervallo 2150-2450; stima: passi e attività non sono registrati nell'app).`,
+      'Ritmo atteso: circa -0.35 kg a settimana (da -0.25 a -0.45). Pasto libero la domenica a pranzo, non conteggiato (budget circa 700 kcal, senza pesare).',
+      'Regole di correzione del piano: calo oltre 0.45 kg a settimana per 2 settimane -> +150 kcal; calo sotto 0.15 kg a settimana per 2-3 settimane -> prima controllare gli errori (pesate, olio, weekend, pasto fuori), poi più passi, solo dopo -100 kcal; carichi in calo per 2 settimane -> +100/150 kcal nei giorni ON e più sonno. Niente proteine in polvere: non le vuole. Il piano lo decide il suo nutrizionista: proponi scambi tra le opzioni esistenti, non nuove calorie.');
     const tp = P.todayPlan();
     const eaten = P.eatenToday();
     L.push('', `OGGI (${GIORNI[k.dayIdx(now)]}, giorno ${tp.conv ? `${tp.conv === 'ON' ? 'ON' : 'OFF'}, cambiato oggi` : tp.day.type}): pasti del piano. Numero, ora, pasto, ricetta, kcal e macro; [mangiato] = già segnato.`);
@@ -759,7 +759,12 @@ Foto: se ti manda la foto di un piatto, stima ingredienti e grammi, poi kcal e m
       ${foot ? `<div class="row">${foot}</div>` : ''}</div>`;
   }
 
-  C.view = function () {
+  // schede di collegamento (Claude, riserva gratuita, memoria): le mostra Profilo → Collegamenti e dati
+  C.setup = function () {
+    const p = parts();
+    return `${p.claudeCard}${p.freeCard}${p.memCard}`;
+  };
+  function parts() {
     const k = K();
     const keys = getKeys();
     const cl = !!keys.claude;
@@ -815,6 +820,11 @@ Foto: se ti manda la foto di un piatto, stima ingredienti e grammi, poi kcal e m
           ${notes.length ? `<ul class="co-mem">${notes.map((m) => `<li><span>${k.esc(m.x)}</span><button type="button" class="x-btn" data-c="mem-del" data-id="${m.id}" aria-label="Cancella questa nota">${k.I.trash}</button></li>`).join('')}</ul>` : '<p class="small muted">Ancora niente. Scrivi per esempio «ricorda che la spalla sinistra mi dà fastidio alla panca».</p>'}
           <p class="tiny muted">Le note si sincronizzano tra telefono e PC e Claude le legge a ogni domanda.</p></div></details>`
       : '';
+    return { cl, fp, ai, chat, f, bubble, lastQ, from, older, shownMin, lastCheck, due, notes, spent, claudeCard, freeCard, memCard };
+  }
+  C.view = function () {
+    const k = K();
+    const { cl, fp, ai, chat, f, bubble, older, from, shownMin, lastCheck, due } = parts();
     const footTxt = cl ? `Risponde ${k.esc(short(CLAUDE.models[claudeModel()]))}${fp ? `, con ${k.esc(FREE[fp].name)} di riserva` : ''}.`
       : fp ? `Risponde ${k.esc(FREE[fp].name)} (solo domande: foto, proposte e memoria richiedono Claude).` : 'Senza un’AI collegata rispondo alle domande pronte con calcoli sui tuoi dati.';
     return `<div class="stack coach">
@@ -841,9 +851,7 @@ Foto: se ti manda la foto di un piatto, stima ingredienti e grammi, poi kcal e m
         <div class="co-foot"><span class="tiny muted">${footTxt}</span>
           ${chat.length && !ui.busy ? `${ui.all && chat.length > shownMin ? '<button type="button" class="co-link" data-c="older">Nascondi i precedenti</button>' : ''}<button type="button" class="co-link" data-c="clear">Nuova conversazione</button>` : ''}</div>
       </section>
-      ${memCard}
-      ${claudeCard}
-      ${freeCard}
+      ${ai ? '' : `<section class="card stack"><h2>Risposte qui dentro</h2><p class="small">Per le risposte in questa pagina, con foto, proposte da applicare e memoria, collega Claude (o una riserva gratuita) in Profilo.</p><div class="row"><a class="btn ghost" href="#/profilo">Collega l’AI</a></div></section>`}
     </div>`;
   };
 

@@ -6,6 +6,7 @@
 #   installa.sh iphone     solo iPhone (poi però va rifatto anche l'orologio: l'iPhone «dimentica» l'app Watch)
 #   installa.sh orologio   solo l'app Watch, già costruita dall'ultima volta
 #   installa.sh watch      giro veloce dopo aver cambiato il codice dell'app Watch: ricompila solo l'orologio
+#   installa.sh compila    compila tutto senza installare (iPhone non collegato): per controllare che il codice compili
 #
 # ORDINE OBBLIGATO: prima l'app iPhone, poi l'app Watch direttamente sull'orologio. Ogni volta che si reinstalla
 # l'app iPhone, l'iPhone ritiene l'app Watch non installata (WCSession: appInstalled NO) finché non si reinstalla l'orologio.
@@ -18,21 +19,28 @@ REPO="$(cd "$QUI/../.." && pwd)"
 . "$HOME/.local/share/swiftly/env.sh"
 COSA="${1:-tutto}"
 
-# l'iPhone si raggiunge attraverso il servizio Apple di Windows (porta 27015), non con usbipd (dà timeout nell'installazione)
-pkill usbmuxd 2>/dev/null || true
-export USBMUXD_SOCKET_ADDRESS="$(ip route list default | awk '{print $3}'):27015"
-if ! timeout 8 bash -c "exec 3<>/dev/tcp/${USBMUXD_SOCKET_ADDRESS%:*}/27015" 2>/dev/null; then
-  echo "Non raggiungo l'iPhone: apri l'app «Apple Devices» su Windows, collega e sblocca l'iPhone,"
-  echo "poi (una tantum, o dopo un riavvio del PC) lancia windows/porta.ps1 da PowerShell come amministratore."
-  exit 1
-fi
+if [ "$COSA" != compila ]; then
+  # l'iPhone si raggiunge attraverso il servizio Apple di Windows (porta 27015), non con usbipd (dà timeout nell'installazione)
+  pkill usbmuxd 2>/dev/null || true
+  if [ "$(wslinfo --networking-mode 2>/dev/null || true)" = mirrored ]; then
+    # rete «mirrored» (.wslconfig): Windows e Linux condividono la rete, il servizio Apple è su 127.0.0.1, niente porta.ps1
+    export USBMUXD_SOCKET_ADDRESS="127.0.0.1:27015"
+  else
+    export USBMUXD_SOCKET_ADDRESS="$(ip route list default | awk '{print $3}'):27015"
+  fi
+  if ! timeout 8 bash -c "exec 3<>/dev/tcp/${USBMUXD_SOCKET_ADDRESS%:*}/27015" 2>/dev/null; then
+    echo "Non raggiungo l'iPhone: apri l'app «Apple Devices» su Windows, collega e sblocca l'iPhone,"
+    echo "poi (una tantum, o dopo un riavvio del PC) lancia windows/porta.ps1 da PowerShell come amministratore."
+    exit 1
+  fi
 
-# con il Wi-Fi attivo l'iPhone compare due volte (rete e USB) e xtool chiederebbe quale usare: scelgo io, USB se c'è il cavo
-if timeout 30 "$PMD" -m pymobiledevice3 usbmux list 2>/dev/null | grep -q '"ConnectionType": "USB"'; then
-  CONN=--usb
-else
-  CONN=--network
-  echo "Nota: iPhone senza cavo (Wi-Fi): l'app iPhone si installa, ma per l'orologio serve il cavo USB."
+  # con il Wi-Fi attivo l'iPhone compare due volte (rete e USB) e xtool chiederebbe quale usare: scelgo io, USB se c'è il cavo
+  if timeout 30 "$PMD" -m pymobiledevice3 usbmux list 2>/dev/null | grep -q '"ConnectionType": "USB"'; then
+    CONN=--usb
+  else
+    CONN=--network
+    echo "Nota: iPhone senza cavo (Wi-Fi): l'app iPhone si installa, ma per l'orologio serve il cavo USB."
+  fi
 fi
 
 P="$LAVORO/Recomp"
@@ -40,7 +48,7 @@ APP="$P/xtool/RecompProva.app"
 
 # Con l'Apple ID gratuito l'elenco dei dispositivi del team si svuota ogni 7 giorni (resta solo l'iPhone, che xtool rimette da solo).
 # Senza l'orologio nel team il profilo dell'app Watch non vale: «A valid provisioning profile for this executable was not found».
-if [ "$COSA" != iphone ]; then
+if [ "$COSA" != iphone ] && [ "$COSA" != compila ]; then
   ELENCO="$("$XTOOL_PATCHATO" ds devices list </dev/null 2>/dev/null || true)"
   if ! printf '%s' "$ELENCO" | grep -q "$WATCH_UDID"; then
     echo "Registro l'orologio sul team (l'elenco dei dispositivi si azzera ogni settimana)…"
@@ -68,12 +76,15 @@ fi
 if [ "$COSA" != orologio ]; then
   echo "1/4 Preparo il progetto…"
   mkdir -p "$P/Sources/RecompProva" "$P/Sources/RecompLive" "$P/Resources"
-  cp "$QUI/progetto/"{xtool.yml,Info.plist,RecompLive-Info.plist,App.entitlements} "$P/"
+  cp "$QUI/progetto/"{xtool.yml,Info.plist,RecompLive-Info.plist,RecompLive.entitlements,App.entitlements} "$P/"
   sed "s#@NPM@#$NPM_CAP#g" "$QUI/progetto/Package.swift.modello" > "$P/Package.swift"
   cp "$QUI/progetto/RecompProvaApp.swift" "$P/Sources/RecompProva/"
   cp "$REPO/app-ios/native/App/"{NativeTabsPlugin,RestActivityPlugin,HealthPlugin,WatchBridgePlugin}.swift "$P/Sources/RecompProva/"
   cp "$REPO/app-ios/native/Shared/RestAttributes.swift" "$P/Sources/RecompProva/"
   cp "$REPO/app-ios/native/RecompLive/RestLiveActivity.swift" "$REPO/app-ios/native/Shared/RestAttributes.swift" "$P/Sources/RecompLive/"
+  # widget della schermata Home: sta nella stessa estensione della Live Activity (legge lo stato salvato nel gruppo condiviso)
+  cp "$REPO/app-ios/native/Home/HomeWidget.swift" "$REPO/app-ios/native/Watch/Shared/WatchModel.swift" "$P/Sources/RecompLive/"
+  sed -i 's/var body: some Widget { RestLiveActivity() }/var body: some Widget { RestLiveActivity(); RecompHomeWidget() }/' "$P/Sources/RecompLive/RestLiveActivity.swift"
   cp "$QUI/progetto/capacitor.config.json" "$P/Resources/"
   cp "$REPO/app-ios/resources/icon-1024.png" "$P/Resources/AppIcon.png"
   rm -rf "$P/Resources/public"; mkdir -p "$P/Resources/public"
@@ -85,6 +96,7 @@ if [ "$COSA" != orologio ]; then
 
   echo "3/4 Compilo, firmo e installo l'app iPhone…"
   (cd "$P" && "$XTOOL_STD" dev build </dev/null)
+  [ "$COSA" = compila ] && { echo "Compilazione riuscita (nessuna installazione)."; exit 0; }
   rm -rf "$APP/Watch"; mkdir -p "$APP/Watch"
   cp -R "$LAVORO/orologio/out/RecompWatch.app" "$APP/Watch/"
   rm -rf "$LAVORO/firmato"

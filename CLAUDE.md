@@ -59,3 +59,15 @@ App personale di dieta e allenamento: un sito statico (GitHub Pages, https://spl
 - L'app iPhone di xtool è `io.github.splancxs.recomp.prova` (nome «Recomp»), diversa da quella di Xcode/AltStore: cambia
   firma e identificativo, quindi i dati locali non passano da una all'altra (restano nel Sync).
 - `app-ios/xtool/config.sh` (UDID dell'orologio) non va mai su GitHub.
+- Widget della schermata Home: `app-ios/native/Home/HomeWidget.swift`, dentro l'estensione RecompLive; legge lo stato che
+  l'app salva nel gruppo condiviso (`WatchBridgePlugin`). Il sito web però non lo usa più: l'interfaccia è tornata a quella di prima (2026-10-18).
+
+## App SwiftUI («Recomp 2», `app-ios/swiftui`)
+- Riscrittura dell'app iPhone senza sito dentro, stile tipo Lift (grafite, argento, accento rosso). Dettagli, installazione e limite
+  di 3 app del profilo gratuito in `app-ios/swiftui/README.md`. Il sito web resterà solo un visualizzatore.
+- Dopo modifiche all'app Watch: `installa.ps1 watch` (o `installa-nuova.ps1 watch`), mai `orologio` (non ricompila).
+
+## Cosa NON rifare
+- Il 2026-10-18 l'utente ha scartato più redesign (brutalista, «Pulito», «Nuovo», menu a 4 voci, pagine a etichette e sezioni
+  richiudibili) e ha chiesto di tornare all'interfaccia di prima tenendo solo i bug sistemati (sincronizzazione esatta
+  iPhone↔orologio, annulla/fine allenamento, Live Activity che apre l'esercizio in corso). Non proporre redesign senza richiesta esplicita.

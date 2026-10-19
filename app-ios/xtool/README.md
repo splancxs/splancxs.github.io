@@ -32,8 +32,17 @@ il servizio Apple di Windows lo riconosce, e tenerlo sveglio e sbloccato), ma il
 (`companion_proxy`) chiude la connessione se l'iPhone è collegato via Wi-Fi: per l'orologio serve il cavo USB.
 Provato il 10/10/2026: `installa.ps1 watch` senza cavo installa l'iPhone ma si ferma all'orologio.
 
-Se «Non raggiungo l'iPhone»: apri l'app **Apple Devices** su Windows, collega e sblocca l'iPhone e, se hai riavviato il
-PC, lancia `windows\porta.ps1` (chiede il permesso di amministratore).
+**Rete di WSL «mirrored» (consigliata).** Con `C:\Users\<utente>\.wslconfig` contenente
+```
+[wsl2]
+networkingMode=mirrored
+```
+Windows e Linux condividono la rete: `installa.sh` lo riconosce (`wslinfo --networking-mode`) e raggiunge il servizio Apple
+su `127.0.0.1:27015`, senza `porta.ps1`, senza regola firewall e senza permessi di amministratore. Provato il 17/10/2026
+(WSL 3.0.1, Windows 11): iPhone e orologio si installano normalmente. Dopo aver creato il file: `wsl --shutdown`.
+
+Se «Non raggiungo l'iPhone»: apri l'app **Apple Devices** su Windows e collega e sblocca l'iPhone. Senza la rete mirrored,
+dopo un riavvio del PC lancia anche `windows\porta.ps1` (chiede il permesso di amministratore).
 
 ## Che cosa c'è
 

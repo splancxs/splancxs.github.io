@@ -1,0 +1,13 @@
+version: 1
+product: RecompNuova
+bundleID: io.github.splancxs.recomp.nuova
+infoPath: Info.plist
+iconPath: Resources/AppIcon.png
+entitlementsPath: App.entitlements
+resources:
+- Resources/piano.json
+- Resources/movimenti.json
+extensions:
+- product: RecompLive
+  infoPath: RecompLive-Info.plist
+  entitlementsPath: RecompLive.entitlements

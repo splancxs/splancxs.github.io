@@ -10,3 +10,4 @@ resources:
 extensions:
 - product: RecompLive
   infoPath: RecompLive-Info.plist
+  entitlementsPath: RecompLive.entitlements

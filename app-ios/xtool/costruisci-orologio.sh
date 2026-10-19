@@ -14,10 +14,12 @@ XC="$B/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib"
 RES="$XC/swift"
 TOOLS="$B/toolset/bin"
 RT="$XC/clang/21/lib/darwin/libclang_rt.watchos.a"
-W="$LAVORO/orologio"
+W="$LAVORO/${WATCH_DIR:-orologio}"   # cartella di lavoro: l'app «Recomp 2» (installa-nuova.sh) ne usa una sua
 APP="$W/out/RecompWatch.app"
 EXT="$APP/PlugIns/RecompWatchWidgets.appex"
-PHONE=io.github.splancxs.recomp.prova   # identificativo dell'app iPhone (xtool.yml); xtool poi aggiunge il suo prefisso
+PHONE="${PHONE_ID:-io.github.splancxs.recomp.prova}"   # identificativo dell'app iPhone (xtool.yml); xtool poi aggiunge il suo prefisso
+GRUPPO="${GROUP_ID:-group.io.github.splancxs.recomp}"   # gruppo condiviso con la complicazione
+NOME="${WATCH_NAME:-Recomp}"
 
 # le intestazioni del compilatore di questo PC al posto di quelle di Xcode (lo fa «xtool sdk install», qui l'SDK non è installato)
 if [ ! -d "$RES/clang/include" ]; then
@@ -49,9 +51,9 @@ swiftc "${SW[@]}" -application-extension -parse-as-library -module-name RecompWa
 
 [ -s "$APP/RecompWatch" ] && [ -s "$EXT/RecompWatchWidgets" ] || { echo "Collegamento non riuscito"; exit 1; }
 
-python3 - "$PHONE" "$APP" "$EXT" <<'EOF'
+python3 - "$PHONE" "$APP" "$EXT" "$GRUPPO" "$NOME" <<'EOF'
 import plistlib, sys
-phone, app, ext = sys.argv[1:4]
+phone, app, ext, gruppo, nome = sys.argv[1:6]
 common = {
     "CFBundleDevelopmentRegion": "it", "CFBundleInfoDictionaryVersion": "6.0",
     "CFBundleShortVersionString": "1.0.0", "CFBundleVersion": "1",
@@ -59,7 +61,7 @@ common = {
     "DTSDKName": "watchos27.0", "MinimumOSVersion": "10.0", "UIDeviceFamily": [4],
 }
 watch = dict(common, **{
-    "CFBundleDisplayName": "Recomp", "CFBundleExecutable": "RecompWatch",
+    "CFBundleDisplayName": nome, "CFBundleExecutable": "RecompWatch",
     "CFBundleIdentifier": phone + ".watchkitapp", "CFBundleName": "RecompWatch", "CFBundlePackageType": "APPL",
     "NSHealthShareUsageDescription": "Recomp legge battito e calorie durante l'allenamento per mostrarteli sull'orologio.",
     "NSHealthUpdateUsageDescription": "Recomp salva i tuoi allenamenti in Salute, così contano negli anelli Attività.",
@@ -70,7 +72,7 @@ watch = dict(common, **{
     "CFBundleIcons": {"CFBundlePrimaryIcon": {"CFBundleIconFiles": ["AppIcon"], "CFBundleIconName": "AppIcon"}},
 })
 widgets = dict(common, **{
-    "CFBundleDisplayName": "Recomp", "CFBundleExecutable": "RecompWatchWidgets",
+    "CFBundleDisplayName": nome, "CFBundleExecutable": "RecompWatchWidgets",
     "CFBundleIdentifier": phone + ".watchkitapp.widgets", "CFBundleName": "RecompWatchWidgets",
     "CFBundlePackageType": "XPC!", "NSExtension": {"NSExtensionPointIdentifier": "com.apple.widgetkit-extension"},
 })
@@ -78,9 +80,9 @@ for d, v in ((app, watch), (ext, widgets)):
     plistlib.dump(v, open(d + "/Info.plist", "wb"))
 # permessi richiesti: li legge xtool (patchato) per creare gli identificativi e i profili, poi cancella il file
 plistlib.dump({"com.apple.developer.healthkit": True,
-               "com.apple.security.application-groups": ["group.io.github.splancxs.recomp"]},
+               "com.apple.security.application-groups": [gruppo]},
               open(app + "/xtool-entitlements.plist", "wb"))
-plistlib.dump({"com.apple.security.application-groups": ["group.io.github.splancxs.recomp"]},
+plistlib.dump({"com.apple.security.application-groups": [gruppo]},
               open(ext + "/xtool-entitlements.plist", "wb"))
 EOF
 cp "$REPO/app-ios/resources/icon-1024.png" "$APP/AppIcon.png"

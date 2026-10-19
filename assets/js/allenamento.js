@@ -170,11 +170,11 @@
     const e = exOf(it.ex);
     const p = prevSets(it.ex);
     const tg = coachTarget(it.ex, p);
-    if (tg) return { cls: 'up', txt: `Consiglio del coach: ${k.fmtKg(tg.kg)} kg × ${tg.r || it.lo}${tg.why ? `. ${tg.why}` : ''}` };
+    if (tg) return { cls: 'up', txt: `Consiglio del coach: ${wTxt(it.ex, tg.kg)} × ${tg.r || it.lo}${tg.why ? `. ${tg.why}` : ''}` };
     const work = p ? p.sets.filter((s) => isWork(s) && s.r != null) : [];
     if (!work.length) {
       if (e.unit === 'sec') return { cls: '', txt: `Tieni ${it.lo}″ su ogni serie, poi aumenta fino a ${it.hi}″.` };
-      return { cls: '', txt: it.kg != null ? `Parti da ${k.fmtKg(it.kg)} kg: ${it.lo}–${it.hi} ripetizioni lasciandone 1–2 in riserva.` : `Carico da testare: trova il peso con cui chiudi ${it.lo}–${it.hi} ripetizioni con 1–2 in riserva.` };
+      return { cls: '', txt: it.kg != null ? `Parti da ${wTxt(it.ex, it.kg)}: ${it.lo}–${it.hi} ripetizioni lasciandone 1–2 in riserva.` : `Carico da testare: trova il peso con cui chiudi ${it.lo}–${it.hi} ripetizioni con 1–2 in riserva.` };
     }
     if (e.unit === 'sec') {
       const all = work.length >= it.sets.length && work.every((s) => s.r >= it.hi);
@@ -183,9 +183,9 @@
     const kg = Math.max(...work.map((s) => s.kg || 0));
     if (!kg) return { cls: '', txt: 'Registra anche il carico per avere il consiglio.' };
     const target = it.sets.filter(isWork).length || it.sets.length;
-    if (work.length >= target && work.every((s) => s.r >= it.hi)) return { cls: 'up', txt: `Tutte le serie a ${it.hi}: oggi sali a ${k.fmtKg(k.r1(kg + e.inc))} kg.` };
-    if (work.some((s) => s.r < it.lo)) return { cls: '', txt: `Qualche serie sotto le ${it.lo}: resta a ${k.fmtKg(kg)} kg (se ricapita, −5/10%).` };
-    return { cls: '', txt: `Resta a ${k.fmtKg(kg)} kg e aggiungi 1 ripetizione dove riesci.` };
+    if (work.length >= target && work.every((s) => s.r >= it.hi)) return { cls: 'up', txt: `Tutte le serie a ${it.hi}: oggi sali a ${wTxt(it.ex, k.r1(kg + e.inc))}.` };
+    if (work.some((s) => s.r < it.lo)) return { cls: '', txt: `Qualche serie sotto le ${it.lo}: resta a ${wTxt(it.ex, kg)} (se ricapita, −5/10%).` };
+    return { cls: '', txt: `Resta a ${wTxt(it.ex, kg)} e aggiungi 1 ripetizione dove riesci.` };
   }
 
   function elapsed(a) {
@@ -195,6 +195,20 @@
   }
   setInterval(() => { const a = getActive(); const el = document.getElementById('woElapsed'); if (a && el) el.textContent = elapsed(a); document.querySelectorAll('.wo-elapsed').forEach((x) => { if (a) x.textContent = elapsed(a); }); }, 1000);
 
+  // Alcuni macchinari hanno i pesi in libbre: per ogni esercizio si sceglie kg o lb. Dentro l'app i pesi restano sempre in kg:
+  // in lb cambia solo ciò che si vede e si digita (100 lb = 45,36 kg). Lo stesso interruttore c'è sull'orologio.
+  const lbOn = (id) => (K().store.get('lbEx', []) || []).includes(id);
+  const toLb = (kg) => Math.round((kg / 0.45359237) * 2) / 2;       // al mezzo libbra: mai «99,9»
+  const toKg = (lb) => Math.round(lb * 0.45359237 * 100) / 100;
+  const wShow = (id, kg) => (kg == null ? '' : K().fmtKg(lbOn(id) ? toLb(kg) : kg));
+  const wTxt = (id, kg) => `${wShow(id, kg)} ${lbOn(id) ? 'lb' : 'kg'}`;
+  function toggleUnit(id) {
+    const k = K();
+    const l = (k.store.get('lbEx', []) || []).filter((x) => x !== id);
+    if (!lbOn(id)) l.push(id);
+    k.store.set('lbEx', l);
+  }
+
   const typeLabel = { w: 'R', d: 'D', f: 'C' };
   const typeName = { n: 'Normale', w: 'Riscaldamento', d: 'Drop set', f: 'A cedimento' };
 
@@ -203,11 +217,11 @@
     const e = exOf(it.ex);
     const p = prevSets(it.ex);
     const ps = p && p.sets[j];
-    const prevTxt = ps ? (e.unit === 'sec' ? `${ps.r ?? '–'}″` : `${ps.kg != null ? k.fmtKg(ps.kg) : '–'} × ${ps.r ?? '–'}`) : '—';
+    const prevTxt = ps ? (e.unit === 'sec' ? `${ps.r ?? '–'}″` : `${ps.kg != null ? wShow(it.ex, ps.kg) : '–'} × ${ps.r ?? '–'}`) : '—';
     const ph = placeholder(it, j);
     const label = s.type === 'n' ? String(nums[j]) : typeLabel[s.type];
     const kgIn = e.unit === 'sec' ? '<span class="wdash">—</span>'
-      : `<input inputmode="decimal" autocomplete="off" data-wi="kg" data-i="${i}" data-j="${j}" value="${s.kg != null ? k.fmtKg(s.kg) : ''}" placeholder="${ph.kg != null ? k.fmtKg(ph.kg) : ''}" aria-label="Serie ${j + 1}, chili">`;
+      : `<input inputmode="decimal" autocomplete="off" data-wi="kg" data-i="${i}" data-j="${j}" value="${s.kg != null ? wShow(it.ex, s.kg) : ''}" placeholder="${ph.kg != null ? wShow(it.ex, ph.kg) : ''}" aria-label="Serie ${j + 1}, ${lbOn(it.ex) ? 'libbre' : 'chili'}">`;
     return `<div class="wswipe" data-swipe="del" data-i="${i}" data-j="${j}"><span class="wswipe-bg" aria-hidden="true">Elimina</span><div class="wset${s.done ? ' done' : ''}">
       <button type="button" class="wtype t-${s.type}" data-w="type" data-i="${i}" data-j="${j}" aria-label="Tipo di serie: ${typeName[s.type]}, tocca per cambiare">${label}</button>
       <span class="wprev">${prevTxt}</span>
@@ -243,6 +257,7 @@
         <div class="wx-menu">
           <button type="button" class="x-btn" data-w="move" data-d="-1" data-i="${i}" aria-label="Sposta su"${i === 0 ? ' disabled' : ''}>↑</button>
           <button type="button" class="x-btn" data-w="move" data-d="1" data-i="${i}" aria-label="Sposta giù"${i === a.items.length - 1 ? ' disabled' : ''}>↓</button>
+          ${e.unit === 'sec' ? '' : `<button type="button" class="chip${lbOn(it.ex) ? ' accent' : ''}" data-w="unit" data-i="${i}" aria-label="Unità dei pesi: ${lbOn(it.ex) ? 'libbre' : 'chili'}, tocca per cambiare">${lbOn(it.ex) ? 'lb' : 'kg'}</button>`}
           <button type="button" class="chip" data-w="note" data-i="${i}">Nota</button>
           <button type="button" class="chip" data-w="pick-swap" data-i="${i}">Cambia</button>
           <button type="button" class="x-btn" data-w="remove" data-i="${i}" aria-label="Togli ${k.esc(e.n)}">${k.I.trash}</button>
@@ -252,7 +267,7 @@
       <p class="sugg ${sg.cls}" style="margin:0 14px 8px">${k.esc(sg.txt)} ${k.tip('progressione')}</p>
       ${it.showNote || it.note ? `<textarea class="wnote" data-wi="note" data-i="${i}" rows="2" placeholder="Nota (sedile, impugnatura, sensazioni…)">${k.esc(it.note || '')}</textarea>` : ''}
       <div class="wsets">
-        <div class="wset head"><span>Serie</span><span>Precedente</span><span>${e.unit === 'sec' ? '' : 'kg'}</span><span>${e.unit === 'sec' ? 'sec' : 'Rip'}</span><span>✓</span></div>
+        <div class="wset head"><span>Serie</span><span>Precedente</span><span>${e.unit === 'sec' ? '' : lbOn(it.ex) ? 'lb' : 'kg'}</span><span>${e.unit === 'sec' ? 'sec' : 'Rip'}</span><span>✓</span></div>
         ${it.sets.map((s, j) => setRow(it, i, j, s, nums)).join('')}
       </div>
       <div class="ex-f"><button type="button" class="chip" data-w="addset" data-i="${i}">+ Serie</button>${it.sets.length > 1 ? `<button type="button" class="chip" data-w="delset" data-i="${i}">− Serie</button>` : ''}
@@ -369,21 +384,25 @@
   };
 
   /* ---------------- fine allenamento ---------------- */
+  // salva l'allenamento attivo nella cronologia (solo le serie fatte) e lo chiude
+  function commit(a, extra) {
+    const items = a.items.map((it) => ({ ex: it.ex, lo: it.lo, hi: it.hi, sets: it.sets.filter((s) => s.done).map((s) => ({ kg: s.kg, r: s.r, type: s.type })), note: it.note || '' }))
+      .filter((it) => it.sets.length);
+    setActive(null);
+    K().stopTimer(); // fine sessione: niente recupero né notifica rimasti attivi
+    return items.length ? saveWorkout({ id: a.id, rid: a.rid, name: a.name, start: a.start, end: Date.now(), items, ...extra }) : null;
+  }
   function finish() {
     const k = K();
     const a = getActive();
     if (!a) return;
-    const items = a.items.map((it) => ({ ex: it.ex, lo: it.lo, hi: it.hi, sets: it.sets.filter((s) => s.done).map((s) => ({ kg: s.kg, r: s.r, type: s.type })), note: it.note || '' }))
-      .filter((it) => it.sets.length);
-    if (!items.length) {
+    if (!a.items.some((it) => it.sets.some((s) => s.done))) {
       if (confirm("Nessuna serie spuntata. Vuoi annullare l'allenamento?")) { setActive(null); k.stopTimer(); k.render(true); }
       return;
     }
     const pending = a.items.reduce((acc, it) => acc + it.sets.filter((s) => !s.done && (s.kg != null || s.r != null)).length, 0);
     if (!confirm(`Terminare l'allenamento?${pending ? `\n${pending} serie compilate ma non spuntate verranno ignorate.` : ''}`)) return;
-    const w = saveWorkout({ id: a.id, rid: a.rid, name: a.name, start: a.start, end: Date.now(), items });
-    setActive(null);
-    k.stopTimer(); // fine sessione: niente recupero né notifica rimasti attivi
+    const w = commit(a);
     ui.summary = w.id;
     k.buzz('HEAVY');
     k.render(true);
@@ -880,6 +899,13 @@
       W.click({ dataset: { w: 'done', i: String(i), j: String(j) } }); // come il tocco sulla spunta della serie
       return true;
     },
+    // l'orologio ha cambiato l'unità di un esercizio (lb = 1 libbre, 0 chili)
+    setUnit(e) {
+      if (!e || typeof e.ex !== 'string') return false;
+      if (lbOn(e.ex) === (e.lb === 1)) return false;
+      toggleUnit(e.ex);
+      return true;
+    },
     // allenamento partito dal polso: stesso id, stessa scheda; l'iPhone lo mostra in «In corso» (se ce n'è già uno non tocco niente)
     begin(e) {
       if (!e || typeof e.id !== 'string' || getActive() || history().some((x) => x.id === e.id)) return false;
@@ -894,9 +920,43 @@
       if (!e || typeof e.id !== 'string') return false;
       if (!getActive()) W.watch.begin(e); // l'avvio può arrivare dopo (consegna in differita)
       const a = getActive();
-      if (!a || a.id !== e.id || !a.items[e.i] || a.items[e.i].ex !== e.ex) return false;
-      if (!a.fromWatch) { a.fromWatch = 1; setActive(a); } // l'orologio avvisa lui: l'iPhone non manda la notifica di fine recupero
-      return W.watch.done(Number(e.i), Number(e.j), typeof e.kg === 'number' ? e.kg : undefined, typeof e.r === 'number' ? e.r : undefined);
+      if (!a || a.id !== e.id) return false;
+      // confermo all'orologio che ho ricevuto questo suo evento (q): finché non lo faccio lui non accetta il mio stato
+      if (typeof e.q === 'number' && e.q > (a.wq || 0)) a.wq = e.q;
+      if (!a.fromWatch) a.fromWatch = 1; // l'orologio avvisa lui: l'iPhone non manda la notifica di fine recupero
+      setActive(a);
+      // l'esercizio si riconosce dall'id, non dalla posizione: se sul telefono è stato spostato la serie va comunque a lui
+      const i = a.items[e.i] && a.items[e.i].ex === e.ex ? Number(e.i) : a.items.findIndex((x) => x.ex === e.ex);
+      if (i < 0 || !a.items[i].sets[e.j]) return false;
+      return W.watch.done(i, Number(e.j), typeof e.kg === 'number' ? e.kg : undefined, typeof e.r === 'number' ? e.r : undefined);
+    },
+    // serie già fatta e corretta sull'orologio (peso o ripetizioni sbagliati): cambio i numeri senza togliere la spunta né far partire il recupero
+    editSet(e) {
+      const a = getActive();
+      if (!a || !e || a.id !== e.id) return false;
+      if (typeof e.q === 'number' && e.q > (a.wq || 0)) a.wq = e.q; // conferma all'orologio (come per le serie fatte)
+      const i = a.items[e.i] && a.items[e.i].ex === e.ex ? Number(e.i) : a.items.findIndex((x) => x.ex === e.ex);
+      const s = i >= 0 ? a.items[i].sets[e.j] : null;
+      if (!s) { setActive(a); return false; }
+      if (typeof e.kg === 'number' && isFinite(e.kg) && e.kg >= 0) s.kg = e.kg;
+      if (typeof e.r === 'number' && isFinite(e.r) && e.r > 0) s.r = Math.round(e.r);
+      setActive(a);
+      return true;
+    },
+    // le serie fatte sull'orologio che il telefono non aveva ancora (full: [{ ex, s: [[kg, rip, fatta]] }] nell'ordine dell'orologio)
+    mergeFull(a, full) {
+      full.forEach((fi, idx) => {
+        if (!fi || !Array.isArray(fi.s)) return;
+        const i = a.items[idx] && a.items[idx].ex === fi.ex ? idx : a.items.findIndex((x) => x.ex === fi.ex);
+        if (i < 0) return;
+        fi.s.forEach((v, j) => {
+          const s = a.items[i].sets[j];
+          if (!s || s.done || !Array.isArray(v) || v[2] !== 1) return;
+          if (typeof v[0] === 'number') s.kg = v[0];
+          if (typeof v[1] === 'number') s.r = Math.round(v[1]);
+          s.done = true;
+        });
+      });
     },
     // allenamento annullato sul polso
     cancel(id) {
@@ -905,10 +965,31 @@
       setActive(null); K().stopTimer(); K().render(true);
       return true;
     },
-    // stato di tutte le serie, per l'orologio: [kg, ripetizioni] se fatta, null se da fare
+    // l'orologio ha preso in carico l'allenamento partito dal telefono: da qui avvisa lui (niente notifica di fine recupero sul telefono)
+    adopt(id) {
+      const a = getActive();
+      if (!a || a.id !== id) return false;
+      if (!a.fromWatch) { a.fromWatch = 1; setActive(a); }
+      return true;
+    },
+    // l'allenamento attivo per l'orologio, completo (l'orologio ne fa una sessione sua): per ogni serie [kg, ripetizioni, 1 se fatta]
     act() {
       const a = getActive();
-      return a ? { id: a.id, items: a.items.map((it) => ({ ex: it.ex, s: it.sets.map((s) => (s.done ? [s.kg, s.r] : null)) })) } : null;
+      if (!a) return null;
+      return {
+        id: a.id, rid: a.rid || '', name: a.name, st: a.start, q: a.wq || 0, fw: a.fromWatch ? 1 : 0, // fw: partito dall'orologio (il telefono non deve riaprirlo)
+        items: a.items.map((it) => {
+          const e = exOf(it.ex);
+          return {
+            ex: it.ex, n: e.n.split(' · ')[0], u: e.unit === 'sec' ? 'sec' : 'reps', inc: e.inc || 2.5, lo: it.lo, hi: it.hi,
+            rest: restOf(a, it), sup: superOn() ? (it.sup || '') : '',
+            s: it.sets.map((s, j) => {
+              const ph = placeholder(it, j);
+              return [s.kg != null ? s.kg : ph.kg, s.r != null ? s.r : ph.r, s.done ? 1 : 0];
+            }),
+          };
+        }),
+      };
     },
     // allenamenti salvati nelle ultime 24 ore: l'orologio capisce se l'iPhone ha già chiuso il suo
     fin() { return history().filter((x) => x.start > Date.now() - 864e5).map((x) => x.id); },
@@ -930,8 +1011,19 @@
     importWorkout(w) {
       const num = (v) => (typeof v === 'number' && isFinite(v) ? v : null);
       if (!w || typeof w.id !== 'string' || !Array.isArray(w.items)) return null;
-      const live = getActive(); // l'allenamento in corso partito dal polso finisce qui
-      if (live && live.id === w.id) { setActive(null); K().stopTimer(); K().render(true); }
+      const extra = {};
+      if (num(w.hr)) extra.hr = Math.round(w.hr); // battito medio e calorie attive registrati in Salute dall'orologio
+      if (num(w.kcal)) extra.kcal = Math.round(w.kcal);
+      const live = getActive();
+      if (live && live.id === w.id) {
+        // l'allenamento in corso (del telefono o partito dal polso) si chiude qui: salvo quello del TELEFONO, che ha tutto (serie, note,
+        // tipi di serie), dopo aver aggiunto le serie fatte sull'orologio che gli mancassero
+        if (Array.isArray(w.full)) W.watch.mergeFull(live, w.full);
+        const saved = history().some((x) => x.id === w.id) ? null : commit(live, { watch: 1, ...extra });
+        if (saved) { ui.summary = saved.id; if (saved.prs.length) setTimeout(confetti, 120); } // come se avessi premuto «Termina» sul telefono
+        K().render(true);
+        return saved;
+      }
       const old = history().find((x) => x.id === w.id);
       if (old) { // già salvato (finito prima sull'iPhone): aggiungo solo battito e calorie dell'orologio
         if ((num(w.hr) || num(w.kcal)) && !old.hr && !old.kcal) {
@@ -946,10 +1038,10 @@
         sets: it.sets.map((s) => ({ kg: num(s.kg), r: num(s.r), type: 'n' })).filter((s) => s.r != null),
       })).filter((it) => it.sets.length);
       if (!items.length) return null;
-      const extra = {};
-      if (num(w.hr)) extra.hr = Math.round(w.hr); // battito medio e calorie attive registrati in Salute dall'orologio
-      if (num(w.kcal)) extra.kcal = Math.round(w.kcal);
-      return saveWorkout({ id: w.id, rid: typeof w.rid === 'string' ? w.rid : null, name: String(w.name || 'Allenamento'), start: num(w.start) || Date.now(), end: num(w.end) || Date.now(), items, watch: 1, ...extra });
+      return saveWorkout({
+        id: w.id, rid: typeof w.rid === 'string' && w.rid ? w.rid : null, name: String(w.name || 'Allenamento'),
+        start: num(w.start) || Date.now(), end: num(w.end) || Date.now(), items, watch: 1, ...extra,
+      });
     },
   };
   W.data = { history, exOf, routines, analyze, skipped, e1rm }; // letti dal Coach (coach.js)
@@ -974,6 +1066,7 @@
       case 'start': start(t.dataset.rid || null); return true;
       case 'sup-off': k.store.set('superserie', false); k.buzz(); k.render(); return true;
       case 'resume': ui.tab = 'routine'; ui.detail = ui.exDetail = ui.summary = ui.edit = null; return false; // lascia navigare il link
+      case 'unit': toggleUnit(a.items[i].ex); k.buzz('LIGHT'); k.render(); return true;
       case 'finish': finish(); return true;
       case 'discard': if (confirm("Annullare l'allenamento? Le serie di oggi non verranno salvate.")) { setActive(null); k.stopTimer(); k.render(true); } return true;
       case 'done': {
@@ -1091,7 +1184,7 @@
     if (f === 'note') a.items[i].note = t.value;
     else if (f === 'kg' || f === 'r') {
       const v = k.num(t.value);
-      a.items[i].sets[j][f] = v == null ? null : f === 'r' ? Math.round(v) : v;
+      a.items[i].sets[j][f] = v == null ? null : f === 'r' ? Math.round(v) : lbOn(a.items[i].ex) ? toKg(v) : v;
     }
     setActive(a);
   };

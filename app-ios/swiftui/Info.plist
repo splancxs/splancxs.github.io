@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDisplayName</key>
+    <string>Recomp 2</string>
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+    </array>
+    <key>ITSAppUsesNonExemptEncryption</key>
+    <false/>
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>io.github.splancxs.recomp.nuova</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>recomp2</string>
+            </array>
+        </dict>
+    </array>
+    <key>NSSupportsLiveActivities</key>
+    <true/>
+    <key>NSCameraUsageDescription</key>
+    <string>Per leggere il codice a barre dei cibi confezionati che mangi fuori piano.</string>
+    <key>NSHealthShareUsageDescription</key>
+    <string>Recomp legge le pesate, i passi e le calorie attive per il tuo percorso.</string>
+    <key>NSHealthUpdateUsageDescription</key>
+    <string>Recomp salva in Salute le pesate, i pasti che segni e i tuoi allenamenti.</string>
+</dict>
+</plist>

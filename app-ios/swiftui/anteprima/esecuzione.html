@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Esecuzione animata</title>
+<style>
+  :root { --fondo:#111113; --scheda:#1C1C1F; --scheda2:#28282C; --testo:#F4F4F6; --tenue:#8F8F95; --rosso:#E5483B; }
+  body { margin:0; background:var(--fondo); color:var(--testo); font-family:-apple-system, "SF Pro Text", "Segoe UI", sans-serif; }
+  header { padding:20px 16px 4px; }
+  h1 { font-family:"SF Compact Display","Arial Narrow",sans-serif; font-stretch:condensed; font-weight:900; font-size:34px; margin:0; text-transform:uppercase; letter-spacing:-0.5px; }
+  p.sotto { color:var(--tenue); margin:6px 0 0; font-size:14px; max-width:60ch; }
+  .griglia { display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:12px; padding:16px; }
+  .carta { background:var(--scheda); border-radius:22px; overflow:hidden; cursor:grab; }
+  .carta canvas { display:block; width:100%; aspect-ratio:1.15; background:radial-gradient(120% 90% at 50% 35%, #2A2A2F 0%, #151517 70%); touch-action:none; }
+  .info { padding:10px 14px 14px; }
+  .nome { font-weight:700; font-size:15px; }
+  .muscoli { color:var(--tenue); font-size:12px; margin-top:2px; }
+  .ritmo { display:flex; gap:6px; margin-top:8px; align-items:center; }
+  .ritmo span { font-size:12px; font-weight:700; padding:4px 9px; border-radius:99px; background:var(--scheda2); color:var(--tenue); transition:background .15s, color .15s; }
+  .ritmo span.on { background:var(--rosso); color:#fff; }
+  .id { color:#55555b; font-size:10px; margin-top:4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Esecuzione animata</h1>
+  <p class="sotto">Il manichino fa il movimento con il ritmo giusto; in rosso i muscoli che lavorano (più chiari i secondari). Trascina col dito per girarlo.</p>
+</header>
+<div class="griglia" id="griglia"></div>
+<script src="manichino.js"></script>
+<script>
+(async () => {
+  const [mov, piano] = await Promise.all([fetch("../Resources/movimenti.json?" + Date.now()).then(r => r.json()), fetch("../Resources/piano.json").then(r => r.json())]);
+  const solo = new URLSearchParams(location.search).get("es");
+  if (new URLSearchParams(location.search).get("big")) document.getElementById("griglia").style.gridTemplateColumns = "repeat(2, 1fr)";
+  const griglia = document.getElementById("griglia");
+  const carte = [];
+  for (const [id, m] of Object.entries(mov)) {
+    if (solo && !solo.split(",").includes(id)) continue;
+    const ex = piano.exlib[id] || { n: id, m: "", sec: [] };
+    const el = document.createElement("div");
+    el.className = "carta";
+    el.innerHTML = `<canvas></canvas><div class="info"><div class="nome">${ex.n}</div><div class="muscoli">${[ex.m, ...ex.sec].join(" · ")}</div>
+      <div class="ritmo"><span>${m.fasi[0]} ${m.tempo[0]}″</span>${m.tempo[1] ? `<span>Fermo</span>` : ""}<span>${m.fasi[1]} ${m.tempo[2]}″</span></div><div class="id">${id}</div></div>`;
+    griglia.appendChild(el);
+    const cv = el.querySelector("canvas");
+    const c = { id, m, ex, cv, cam: { ...m.cam }, fr: null, spans: el.querySelectorAll(".ritmo span") };
+    let x0 = null, yaw0 = 0;
+    cv.addEventListener("pointerdown", e => { x0 = e.clientX; yaw0 = c.cam.yaw; cv.setPointerCapture(e.pointerId); });
+    cv.addEventListener("pointermove", e => { if (x0 !== null) { c.cam.yaw = yaw0 - (e.clientX - x0) * 0.6; c.fr = null; } });
+    cv.addEventListener("pointerup", () => { x0 = null; });
+    carte.push(c);
+  }
+  const fermo = new URLSearchParams(location.search).get("k");
+  function giro(ts) {
+    for (const c of carte) {
+      const W = c.cv.clientWidth * devicePixelRatio, H = c.cv.clientHeight * devicePixelRatio;
+      if (c.cv.width !== W) { c.cv.width = W; c.cv.height = H; c.fr = null; }
+      if (!c.fr) c.fr = inquadra(c.m, c.cam, W, H, c.ex.m, c.ex.sec);
+      const f = fase(c.m.tempo, ts / 1000);
+      const k = fermo !== null ? Number(fermo) : f.k;
+      const ctx = c.cv.getContext("2d");
+      ctx.clearRect(0, 0, W, H);
+      disegna(ctx, W, H, c.m, k, c.cam, c.fr, c.ex.m, c.ex.sec);
+      const attiva = f.f === 0 ? 0 : f.f === 1 ? 1 : f.f === 2 ? (c.m.tempo[1] ? 2 : 1) : -1;
+      c.spans.forEach((s, i) => s.classList.toggle("on", i === attiva));
+    }
+    requestAnimationFrame(giro);
+  }
+  requestAnimationFrame(giro);
+})();
+</script>
+</body>
+</html>

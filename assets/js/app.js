@@ -170,8 +170,8 @@
     if (key === 'creatina') render();
   }
 
-  function nativeCards() {
-    if (!isNative) return '';
+  function nativeParts() {
+    if (!isNative) return { notif: '', health: '', tabs: '' };
     const rem = store.get('reminders', {});
     const notif = N.notif ? `<section class="card stack"><h2>Promemoria</h2>
       ${Object.entries(REM).map(([k, l]) => `<label class="row small" style="justify-content:space-between;cursor:pointer"><span>${l}</span><input type="checkbox" data-act="rem" data-k="${k}"${rem[k] ? ' checked' : ''} style="width:22px;height:22px;accent-color:var(--ink)"></label>`).join('')}
@@ -188,7 +188,7 @@
         : `<p class="small">Collega Salute: peso nei due sensi, pasti segnati in Nutrizione, passi e calorie attive per il Coach.</p>
         <div class="row"><button type="button" class="btn" data-act="health-on">Collega Salute</button></div>`}
       <p class="tiny muted">I permessi si cambiano in Salute → Condivisione → App → Recomp.</p></section>` : '';
-    return notif + hl + tabs;
+    return { notif, health: hl, tabs };
   }
 
   function installCard() {
@@ -267,7 +267,7 @@
     const ov = dayOv(dkey(now));
     return dayPlan(dayIdx(now), ov && ov.type ? { type: ov.type === 'ON' ? 'ON' : 'OFF_S', keep: ov.keep || [] } : null);
   }
-  const FREE_EST = 850; // stima usata solo per la media settimanale
+  const FREE_EST = 700; // budget del pasto libero del piano, usato solo per la media settimanale
 
   function statusOf(kind, v, t) {
     const d = r1(v - t);
@@ -376,6 +376,7 @@
     wo: null,
     guidaTab: 'target',
     profTab: 'impostazioni',
+    regAll: false,
   };
 
   // Oggi: anello grande delle calorie e tre anelli piccoli per proteine, carboidrati e grassi
@@ -586,7 +587,6 @@
     plan.meals.forEach((m) => rows.push({ t: m.time, html: mealRow(plan, m, eaten) }));
     rows.sort((a, b) => (a.t < b.t ? -1 : a.t > b.t ? 1 : 0));
 
-    const tomorrow = (di + 1) % 7;
     return `
       <div class="grid-main">
         <div class="stack">
@@ -611,20 +611,8 @@
         <aside class="stack sticky-col">
           ${dayTotalsCard(plan)}
           ${w ? workoutMini(w) : skipped ? skipCard(w0, plan) : restCard(plan.day, plan)}
-          ${tomorrow <= 4 ? prepCard(tomorrow) : ''}
         </aside>
       </div>`;
-  }
-
-  function prepCard(di) {
-    const p = dayPlan(di);
-    const snacks = p.meals.filter((m) => /^m[12]/.test(m.slot));
-    return `<section class="card stack">
-      <p class="eyebrow">Stasera prepara per ${esc(p.day.name.toLowerCase())}</p>
-      ${snacks.map((m) => `<div><h3 style="font-size:15px"><span class="muted">${m.time}</span> · ${esc(D.recipes[m.code].name)}</h3>
-        <p class="small muted" style="margin-top:4px">${m.lines.map((l) => `${esc(D.foods[l.f].n.split(' (')[0])} ${l.g} g`).join(' · ')}</p></div>`).join('')}
-      <p class="tiny muted">Carta stagnola o sacchetto, frutta intera. Niente tonno, uova o sgombro a scuola.</p>
-    </section>`;
   }
 
   function workoutMini(w) {
@@ -652,14 +640,8 @@
         <p class="small">Oggi mangi come in un giorno ON: <strong>${plan.tot.k} kcal</strong>. Apri la Scheda e avvia l’allenamento che vuoi recuperare.</p>
         <div class="row"><a class="btn" href="#/scheda">Apri la Scheda</a><button type="button" class="chip" data-act="skip-undo">Torna al piano OFF</button></div></section>`;
     }
-    const next = (() => { for (let i = 1; i <= 7; i++) { const d = D.week[(dayIdx(new Date()) + i) % 7]; if (d.wo) return d; } return null; })();
-    const w = next && D.workouts.find((x) => x.id === next.wo);
-    return `<section class="card stack">
-      <p class="eyebrow">Giorno di riposo</p>
-      <p class="small">Recupero attivo: punta a <strong>8–10 mila passi</strong>. ${day.type === 'FREE' ? 'Oggi c\'è il pasto libero: goditelo senza sensi di colpa.' : ''}</p>
-      ${w ? `<p class="small muted">Prossimo allenamento: <strong>${esc(next.name)} · ${esc(w.name)}</strong></p>` : ''}
-      ${day.type === 'OFF_S' ? '<div class="row"><button type="button" class="chip" data-act="recover-open">Oggi recupero un allenamento</button></div>' : ''}
-    </section>`;
+    // giorno di riposo normale: niente scheda. Resta solo il pulsante per chi recupera un allenamento saltato
+    return day.type === 'OFF_S' ? '<div class="row"><button type="button" class="chip" data-act="recover-open">Oggi recupero un allenamento</button></div>' : '';
   }
 
   function dayTotalsCard(plan) {
@@ -740,7 +722,7 @@
         <tbody>${rows}</tbody>
         <tfoot><tr><td colspan="2">Media</td><td class="r">${f0(sk / 7)}</td><td colspan="3" class="muted small">con pasto libero stimato ${FREE_EST} kcal</td></tr></tfoot>
       </table></div>
-      <p class="tiny muted">* Domenica: solo i pasti pianificati, senza il pasto libero. Target: ON 2050 · OFF 1750 · media 1921.</p>
+      <p class="tiny muted">* Domenica: solo i pasti pianificati, senza il pasto libero. Target: ON ${D.targets.ON.k} · OFF ${D.targets.OFF.k} · media ${f0(D.week.reduce((s, d) => s + (d.type === 'ON' ? D.targets.ON.k : D.targets.OFF.k), 0) / 7)}.</p>
     </section>`;
   }
 
@@ -789,10 +771,10 @@
       <section class="card prose">
         <h2>Come sostituire senza sbagliare</h2>
         <ul>
-          <li><strong>Un pasto intero:</strong> usa il menu "scambia" sotto ogni pasto. Le opzioni della stessa fascia sono già calcolate su calorie quasi uguali (entro 30 kcal circa), quindi il totale del giorno resta giusto.</li>
-          <li><strong>Un singolo alimento:</strong> usa le tabelle qui sotto. Le fonti proteiche sono equivalenti per proteine e i carboidrati per carboidrati. Guarda la colonna kcal: se l'alimento nuovo ha più calorie, togline un po' dal condimento.</li>
-          <li><strong>Verdura cruda:</strong> libera. Lattuga, pomodori, cetrioli, peperoni, carote e cipolla si scambiano tra loro senza pesarli.</li>
-          <li><strong>Frutta:</strong> circa 80 kcal equivalgono a una mela (150 g), una pera (140 g), 2 kiwi (130 g), un'arancia (170 g) o 250 g di fragole.</li>
+          <li><strong>Un pasto intero:</strong> usa il menu "scambia" sotto ogni pasto. Le opzioni della stessa fascia hanno le stesse dosi del giorno (ON o OFF) e di solito stanno entro 100 kcal l'una dall'altra: guarda le kcal accanto a ogni opzione.</li>
+          <li><strong>Un singolo alimento:</strong> usa le tabelle qui sotto: sono le porzioni del piano che si scambiano tra loro. Hamburger e sgombro hanno più grassi del pollo: se li togli, quel giorno puoi aggiungere 20 g di mandorle allo spuntino.</li>
+          <li><strong>Verdura cruda:</strong> carote, cetrioli, insalata e peperoni sono liberi, senza olio. Pomodori al massimo 150 g al giorno.</li>
+          <li><strong>Frutta:</strong> una mela media (180 g), una banana (120 g di polpa) e 2 kiwi valgono circa 90–110 kcal e si scambiano tra loro; una vaschetta di frutti di bosco (125 g) ne vale circa 55.</li>
         </ul>
       </section>
       <div class="grid2">${eq}</div>
@@ -1132,7 +1114,7 @@
           ${waists.length >= 2 ? `<p class="small">Girovita: <strong>${sign(r1(waists[waists.length - 1].w - waists[0].w))} cm</strong> dalla prima misura.</p>` : ''}
         </section>
         <section class="card stack"><h2>Registro</h2>
-          ${ws.length ? `<ul class="entries">${ws.slice().reverse().slice(0, 30).map((w) => `<li><span class="muted">${shortDate(w.d)}</span><strong>${f2(w.kg)} kg</strong>${w.w != null ? `<span class="muted">· vita ${f1(w.w)} cm</span>` : ''}<button type="button" class="x-btn" data-act="wdel" data-d="${w.d}" aria-label="Elimina la misura del ${shortDate(w.d)}">${I.trash}</button></li>`).join('')}</ul>` : '<p class="small muted">Le misure che salvi compaiono qui.</p>'}
+          ${ws.length ? `<ul class="entries">${ws.slice().reverse().slice(0, ui.regAll ? 60 : 3).map((w) => `<li><span class="muted">${shortDate(w.d)}</span><strong>${f2(w.kg)} kg</strong>${w.w != null ? `<span class="muted">· vita ${f1(w.w)} cm</span>` : ''}<button type="button" class="x-btn" data-act="wdel" data-d="${w.d}" aria-label="Elimina la misura del ${shortDate(w.d)}">${I.trash}</button></li>`).join('')}</ul>${ws.length > 3 ? `<button type="button" class="co-link" data-act="regmore">${ui.regAll ? 'Mostra meno' : `Mostra di più (${Math.min(ws.length, 60) - 3})`}</button>` : ''}` : '<p class="small muted">Le misure che salvi compaiono qui.</p>'}
         </section>
       </div>
       ${photosCard()}
@@ -1186,57 +1168,48 @@
 
   /* ================= PROFILO (impostazioni + guida) ================= */
   function viewProfilo() {
-    const tabs = [['impostazioni', 'Impostazioni'], ['target', 'Target'], ['alimenti', 'Alimenti'], ['regole', 'Regole']];
+    const tabs = [['impostazioni', 'Impostazioni'], ['alimenti', 'Alimenti'], ['regole', 'Regole']];
     const seg = `<div class="seg" role="tablist" aria-label="Sezioni del profilo">${tabs.map(([k, l]) => `<button type="button" role="tab" data-act="ptabp" data-tab="${k}" aria-selected="${ui.profTab === k}">${l}</button>`).join('')}</div>`;
-    const body = ui.profTab === 'alimenti' ? guidaAlimenti() : ui.profTab === 'regole' ? guidaRegole() : ui.profTab === 'target' ? guidaTarget() : profiloImpostazioni();
+    const body = ui.profTab === 'alimenti' ? guidaAlimenti() : ui.profTab === 'regole' ? guidaRegole() : profiloImpostazioni();
     return `<div class="stack"><div><p class="eyebrow">Tu e il metodo</p><h1>Profilo</h1></div>${seg}${body}</div>`;
   }
 
+  // una sezione da blocco: toglie il riquadro «card» (il riquadro lo dà il contenitore)
+  const blk = (html) => html.replace(/<section class="card stack">/g, '<div class="stack blk">').replace(/<\/section>/g, '</div>')
+    .replace(/<details class="card co-setup">/g, '<details class="co-setup">');
   function profiloImpostazioni() {
-    const ws = weights();
-    const last = ws[ws.length - 1];
-    const theme = store.get('theme', 'auto') || 'auto';
-    const wk = blockWeek();
+    const parts = nativeParts();
+    const ai = window.RCC && window.RCC.setup ? window.RCC.setup() : '';
     return `<div class="grid2">
-      <section class="card stack profile-card">
-        <div class="row"><span class="avatar" aria-hidden="true">R</span><div><h2>Il tuo percorso</h2><p class="small muted">Ricomposizione corporea · dal 28/09/2026</p></div></div>
-        <dl class="kv" style="margin:0">
-          <div><dt>Peso attuale</dt><dd>${last ? f2(last.kg) : '64,70'} kg</dd></div>
-          <div><dt>Obiettivo fine novembre</dt><dd>≈ 62,5 kg</dd></div>
-          <div><dt>Blocco scheda</dt><dd>Sett. ${wk.n}/7</dd></div>
-          <div><dt>Allenamenti</dt><dd>4 a settimana</dd></div>
-        </dl>
-        <div class="row"><button type="button" class="btn ghost" data-act="onboard">Rivedi la mini-guida</button></div>
-      </section>
       <section class="card stack">
-        <h2>Aspetto</h2>
-        <div class="seg seg-static" role="radiogroup" aria-label="Tema">${[['auto', 'Automatico'], ['light', 'Chiaro'], ['dark', 'Scuro']].map(([v, l]) => `<button type="button" role="radio" data-act="theme" data-v="${v}" aria-checked="${theme === v}" aria-selected="${theme === v}">${l}</button>`).join('')}</div>
-        <p class="tiny muted">Automatico segue il tema dell'iPhone.</p>
+        <h2>Collegamenti e dati</h2>
+        ${blk(syncCard())}
+        ${parts.health ? blk(parts.health) : ''}
+        ${ai ? `<div class="stack blk"><h2>Intelligenza artificiale</h2>${blk(ai)}</div>` : ''}
+        <div class="stack blk"><h2>Backup dei dati</h2>
+          <p class="small muted">Pesi, allenamenti, scambi dei pasti e lista della spesa sono sul dispositivo (e sincronizzati se hai fatto l'accesso). Esporta un file per sicurezza.</p>
+          <div class="row"><button type="button" class="btn ghost" data-act="export">${I.down} Esporta backup</button>
+          <label class="btn ghost" for="importFile">${I.up} Importa backup</label><input id="importFile" type="file" accept="application/json,.json" class="sr"></div>
+          <p class="err" id="impMsg" role="status"></p></div>
       </section>
       <section class="card stack">
         <h2>Superserie</h2>
         <label class="row small" style="justify-content:space-between;cursor:pointer"><span>Braccia in superserie nei giorni Limbs</span><input type="checkbox" data-act="superserie"${store.get('superserie', true) !== false ? ' checked' : ''} style="width:22px;height:22px;accent-color:var(--ink)"></label>
         <p class="tiny muted">Spento: bicipiti e tricipiti si fanno separati, prima tutte le serie di uno poi dell’altro, con 60–75″ di recupero (timer e Live Activity partono anche lì). Circa 6–7 minuti in più.</p>
       </section>
-      ${syncCard()}
-      ${nativeCards()}
-      <section class="card stack">
-        <h2>Backup dei dati</h2>
-        <p class="small muted">Pesi, allenamenti, scambi dei pasti e lista della spesa sono salvati sul dispositivo (e sincronizzati se hai fatto l'accesso). Esporta un file per sicurezza.</p>
-        <div class="row"><button type="button" class="btn ghost" data-act="export">${I.down} Esporta backup</button>
-        <label class="btn ghost" for="importFile">${I.up} Importa backup</label><input id="importFile" type="file" accept="application/json,.json" class="sr"></div>
-        <p class="err" id="impMsg" role="status"></p>
-      </section>
+      ${parts.notif}
+      ${parts.tabs}
+      <div class="row"><button type="button" class="chip" data-act="onboard">Rivedi la mini-guida</button></div>
     </div>`;
   }
 
   /* ---------------- spiegazioni ⓘ ---------------- */
   const GLOSSARIO = {
-    on: ['Giorno ON', 'Giorno con la palestra (lunedì, martedì, giovedì, venerdì). Mangi di più, 2050 kcal, soprattutto carboidrati, per allenarti bene e recuperare.'],
-    off: ['Giorno OFF', 'Giorno senza palestra (mercoledì, sabato, domenica). 1750 kcal, meno carboidrati per stare in deficit.'],
-    kcal: ['Calorie', 'L’energia del cibo. Il piano ti tiene circa 380 kcal sotto il tuo consumo medio: perdi circa 0,35 kg di grasso a settimana tenendo le proteine alte per non perdere muscolo.'],
-    macro: ['P · C · G', 'Proteine (P): costruiscono e proteggono il muscolo, obiettivo 140 g al giorno. Carboidrati (C): benzina per l’allenamento, più alti nei giorni ON. Grassi (G): servono agli ormoni e saziano, circa 55–58 g.'],
-    scambio: ['Scambiare un pasto', 'Tutte le opzioni della stessa fascia (per esempio le merende delle 9:30) hanno quasi le stesse calorie (differenze entro 30 kcal circa): puoi scambiarle quando vuoi senza sballare la giornata.'],
+    on: ['Giorno ON', `Giorno con la palestra (lunedì, martedì, giovedì, venerdì). Mangi di più, ${D.targets.ON.k} kcal, soprattutto carboidrati, per allenarti bene e recuperare.`],
+    off: ['Giorno OFF', `Giorno senza palestra (mercoledì, sabato, domenica). ${D.targets.OFF.k} kcal, meno carboidrati per stare in deficit.`],
+    kcal: ['Calorie', 'L’energia del cibo. Il piano ti tiene circa 400 kcal sotto il tuo consumo medio: perdi circa 0,35 kg a settimana tenendo le proteine alte per non perdere muscolo.'],
+    macro: ['P · C · G', `Proteine (P): costruiscono e proteggono il muscolo, obiettivo ${D.targets.ON.p} g al giorno. Carboidrati (C): benzina per l’allenamento, più alti nei giorni ON. Grassi (G): servono agli ormoni e saziano, circa ${D.targets.OFF.f}–${D.targets.ON.f} g (mai sotto 40).`],
+    scambio: ['Scambiare un pasto', 'Le opzioni della stessa fascia (per esempio le cene) hanno le dosi giuste per quel giorno e di solito stanno entro 100 kcal l’una dall’altra: puoi scambiarle quando vuoi, conta la media della settimana.'],
     rir: ['RIR · ripetizioni in riserva', 'Quante ripetizioni avresti ancora potuto fare prima di non farcela più. RIR 2 vuol dire che ti fermi quando ne avresti ancora 2 nel serbatoio.'],
     block: ['Blocco di 7 settimane', 'Settimane 1–2: adattamento (RIR 2–3). Settimane 3–6: progressione (RIR 1–2). Settimana 7: scarico, con metà delle serie per recuperare. Poi si ricomincia.'],
     progressione: ['Doppia progressione', 'Prima aumenti le ripetizioni fino al massimo del range (per esempio 3×10), poi aumenti il peso e riparti dal minimo. L’app ti dice quando salire.'],
@@ -1304,49 +1277,6 @@
   }
   function showOnboarding() { slide = 0; openSheet(onboardHtml(), () => store.set('onboarded', true)); }
 
-  function guidaTarget() {
-    const kv = [['Età', '18 anni'], ['Altezza', '173 cm'], ['Peso', '64,70 kg'], ['BMI', '21,6'], ['Grasso (BIA)', '17,7%'], ['Massa magra', '53,26 kg'], ['Grasso viscerale', '3'], ['Acqua', '55,7%']];
-    return `<div class="stack">
-      <section class="card stack"><h2>Punto di partenza · 28/09/2026</h2>
-        <dl class="kv" style="margin:0">${kv.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>
-        <p class="small muted">Obiettivo: ricomposizione corporea. Meno grasso su basso addome e fianchi, più muscolo (soprattutto dorsali e deltoidi laterali), carichi in salita. La percentuale di grasso della bilancia può sbagliare di ±3–5 punti: usala solo come andamento.</p>
-      </section>
-      <div class="grid2">
-        <section class="card stack"><h2>Metabolismo basale</h2>
-          <div class="tbl-wrap"><table><thead><tr><th>Formula</th><th class="r">kcal</th></tr></thead><tbody>
-            <tr><td>Mifflin-St Jeor</td><td class="r">1643</td></tr>
-            <tr><td>Katch-McArdle (massa magra)</td><td class="r">1520</td></tr>
-            <tr><td>Cunningham (massa magra)</td><td class="r">1672</td></tr>
-            <tr><td>Tinsley 2019 (chi fa pesi)</td><td class="r">1663</td></tr>
-            <tr><td class="muted">Bilancia BIA (esclusa, sottostima)</td><td class="r muted">1449</td></tr>
-          </tbody><tfoot><tr><td>BMR di lavoro (media)</td><td class="r">≈ 1625</td></tr></tfoot></table></div>
-        </section>
-        <section class="card stack"><div class="row"><h2>Dispendio giornaliero</h2>${tip('tdee')}</div>
-          <div class="tbl-wrap"><table><thead><tr><th></th><th class="r">ON</th><th class="r">OFF</th></tr></thead><tbody>
-            <tr><td>BMR</td><td class="r">1625</td><td class="r">1625</td></tr>
-            <tr><td>NEAT (scuola, passi)</td><td class="r">300</td><td class="r">300</td></tr>
-            <tr><td>Pesi ~60′ + tapis 14%</td><td class="r">330</td><td class="r">0</td></tr>
-            <tr><td>Digestione (TEF ~10%)</td><td class="r">250</td><td class="r">214</td></tr>
-            <tr><td>TDEE teorico</td><td class="r">2505</td><td class="r">2139</td></tr>
-          </tbody><tfoot><tr><td>TDEE di lavoro</td><td class="r">≈ 2450</td><td class="r">≈ 2100</td></tr></tfoot></table></div>
-          <p class="tiny muted">Il calcolo teorico è stato corretto con la tua storia reale: in estate, a 1850 kcal con 3 allenamenti, perdevi ~0,2 kg a settimana. Media di lavoro ≈ 2300 kcal.</p>
-        </section>
-      </div>
-      <section class="card stack"><h2>Target</h2>
-        <div class="tbl-wrap"><table><thead><tr><th></th><th class="r">kcal</th><th class="r">P</th><th class="r">C</th><th class="r">G</th></tr></thead><tbody>
-          <tr><td><span class="badge on">ON</span> Lun Mar Gio Ven</td><td class="r">2050</td><td class="r">140 g</td><td class="r">249 g</td><td class="r">55 g</td></tr>
-          <tr><td><span class="badge off">OFF</span> Mer Sab Dom</td><td class="r">1750</td><td class="r">140 g</td><td class="r">167 g</td><td class="r">58 g</td></tr>
-        </tbody><tfoot><tr><td>Media settimanale</td><td class="r">1921</td><td colspan="3" class="small muted">−16% dal TDEE, circa −380 kcal al giorno</td></tr></tfoot></table></div>
-        <div class="prose small">
-          <p>Proteine a 2,2 g/kg per proteggere e costruire muscolo mentre perdi grasso. Carboidrati concentrati nei giorni in cui ti alleni. Per il grasso conta la media della settimana.</p>
-          <p><strong>Perché questi numeri:</strong> un deficit di circa 380 kcal al giorno fa perdere circa 0,35 kg di grasso a settimana, cioè lo 0,5% del peso: è la fascia (0,5–0,7%) in cui chi si allena con i pesi perde grasso senza perdere muscolo. Con 2100/1900 il deficit sarebbe 286 kcal e il ritmo 0,26 kg a settimana: un quarto più lento senza vantaggi. Sotto le 1900/1600 (−23%) i carichi si fermerebbero e avresti fame a scuola.</p>
-          <p><strong>Cosa aspettarti:</strong> la bilancia dovrebbe scendere di 0,2–0,5 kg a settimana, con il girovita che cala e i carichi che salgono. A fine novembre 2026 circa 62,5 kg, cioè −2,5/−3 kg di grasso e intorno al 14% sulla bilancia. Da lì si passa al mantenimento (circa 2300 kcal) per costruire muscolo.</p>
-          <p class="muted">I passi non sono registrati nell’app: il consumo è stimato con 300 kcal di movimento quotidiano. Per questo conta la verifica sul peso reale: se la media settimanale non scende per 2 settimane, si tolgono 100–150 kcal.</p>
-        </div>
-      </section>
-    </div>`;
-  }
-
   function guidaAlimenti() {
     const ids = Object.keys(D.foods).sort((a, b) => D.foods[a].cat.localeCompare(D.foods[b].cat, 'it') || D.foods[a].n.localeCompare(D.foods[b].n, 'it'));
     return `<div class="stack">
@@ -1373,31 +1303,31 @@
   function guidaRegole() {
     return `<div class="grid2">
       <section class="card prose small"><h2>Merende a scuola</h2>
-        <ul><li>Tutto si prepara <strong>la sera prima in 5 minuti</strong>: panino in carta stagnola, frutta intera, frutta secca in un sacchettino.</li>
+        <ul><li>I due panini li prepari la mattina: <strong>4 fette di pan bauletto e una confezione intera di affettato</strong> (tacchino, pollo o bresaola), metà per panino.</li>
         <li>Niente tonno, uova o sgombro a scuola (odore), niente contenitori, niente cucchiaino.</li>
-        <li>La merenda delle 9:30 è il tuo primo pasto: non saltarla, altrimenti arrivi affamato al pranzo pre-workout.</li>
+        <li>Il panino delle 9:30 è il tuo primo pasto: non saltarlo, altrimenti arrivi affamato al pranzo pre-workout.</li>
         <li>Bevi acqua durante la mattina: almeno 500 ml prima di pranzo.</li></ul></section>
       <section class="card prose small"><h2>Pasto libero</h2>
-        <ul><li>1 a settimana, sabato o domenica a pranzo (nel piano è domenica: puoi scambiare i giorni).</li>
-        <li>Una porzione normale: pizza, hamburger con patatine piccole, sushi da 12–16 pezzi.</li>
+        <ul><li>1 a settimana, domenica a pranzo, senza pesare: budget circa 700 kcal.</li>
+        <li>Una porzione normale: un piatto con contorno o una pizza; acqua o bibita zero.</li>
         <li>Niente antipasto + dolce + bis, e non diventa una giornata libera.</li>
-        <li>Il resto della giornata è già più leggero (circa 1050 kcal) per lasciargli spazio.</li></ul></section>
+        <li>Il resto della giornata è già più leggero (circa 1040 kcal) per lasciargli spazio. Se esci con gli amici in un altro giorno, quel giorno pranzo e spuntino restano proteici e leggeri e il pasto libero della domenica salta.</li></ul></section>
       <section class="card prose small"><h2>Recupero</h2>
         <ul><li><strong>Sonno:</strong> 8 ore (22:30 → 6:30). È metà della ricomposizione.</li>
-        <li><strong>Acqua:</strong> 2,5–3 litri al giorno, +0,5 litri nei giorni di palestra.</li>
+        <li><strong>Acqua:</strong> 2,5 litri nei giorni di palestra, 2 litri negli altri.</li>
         <li><strong>Passi:</strong> 7–8 mila al giorno, 8–10 mila nei giorni OFF.</li>
         <li><strong>Creatina monoidrato:</strong> 3–5 g al giorno, tutti i giorni (anche di riposo), a qualsiasi ora: spuntala in Oggi. Nelle prime 2–3 settimane aggiunge 0,5–1 kg d'acqua nei muscoli sulla bilancia: non è grasso.</li></ul></section>
       <section class="card prose small"><h2>Se salti la palestra</h2>
         <ul><li>In Oggi tocca <strong>«Oggi la salto»</strong>: l'allenamento viene segnato come saltato e non conta tra quelli fatti.</li>
-        <li>L'app ti propone di mangiare come in un giorno di riposo (−300 kcal circa, soprattutto carboidrati): sei tu a scegliere, non cambia niente da sola.</li>
+        <li>L'app ti propone di mangiare come in un giorno di riposo (−${D.targets.ON.k - D.targets.OFF.k} kcal circa, soprattutto carboidrati): sei tu a scegliere, non cambia niente da sola.</li>
         <li>Se recuperi l'allenamento in un giorno OFF di scuola, in Oggi tocca <strong>«Oggi recupero un allenamento»</strong> per passare al piano ON.</li>
-        <li>Un allenamento saltato ogni tanto non cambia niente. Se ne salti 2 nella stessa settimana, tieni comunque le proteine a 140 g.</li></ul></section>
+        <li>Un allenamento saltato ogni tanto non cambia niente. Se ne salti 2 nella stessa settimana, tieni comunque le proteine a ${D.targets.ON.p} g.</li></ul></section>
       <section class="card prose small"><h2>Misure e correzioni</h2>
         <ul><li>Peso almeno 4 mattine a settimana: conta la <strong>media settimanale</strong>, non il singolo giorno.</li>
-        <li>Girovita all'ombelico ogni lunedì, foto ogni 4 settimane, bilancia BIA sempre nelle stesse condizioni.</li>
-        <li>Calo oltre 0,6 kg a settimana per 2 settimane → +150 kcal.</li>
-        <li>Peso e girovita fermi per 2 settimane → −100/150 kcal oppure +2000 passi.</li>
-        <li>Carichi in calo per 2 settimane → +100 kcal nei giorni ON e più sonno.</li></ul></section>
+        <li>Ogni 2 settimane: girovita all'ombelico, foto (fronte, lato, schiena) e carichi principali. La bilancia BIA non dice se cresce il muscolo.</li>
+        <li>Calo oltre 0,45 kg a settimana per 2 settimane → +150 kcal.</li>
+        <li>Calo sotto 0,15 kg a settimana per 2–3 settimane → prima si controllano gli errori (pesate, olio, weekend), poi più passi, solo dopo −100 kcal.</li>
+        <li>Carichi in calo per 2 settimane → +100–150 kcal nei giorni ON e più sonno.</li></ul></section>
     </div>`;
   }
 
@@ -1475,6 +1405,15 @@
     if (tema) setTheme(tema);
     const route = m[1].replace(/\/+$/, '') || 'oggi';
     if (location.hash !== '#/' + route) location.hash = '#/' + route; else render(true);
+    // dalla Live Activity (corrente=1): la Scheda si apre sull'esercizio che stai facendo adesso (o sul prossimo, se sei in recupero)
+    if (new URLSearchParams(m[2] || '').get('corrente')) {
+      setTimeout(() => {
+        const st = window.RCW && window.RCW.watch ? window.RCW.watch.state() : null;
+        const el = st && !st.done ? document.getElementById('wx-' + st.i) : null;
+        if (el) window.scrollTo({ top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - 76), behavior: 'smooth' });
+        else window.scrollTo(0, 0);
+      }, 150);
+    }
   }
   /* ---------------- Salute (app iPhone installata da Xcode) ---------------- */
   // Peso nei due sensi, pasti segnati in Nutrizione, passi e calorie attive (rc.activity) per l'app e il Coach.
@@ -1564,7 +1503,7 @@
       crea: creaOn(dkey(now)),
       plans: window.RCW && window.RCW.watch ? window.RCW.watch.plans() : [],
       todayRid, doneToday: !!(todayRid && window.RCW && window.RCW.doneToday(todayRid)),
-      wo, act, fin: window.RCW && window.RCW.watch ? window.RCW.watch.fin() : [],
+      wo, act, fin: window.RCW && window.RCW.watch ? window.RCW.watch.fin() : [], lb: store.get('lbEx', []),
       restEnd: wo && live ? timer.end : null,
       restNext: wo && live ? $('#timerNext').textContent : null,
     });
@@ -1587,7 +1526,6 @@
       }
       else if (e.a === 'crea') { if (!creaOn(dkey(new Date()))) { toggleCreatine(); render(); } }
       else if (e.a === 'uncrea') { if (creaOn(dkey(new Date()))) { toggleCreatine(); render(); } }
-      else if (e.a === 'set' && window.RCW && window.RCW.watch) window.RCW.watch.done(Number(e.i), Number(e.j), e.kg, e.r);
       else if (e.a === 'wstart' && window.RCW && window.RCW.watch) window.RCW.watch.begin(e);
       else if (e.a === 'wset' && window.RCW && window.RCW.watch) {
         if (window.RCW.watch.setDone(e)) {
@@ -1596,10 +1534,13 @@
           render();
         }
       }
+      else if (e.a === 'wunit' && window.RCW && window.RCW.watch) { if (window.RCW.watch.setUnit(e)) render(); }
+      else if (e.a === 'wedit' && window.RCW && window.RCW.watch) { if (window.RCW.watch.editSet(e)) render(); }
       else if (e.a === 'wrest' && window.RCW && window.RCW.watch) {
         if (window.RCW.isActive()) { watchRest(Number(e.end) || 0, String(e.next || 'Recupero')); if (typeof e.t === 'number') timer.rv = e.t; }
       }
       else if (e.a === 'wcancel' && window.RCW && window.RCW.watch) window.RCW.watch.cancel(e.id);
+      else if (e.a === 'wadopt' && window.RCW && window.RCW.watch) window.RCW.watch.adopt(e.id);
       else if (e.a === 'wo' && typeof e.w === 'string' && window.RCW && window.RCW.watch) { // allenamento fatto sull'orologio
         let w = null;
         try { w = window.RCW.watch.importWorkout(JSON.parse(e.w)); } catch (err) { w = null; }
@@ -1916,6 +1857,7 @@
       case 'ob-next': slide = Math.min(GUIDA_SLIDES.length - 1, slide + 1); sheetEl.querySelector('.gsheet-body').innerHTML = onboardHtml(); return true;
       case 'ob-prev': slide = Math.max(0, slide - 1); sheetEl.querySelector('.gsheet-body').innerHTML = onboardHtml(); return true;
       case 'ob-skip': case 'ob-done': closeSheet(); return true;
+      case 'regmore': ui.regAll = !ui.regAll; render(); return true;
       case 'ptabp': ui.profTab = t.dataset.tab; render(); return true;
       case 'theme': setTheme(t.dataset.v); render(); return true;
       case 'photo-open': photoOpen(t.dataset.id); return true;

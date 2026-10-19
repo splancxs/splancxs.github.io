@@ -34,7 +34,7 @@ struct RecompComplication: View {
                 Text(left).monospacedDigit()
             }
             .gaugeStyle(.accessoryCircular)
-            .tint(Palette.lime)
+            .tint(Palette.accento)
         case .accessoryCorner:
             Image(systemName: "fork.knife")
                 .font(.system(size: 20, weight: .semibold))
@@ -43,7 +43,7 @@ struct RecompComplication: View {
             Text(s == nil ? "Recomp" : "\(left) kcal rimaste")
         default:
             VStack(alignment: .leading, spacing: 1) {
-                Text("\(left) KCAL RIMASTE").font(.system(size: 13, weight: .bold)).foregroundStyle(Palette.lime)
+                Text("\(left) KCAL RIMASTE").font(.system(size: 13, weight: .bold)).foregroundStyle(Palette.accento)
                 if let m = s?.nextMeal {
                     Text("\(m.time) \(m.label)").font(.system(size: 13, weight: .semibold))
                     Text(m.name).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1)

@@ -1,11 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Generatore + verificatore del piano alimentare.
+Generatore + verificatore del piano alimentare e delle schede.
 
-- Database alimenti (valori per 100 g, fonte dichiarata).
-- Ricette scelte dall'utente, con ingredienti "regolabili" (range e passo).
-- Per ogni fascia (slot) e tipo di giornata cerca le grammature che centrano il target
-  di kcal (±10) e si avvicinano il più possibile ai macro del target.
+- Il piano alimentare (alimenti, ricette, porzioni per fascia, settimana) arriva già pronto da tools/dieta.json,
+  esportato dal progetto del nutrizionista.
 - Calcola i totali ESATTAMENTE come li calcola il sito (stesso arrotondamento):
   kcal riga = round(kcal100 * g / 100) a intero, macro riga = round(x * 10) / 10;
   totale pasto = somma delle righe arrotondate; totale giorno = somma dei pasti.
@@ -31,324 +29,23 @@ def r1(x):
 
 
 # ---------------------------------------------------------------------------
-# DATABASE ALIMENTI  (kcal, proteine, carboidrati, grassi per 100 g)
-# cat: categoria per la lista della spesa · src: fonte · u: unità pratica (g per pezzo)
+# PIANO ALIMENTARE  (da tools/dieta.json)
+# Il piano lo prepara il nutrizionista nel progetto «alimentazione» (valori, porzioni e settimana) e lo esporta
+# in questo formato: foods, recipes, variants (fascia → ricetta → [alimento, grammi]), daytypes, targets, week,
+# equivalents. Qui non si ricalcolano le porzioni: si verificano i conti come li fa il sito e si scrive data.js.
+# Per aggiornarlo: sostituire tools/dieta.json con il nuovo export e rilanciare questo script (poi piano_swift.py).
 # ---------------------------------------------------------------------------
-F = {}
+with open(os.path.join(HERE, 'dieta.json'), encoding='utf-8') as fh:
+    DIETA = json.load(fh)
 
-
-def food(id, name, cat, k, p, c, f, src, u=None, note=None):
-    F[id] = dict(id=id, n=name, cat=cat, k=k, p=p, c=c, f=f, src=src)
-    if u:
-        F[id]['u'] = u
-    if note:
-        F[id]['note'] = note
-
-
-C_CARNE, C_AFF, C_LATT, C_CARB, C_FRUT, C_VERD, C_COND, C_INT = (
-    'Carne e pesce', 'Affettati', 'Latticini e uova', 'Pane, pasta e cereali',
-    'Frutta', 'Verdura cruda', 'Condimenti e dispensa', 'Integratori e snack')
-
-# Carne e pesce (pesi da CRUDO)
-food('pollo', 'Petto di pollo (crudo)', C_CARNE, 100, 23.3, 0, 0.8, 'CREA')
-food('tacchino', 'Fesa di tacchino (cruda)', C_CARNE, 107, 24.0, 0, 1.2, 'CREA')
-food('manzo5', 'Macinato di manzo 5% (crudo)', C_CARNE, 129, 21.0, 0, 5.0, 'Media etichette')
-food('lonza', 'Lonza di maiale magra (cruda)', C_CARNE, 135, 21.0, 0, 5.5, 'Media etichette')
-food('vitello', 'Fesa di vitello (cruda)', C_CARNE, 92, 20.7, 0, 1.0, 'CREA')
-food('salmone', 'Salmone fresco (crudo)', C_CARNE, 185, 18.4, 0, 12.0, 'CREA')
-food('orata', 'Orata, filetto (crudo)', C_CARNE, 121, 19.7, 0, 4.7, 'Media allevamento')
-food('merluzzo', 'Merluzzo, filetto (crudo)', C_CARNE, 71, 17.0, 0, 0.3, 'CREA')
-food('trota', 'Trota (cruda)', C_CARNE, 141, 20.8, 0, 6.2, 'USDA')
-food('tonno_fresco', 'Tonno fresco pinne gialle (crudo)', C_CARNE, 108, 24.4, 0, 1.0, 'USDA')
-food('tonno_nat', 'Tonno al naturale (sgocciolato)', C_CARNE, 103, 25.1, 0, 0.3, 'CREA', u=56,
-     note='1 scatoletta da 80 g = 56 g sgocciolati')
-food('sgombro_nat', 'Sgombro al naturale (sgocciolato)', C_CARNE, 160, 21.0, 0, 8.5, 'Media etichette')
-
-# Affettati
-food('bresaola', 'Bresaola', C_AFF, 151, 32.0, 0, 2.6, 'CREA', u=80, note='1 vaschetta = 80 g')
-food('cotto', 'Prosciutto cotto magro (sgrassato)', C_AFF, 126, 20.0, 1.0, 4.7, 'Media etichette', u=100,
-     note='1 vaschetta = 100 g')
-food('tacchino_arrosto', 'Fesa di tacchino arrosto (affettato)', C_AFF, 104, 21.0, 1.5, 1.5, 'Media etichette',
-     u=100, note='1 vaschetta = 100 g')
-food('roastbeef', 'Roast beef (affettato)', C_AFF, 120, 22.0, 0.5, 3.4, 'Media etichette')
-food('speck', 'Speck', C_AFF, 301, 28.3, 0.5, 20.9, 'CREA')
-
-# Latticini e uova
-food('uovo', 'Uovo intero', C_LATT, 128, 12.4, 0, 8.7, 'CREA', u=50, note='1 uovo medio ≈ 50 g senza guscio')
-food('albume', 'Albume (brick)', C_LATT, 43, 10.7, 0, 0, 'CREA')
-food('yogurt', 'Yogurt greco 0%', C_LATT, 54, 10.3, 3.0, 0, 'Etichetta Fage Total 0%')
-food('latte_ps', 'Latte parzialmente scremato', C_LATT, 46, 3.5, 5.0, 1.5, 'CREA')
-food('fiocchi', 'Fiocchi di latte', C_LATT, 98, 11.0, 3.2, 4.5, 'Media etichette')
-food('phila', 'Philadelphia Light', C_LATT, 182, 8.4, 3.7, 15.0, 'Etichetta (FatSecret)')
-food('mozz_light', 'Mozzarella light', C_LATT, 163, 19.0, 1.0, 9.0, 'Media etichette', u=125,
-     note='1 mozzarella = 125 g')
-food('sottiletta', 'Sottilette Light', C_LATT, 174, 16.0, 8.0, 6.8, 'Etichetta Sottilette.it', u=20,
-     note='1 fetta ≈ 20 g')
-food('parmigiano', 'Parmigiano Reggiano', C_LATT, 387, 33.5, 0, 28.1, 'CREA')
-
-# Pane, pasta e cereali (pesi da CRUDO per pasta e riso)
-food('pasta', 'Pasta di semola (cruda)', C_CARB, 359, 12.5, 71.2, 2.0, 'Etichetta Barilla')
-food('riso', 'Riso basmati (crudo)', C_CARB, 350, 7.8, 78.0, 0.6, 'Media etichette')
-food('patate', 'Patate (crude)', C_CARB, 77, 2.0, 16.0, 0.1, 'USDA')
-food('pane_int', 'Pane integrale', C_CARB, 240, 9.0, 41.0, 3.0, 'Media etichette', u=40, note='1 fetta ≈ 40 g')
-food('pane_segale', 'Pane di segale', C_CARB, 220, 7.0, 40.0, 2.0, 'Media etichette', u=40, note='1 fetta ≈ 40 g')
-food('pancarre', 'Pancarré integrale', C_CARB, 258, 10.0, 42.0, 4.3, 'Media etichette', u=27,
-     note='1 fetta ≈ 27 g')
-food('piadina', 'Piadina integrale', C_CARB, 305, 9.0, 46.0, 8.0, 'Media etichette', u=100, note='1 piadina ≈ 100 g')
-food('crackers', 'Crackers integrali', C_CARB, 410, 11.0, 64.0, 10.5, 'Media etichette', u=25,
-     note='1 pacchetto ≈ 25 g')
-food('fette_bisc', 'Fette biscottate integrali', C_CARB, 382, 12.0, 66.0, 5.5, 'Media etichette', u=10,
-     note='1 fetta ≈ 10 g')
-food('avena', "Fiocchi d'avena", C_CARB, 370, 13.5, 58.7, 7.0, 'Media etichette')
-food('special_k', 'Special K Protein (frutti di bosco, granola e semi)', C_CARB, 371, 12.0, 69.0, 3.2,
-     'Etichetta (Open Food Facts)')
-food('gallette', 'Gallette di riso', C_CARB, 385, 8.0, 81.0, 2.8, 'Media etichette', u=8)
-
-# Frutta
-food('banana', 'Banana (polpa)', C_FRUT, 89, 1.1, 20.2, 0.3, 'USDA', u=120, note='1 banana media ≈ 120 g di polpa')
-food('mela', 'Mela', C_FRUT, 52, 0.3, 11.4, 0.2, 'USDA', u=150, note='1 mela media ≈ 150 g')
-food('pera', 'Pera', C_FRUT, 57, 0.4, 12.2, 0.1, 'USDA', u=150, note='1 pera media ≈ 150 g')
-food('kiwi', 'Kiwi (polpa)', C_FRUT, 61, 1.1, 12.2, 0.5, 'USDA', u=75, note='1 kiwi ≈ 75 g')
-food('arancia', 'Arancia (polpa)', C_FRUT, 47, 0.9, 9.4, 0.1, 'USDA')
-food('fragole', 'Fragole', C_FRUT, 32, 0.7, 5.7, 0.3, 'USDA')
-food('frutti_bosco', 'Frutti di bosco (anche surgelati)', C_FRUT, 45, 1.0, 7.5, 0.4, 'Media etichette')
-food('ananas', 'Ananas', C_FRUT, 50, 0.5, 11.7, 0.1, 'USDA')
-food('spremuta', "Spremuta d'arancia", C_FRUT, 45, 0.7, 10.4, 0.2, 'USDA')
-
-# Verdura cruda
-food('insalata', 'Insalata mista cruda (lattuga, pomodori, carote, cetrioli)', C_VERD, 20, 1.0, 3.0, 0.2,
-     'Media CREA')
-food('pomodorini', 'Pomodorini', C_VERD, 18, 0.9, 2.7, 0.2, 'USDA')
-food('mais', 'Mais dolce in scatola (sgocciolato)', C_VERD, 90, 3.0, 16.0, 1.2, 'Media etichette')
-
-# Condimenti e dispensa
-food('olio', "Olio extravergine d'oliva", C_COND, 899, 0, 0, 99.9, 'CREA', note='1 cucchiaino ≈ 5 g')
-food('passata', 'Passata di pomodoro', C_COND, 34, 1.5, 5.2, 0.2, 'Media etichette')
-food('pesto', 'Pesto genovese', C_COND, 500, 5.0, 6.0, 50.0, 'Media etichette')
-food('ketchup', 'Ketchup', C_COND, 102, 1.2, 23.2, 0.1, 'Etichetta Heinz')
-food('bbq', 'Salsa BBQ', C_COND, 160, 1.0, 38.0, 0.3, 'Media etichette')
-food('soia', 'Salsa di soia', C_COND, 77, 10.3, 3.2, 0, 'Etichetta Kikkoman')
-food('miele', 'Miele', C_COND, 320, 0.4, 80.0, 0, 'Media etichette')
-food('marmellata0', 'Marmellata zero zuccheri', C_COND, 60, 0.5, 13.0, 0.2, 'Media etichette (con dolcificanti)')
-food('mandorle', 'Mandorle', C_COND, 600, 22.0, 5.0, 52.0, 'Media etichette')
-food('nocciole', 'Nocciole', C_COND, 650, 14.0, 6.0, 62.0, 'Media etichette')
-food('noci', 'Noci', C_COND, 670, 15.0, 4.0, 65.0, 'Media etichette')
-food('burro_arachidi', "Burro d'arachidi 100%", C_COND, 610, 25.0, 12.0, 50.0, 'Media etichette')
-food('cioccolato85', 'Cioccolato fondente 85%', C_COND, 590, 12.5, 15.0, 52.0, 'Media etichette')
-
-# Integratori e snack
-food('whey', 'Whey Prozis 100% Real Whey (Brownie)', C_INT, 376, 72.0, 7.3, 6.7, 'Etichetta (Open Food Facts)',
-     note='1 scoop = 30 g')
-food('barretta', 'Barretta proteica (~20 g proteine)', C_INT, 364, 36.4, 29.1, 13.6, 'Media etichette', u=55,
-     note='1 barretta ≈ 55 g')
-food('crema_proteica', 'Crema proteica alle nocciole', C_INT, 510, 22.0, 25.0, 36.0, 'Media etichette')
-
-
-# ---------------------------------------------------------------------------
-# RICETTE / OPZIONI SCELTE
-# item: (food, grammi) fisso · (food, base, min, max, passo) regolabile · (food, base, [grammature ammesse])
-# Le grammature ammesse sono porzioni che esistono davvero: vaschetta intera o mezza, scatolette, vasetti,
-# fette, cucchiaini. Pasta, riso, carne e patate (che si pesano comunque) vanno a passi di 10 o 50 g.
-# ---------------------------------------------------------------------------
-R = {}
-
-
-def rec(code, kind, name, how, items):
-    R[code] = dict(code=code, kind=kind, name=name, how=how, items=items)
-
-
-# Porzioni da piatto vero (regola dell'utente, 2026-10-01): prima si fissa cosa si mette davvero nel piatto,
-# poi i conti si adattano. Un panino è 2 fette, una piadina è intera, il riso non scende sotto i 70 g.
-# Se una ricetta con queste porzioni non sta nelle calorie di una fascia, in quella fascia non compare
-# (vedi ENTRA_IN_FASCIA), invece di essere rimpicciolita.
-STEP = lambda a, b, st: list(range(a, b + 1, st))
-PANINO = [80]                          # 2 fette di pane integrale (40 g l'una): un panino
-FETTE_CENA = [80, 120]                 # 2 o 3 fette quando il pane è il carboidrato del piatto
-BRESAOLA = [40, 80]                    # mezza vaschetta / vaschetta da 80 g
-VASCHETTA = [50, 100]                  # mezza vaschetta / vaschetta da 100 g (cotto, tacchino)
-YOGURT = [150, 170, 200, 250, 300]     # vasetti da 150/170/200 g, mezza confezione da 500 g, 2 vasetti da 150 g
-TOAST = [54, 108]                      # pancarré: 2 fette (un toast) o 4 (due toast)
-PIADINA = [100]                        # una piadina intera
-PASTA = STEP(80, 110, 10)              # pasta a pranzo: da 80 g in su
-RISO = STEP(70, 110, 10)               # riso: da 70 g in su
-PATATE = STEP(200, 300, 50)            # patate quando sono il carboidrato del piatto
-OLIO = [5, 10, 15]                     # 1, 2 o 3 cucchiaini
-OLIO0 = [0, 5, 10]                     # dove l'olio è facoltativo (ragù, burger)
-NOCI15 = [10, 15, 20]
-
-# Merenda 1 (09:30)
-rec('M1-A', 'm1', 'Panino integrale con bresaola, Philadelphia light e mela',
-    'Spalma il Philadelphia sul pane, aggiungi la bresaola. Carta stagnola e mela intera nello zaino.',
-    [('pane_int', 80, PANINO), ('bresaola', 40, BRESAOLA), ('phila', 20, [15, 20, 25, 30]), ('mela', 150)])
-rec('M1-B', 'm1', 'Panino integrale con tacchino arrosto, sottiletta light e mandorle',
-    'Panino con tacchino e 1 sottiletta; mandorle in un sacchettino.',
-    [('pane_int', 80, PANINO), ('tacchino_arrosto', 50, VASCHETTA), ('sottiletta', 20), ('mandorle', 15, [0, 10, 15, 20])])
-rec('M1-C', 'm1', 'Piadina integrale con prosciutto cotto magro',
-    'Piadina scaldata la sera prima, farcita, chiusa a rotolo nella stagnola. Se nelle quantità compaiono anche mozzarella o kiwi, aggiungili.',
-    [('piadina', 100, PIADINA), ('cotto', 50, VASCHETTA), ('mozz_light', 60, [0, 60]), ('kiwi', 75, [0, 75])])
-rec('M1-D', 'm1', 'Crackers integrali, bresaola, mandorle e mela',
-    'Crackers (1 o 2 pacchetti), bresaola in un foglio di carta da forno, mandorle a parte, mela intera.',
-    [('crackers', 50, [25, 50]), ('bresaola', 40, BRESAOLA), ('mandorle', 15, [0, 10, 15, 20]), ('mela', 150)])
-rec('M1-E', 'm1', 'Toast freddo di pancarré integrale con cotto, sottiletta e pera',
-    'Toast di pancarré (tostato la sera prima se ti piace) con cotto e 1 sottiletta. Pera intera.',
-    [('pancarre', 54, TOAST), ('cotto', 50, VASCHETTA), ('sottiletta', 20), ('pera', 150)])
-
-# Merenda 2 (12:10)
-rec('M2-B', 'm2', 'Crackers integrali, bresaola e pera',
-    '1 pacchetto di crackers, bresaola, pera intera (e le nocciole, se compaiono nelle quantità).',
-    [('crackers', 25), ('bresaola', 40, BRESAOLA), ('pera', 150), ('nocciole', 10, [0, 10, 15])])
-rec('M2-E', 'm2', 'Panino di segale con tacchino arrosto e kiwi',
-    'Panino di segale (2 fette) con il tacchino; kiwi interi (li sbucci con le mani o li tagli a metà a casa).',
-    [('pane_segale', 80, [80]), ('tacchino_arrosto', 50, VASCHETTA), ('kiwi', 150, [75, 150])])
-rec('M2-F', 'm2', 'Barretta proteica e mela',
-    'Scegli barrette con circa 20 g di proteine e ≤ 210 kcal.',
-    [('barretta', 55), ('mela', 150, [150, 200])])
-
-# Pranzi (14:30)
-rec('P-A', 'pranzo', 'Pasta al ragù di manzo 5% + insalata',
-    "Rosola il macinato senza olio, aggiungi la passata e cuoci 15'. Olio a crudo sulla pasta, parmigiano sopra.",
-    [('pasta', 90, PASTA), ('manzo5', 100, STEP(70, 130, 10)), ('passata', 120), ('olio', 5, [5, 10]),
-     ('parmigiano', 10, [5, 10]), ('insalata', 150)])
-rec('P-B', 'pranzo', 'Riso basmati con pollo al curry (o paprika/soia) + verdure crude',
-    'Pollo a straccetti in padella antiaderente con curry o paprika, sfuma con la soia. Olio a crudo.',
-    [('riso', 90, RISO), ('pollo', 130, STEP(100, 160, 10)), ('olio', 10, OLIO), ('soia', 10),
-     ('insalata', 150)])
-rec('P-C', 'pranzo', 'Pasta al tonno e pomodoro',
-    "Passata in padella 5', tonno sgocciolato alla fine, olio a crudo. Pomodorini crudi a parte o nel piatto.",
-    [('pasta', 90, PASTA), ('tonno_nat', 112, [56, 112]), ('passata', 120), ('olio', 10, OLIO),
-     ('pomodorini', 100)])
-rec('P-D', 'pranzo', 'Burger di manzo fatto in casa nel panino + patate in air fryer',
-    "Burger schiacciato sottile, piastra 3' per lato. Patate a spicchi in air fryer 200 °C per 18-20' con spezie, olio a crudo dopo.",
-    [('pane_int', 80, PANINO), ('manzo5', 120, STEP(100, 150, 10)), ('sottiletta', 20), ('insalata', 60),
-     ('ketchup', 15), ('patate', 200, [0, 150, 200, 250]), ('olio', 5, OLIO0)])
-rec('P-E', 'pranzo', 'Pollo alla piastra + patate in air fryer + insalata (+ pane)',
-    "Patate a cubetti in air fryer 200 °C per 20' con paprika, rosmarino e aglio; olio a crudo alla fine.",
-    [('pollo', 140, STEP(110, 180, 10)), ('patate', 250, PATATE), ('olio', 10, OLIO), ('insalata', 150),
-     ('pane_int', 40, [0, 40, 80])])
-rec('P-F', 'pranzo', 'Pasta al pesto con pollo e pomodorini',
-    'Pollo a cubetti in padella; pasta condita con pesto e pollo, pomodorini crudi tagliati sopra.',
-    [('pasta', 90, PASTA), ('pesto', 20), ('pollo', 100, [80, 100, 120]), ('pomodorini', 100),
-     ('parmigiano', 5)])
-rec('P-G', 'pranzo', 'Piadina integrale con pollo e mozzarella light (+ banana)',
-    'Piadina scaldata in padella, pollo alla piastra a straccetti, mozzarella, lattuga e pomodoro.',
-    [('piadina', 100, PIADINA), ('pollo', 100, [80, 100, 120]), ('mozz_light', 60), ('insalata', 80),
-     ('banana', 120, [0, 120])])
-
-# Post-workout (18:00) — grammature fisse, tutte intorno a 220 kcal
-rec('PW-A', 'pw', 'Whey in acqua + banana',
-    '1 scoop (30 g) di whey Brownie shakerato con 300 ml di acqua, subito dopo il tapis. Banana intera.',
-    [('whey', 30), ('banana', 120)])
-rec('PW-B', 'pw', 'Yogurt greco 0% con avena e banana',
-    'A casa, appena rientri: 1 vasetto da 170 g, 2 cucchiai di fiocchi d\'avena e mezza banana a rondelle. Va bene anche con altra frutta (mezza mela o 100 g di frutti di bosco).',
-    [('yogurt', 170), ('avena', 20), ('banana', 60)])
-rec('PW-C', 'pw', 'Yogurt greco 0% con avena e miele',
-    'A casa, appena rientri: 1 vasetto da 200 g, 2 cucchiai abbondanti di fiocchi d\'avena e 1 cucchiaino di miele.',
-    [('yogurt', 200), ('avena', 25), ('miele', 5)])
-
-# Cene (19:00)
-rec('C-A', 'cena', 'Salmone al forno + patate in air fryer + insalata',
-    "Salmone al forno 180 °C per 15-18' con limone e pepe. Patate in air fryer.",
-    [('salmone', 150, [125, 150]), ('patate', 250, PATATE), ('insalata', 150), ('olio', 5, [5, 10])])
-rec('C-B', 'cena', 'Pollo BBQ o alla paprika + riso basmati + verdure crude',
-    'Pollo a fette alla piastra, salsa BBQ a fine cottura (o paprika dolce). Riso bollito.',
-    [('pollo', 140, STEP(100, 180, 10)), ('riso', 70, STEP(70, 100, 10)), ('insalata', 200), ('olio', 5, [5, 10]),
-     ('bbq', 15)])
-rec('C-C', 'cena', 'Burger di manzo al piatto con sottiletta + patate in air fryer',
-    'Burger alla piastra, sottiletta sopra a fuoco spento. Patate in air fryer, ketchup a parte.',
-    [('manzo5', 130, STEP(100, 150, 10)), ('sottiletta', 20), ('patate', 250, PATATE), ('insalata', 150),
-     ('olio', 5, [5, 10]), ('ketchup', 15)])
-rec('C-D', 'cena', 'Orata al forno + patate in air fryer + insalata',
-    "Filetti di orata in forno 180 °C per 12-15' con prezzemolo e limone.",
-    [('orata', 150, [150, 200]), ('patate', 250, PATATE), ('insalata', 150), ('olio', 10, OLIO)])
-rec('C-E', 'cena', 'Merluzzo al forno + pane integrale + insalata',
-    "Merluzzo in forno 180 °C per 15' con pomodorini, olive e origano (o al vapore).",
-    [('merluzzo', 200, [200, 250]), ('pane_int', 80, FETTE_CENA), ('insalata', 150), ('olio', 10, OLIO)])
-rec('C-F', 'cena', 'Uova strapazzate con albumi + pane integrale + pomodorini',
-    'Strapazzate in padella antiaderente con un filo d\'olio, parmigiano a fine cottura.',
-    [('uovo', 100, [100, 150]), ('albume', 150, [100, 150, 200]), ('pane_int', 80, FETTE_CENA), ('pomodorini', 150),
-     ('parmigiano', 10), ('olio', 5, [5, 10])])
-rec('C-G', 'cena', 'Polpette di manzo al sugo + pane integrale + insalata',
-    "Polpette con macinato e parmigiano, 12' in air fryer a 190 °C, poi 5' nella passata calda.",
-    [('manzo5', 130, STEP(100, 150, 10)), ('parmigiano', 10, [5, 10]), ('passata', 150), ('pane_int', 80, FETTE_CENA),
-     ('insalata', 150), ('olio', 5, [5, 10])])
-rec('C-H', 'cena', 'Lonza alla piastra + patate in air fryer + insalata',
-    'Fettine di lonza alla piastra ben calda, 2-3 minuti per lato, rosmarino e pepe.',
-    [('lonza', 150, [150, 180]), ('patate', 250, PATATE), ('insalata', 150), ('olio', 5, [5, 10])])
-rec('C-I', 'cena', 'Tonno fresco alla piastra + riso basmati + verdure crude',
-    'Trancio di tonno scottato 1-2 minuti per lato, salsa di soia e sesamo a piacere.',
-    [('tonno_fresco', 150, [120, 150, 180]), ('riso', 70, STEP(70, 100, 10)), ('insalata', 150), ('olio', 5, OLIO),
-     ('soia', 10)])
-rec('C-J', 'cena', '"Piadizza" al forno: piadina, passata, mozzarella light e cotto',
-    "Piadina con passata, mozzarella a pezzi e cotto; forno 200 °C per 8-10'. Insalata a parte, con limone o aceto.",
-    [('piadina', 100, PIADINA), ('passata', 60), ('mozz_light', 60, [60, 125]), ('cotto', 50),
-     ('insalata', 150)])
-
-# Spuntini (merenda OFF / dopocena)
-rec('S-A', 'spuntino', 'Yogurt greco 0% con frutti di bosco e miele', 'Anche con frutti di bosco surgelati scongelati.',
-    [('yogurt', 170, YOGURT), ('frutti_bosco', 100), ('miele', 5)])
-rec('S-B', 'spuntino', 'Yogurt greco 0% con noci', 'Noci spezzettate sopra, un pizzico di cannella se ti va.',
-    [('yogurt', 170, YOGURT), ('noci', 15, NOCI15)])
-rec('S-C', 'spuntino', 'Fiocchi di latte con ananas', 'Ananas a cubetti (fresco o al naturale sgocciolato).',
-    [('fiocchi', 150, [150, 175, 200]), ('ananas', 100)])
-rec('S-E', 'spuntino', 'Mela e cioccolato fondente 85%', 'Lo sfizio: ha poche proteine, usalo al massimo 1-2 volte a settimana.',
-    [('mela', 150, [150, 200]), ('cioccolato85', 15, NOCI15)])
-rec('S-F', 'spuntino', 'Yogurt greco 0% con avena e frutta',
-    'Mezza mela a cubetti sopra; al suo posto vanno bene 100 g di fragole o di frutti di bosco, oppure mezza banana piccola.',
-    [('yogurt', 170, [150, 170, 200]), ('avena', 15, [10, 15, 20, 25]), ('mela', 75)])
-rec('S-G', 'spuntino', 'Yogurt greco 0% con avena e miele',
-    'Avena direttamente nello yogurt, 1 cucchiaino di miele sopra. Se la vuoi più morbida preparala 10 minuti prima.',
-    [('yogurt', 170, [150, 170, 200]), ('avena', 15, [10, 15, 20, 25]), ('miele', 5)])
-
-# Colazioni weekend
-rec('B-B', 'colazione', 'Pancake proteici (avena, albumi, banana) con yogurt e frutti di bosco',
-    "Frulla avena, albumi e banana; padella antiaderente unta con l'olio, 2' per lato. Sopra yogurt, frutti di bosco e miele.",
-    [('avena', 50, [40, 50, 60, 70]), ('albume', 150), ('banana', 60), ('olio', 2), ('yogurt', 150, [150, 170]),
-     ('frutti_bosco', 80), ('miele', 5, [5, 10])])
-rec('B-C', 'colazione', 'Uova strapazzate con albumi + toast integrale + kiwi',
-    'Strapazzate morbide con sale e pepe; 2 fette di pane tostato; 1 o 2 kiwi.',
-    [('uovo', 100), ('albume', 100, [100, 150]), ('olio', 5), ('pane_int', 80, PANINO), ('kiwi', 150, [75, 150])])
-rec('B-D', 'colazione', 'Yogurt bowl con Special K Protein, frutti di bosco, miele e mandorle',
-    'Tutto in una ciotola: yogurt alla base, cereali e frutta sopra.',
-    [('yogurt', 250, [200, 250, 300]), ('special_k', 40, [30, 40, 50]), ('frutti_bosco', 100), ('miele', 10),
-     ('mandorle', 15, NOCI15)])
-rec('B-F', 'colazione', "Colazione all'italiana proteica: latte al brownie + fette biscottate",
-    'Whey sciolta nel latte (shaker o frullino). Fette con marmellata zero e crema proteica.',
-    [('latte_ps', 250), ('whey', 30, [15, 30]), ('fette_bisc', 40, [30, 40, 50]), ('marmellata0', 20),
-     ('crema_proteica', 15, NOCI15)])
-rec('B-G', 'colazione', 'Toast salato con cotto e sottiletta + spremuta',
-    'Due toast di pancarré (4 fette) con cotto e sottiletta; spremuta di arance.',
-    [('pancarre', 108, [108]), ('cotto', 50, VASCHETTA), ('sottiletta', 20, [20, 40]), ('spremuta', 200, [150, 200, 250])])
-rec('B-H', 'colazione', 'Yogurt greco 0% con avena, banana, miele e mandorle',
-    'Ciotola: yogurt, fiocchi d\'avena, banana a rondelle, miele e mandorle. Se la prepari la sera prima diventa un overnight oats.',
-    [('yogurt', 250, [200, 250, 300]), ('avena', 50, [30, 40, 50, 60]), ('banana', 120, [60, 120]),
-     ('miele', 5, [0, 5, 10]), ('mandorle', 10, [0, 10, 15])])
-
-# Frutto (spuntino del sabato mattina) ~80 kcal
-rec('F-A', 'frutto', 'Mela', '', [('mela', 150)])
-rec('F-B', 'frutto', 'Pera', '', [('pera', 150)])
-rec('F-C', 'frutto', '2 kiwi', '', [('kiwi', 150)])
-rec('F-D', 'frutto', 'Arancia', '', [('arancia', 170, 150, 190, 10)])
-rec('F-E', 'frutto', 'Fragole', '', [('fragole', 250)])
-
-# ---------------------------------------------------------------------------
-# FASCE (slot) con target: kcal, P, C, F
-# ---------------------------------------------------------------------------
-SLOTS = {
-    'm1':          dict(kind='m1', t=(440, 27, 52, 13)),
-    'm2':          dict(kind='m2', t=(300, 18, 36, 9)),
-    'm1_off':      dict(kind='m1', t=(380, 26, 44, 11)),     # giorni OFF di scuola: stesso panino, ripieno più leggero
-    'm2_off':      dict(kind='m2', t=(250, 17, 30, 7)),
-    'pranzo_on':   dict(kind='pranzo', t=(590, 35, 78, 16)),
-    'pranzo_off':  dict(kind='pranzo', t=(500, 38, 56, 14)),
-    'pranzo_we':   dict(kind='pranzo', t=(560, 36, 64, 17)),
-    'pw':          dict(kind='pw', t=None),
-    'cena':        dict(kind='cena', t=(500, 36, 50, 17)),
-    'cena_light':  dict(kind='cena', t=(450, 40, 40, 15)),
-    'spuntino':    dict(kind='spuntino', t=(170, 20, 14, 4)),
-    'colazione':   dict(kind='colazione', t=(450, 32, 50, 13)),
-    'frutto':      dict(kind='frutto', t=(80, 1, 18, 0)),
-}
-ENTRA_IN_FASCIA = 30   # kcal: una ricetta compare in una fascia solo se con porzioni vere ci sta entro ±30
+F = DIETA['foods']
+R = DIETA['recipes']
+VARIANTS = {(code, slot): [tuple(x) for x in items]
+            for slot, ricette in DIETA['variants'].items() for code, items in ricette.items()}
+DAYTYPES = {k: dict(label=v['label'], target=tuple(v['target']), slots=[tuple(s) for s in v['slots']])
+            for k, v in DIETA['daytypes'].items()}
+WEEK = DIETA['week']
+TARGETS = DIETA['targets']
 
 
 def line(fid, g):
@@ -365,113 +62,13 @@ def totals(lines):
     return k, p, c, fa
 
 
-def tune(code, target):
-    items = R[code]['items']
-    if target is None:
-        return [(it[0], it[1]) for it in items]
-    ranges = []
-    for it in items:
-        if len(it) == 2:
-            ranges.append([it[1]])
-        elif len(it) == 3:
-            ranges.append(list(it[2]))
-        else:
-            _, base, lo, hi, st = it
-            ranges.append(list(range(lo, hi + 1, st)))
-    K, P, Cc, Fa = target
-    best, best_score = None, None
-    for combo in itertools.product(*ranges):
-        ls = [line(items[i][0], g) for i, g in enumerate(combo) if g > 0]
-        k, p, c, fa = totals(ls)
-        dk = abs(k - K)
-        score = (dk / 4) ** 2 * (1 if dk <= 8 else 50) + ((p - P) / 4) ** 2 + ((c - Cc) / 8) ** 2 + ((fa - Fa) / 3) ** 2
-        # piccola preferenza per restare vicini alla grammatura base
-        score += sum(abs(g - (it[1])) for g, it in zip(combo, items)) * 0.0005
-        if best_score is None or score < best_score:
-            best, best_score = combo, score
-    return [(items[i][0], g) for i, g in enumerate(best) if g > 0]
-
-
-VARIANTS = {}  # (code, slot) -> [(food, g)]
-FUORI = []     # (code, slot, scarto): ricette che con porzioni vere non stanno nella fascia
-for slot, s in SLOTS.items():
-    for code, r in R.items():
-        if r['kind'] == s['kind']:
-            v = tune(code, s['t'])
-            if s['t']:
-                d = sum(line(f, g)['k'] for f, g in v) - s['t'][0]
-                if abs(d) > ENTRA_IN_FASCIA:
-                    FUORI.append((code, slot, d))
-                    continue
-            VARIANTS[(code, slot)] = v
-
-# ---------------------------------------------------------------------------
-# SETTIMANA TIPO (scelte di default; nel sito ogni pasto si può scambiare)
-# ---------------------------------------------------------------------------
-DAYTYPES = {
-    'ON':  dict(label='Giorno ON · scuola + palestra', target=(2050, 140, 249, 55), slots=[
-        ('09:30', 'Merenda 1 (intervallo)', 'm1'), ('12:10', 'Merenda 2 (intervallo)', 'm2'),
-        ('14:30', 'Pranzo · pre-workout', 'pranzo_on'), ('18:00', 'Post-workout', 'pw'),
-        ('19:00', 'Cena', 'cena')]),
-    'OFF_S': dict(label='Giorno OFF · scuola', target=(1750, 140, 167, 58), slots=[
-        ('09:30', 'Merenda 1 (intervallo)', 'm1_off'), ('12:10', 'Merenda 2 (intervallo)', 'm2_off'),
-        ('14:30', 'Pranzo', 'pranzo_off'), ('17:30', 'Merenda', 'spuntino'),
-        ('19:00', 'Cena', 'cena_light')]),
-    'OFF_W': dict(label='Giorno OFF · weekend', target=(1750, 140, 167, 58), slots=[
-        ('09:30', 'Colazione', 'colazione'), ('11:30', 'Spuntino', 'frutto'),
-        ('13:30', 'Pranzo', 'pranzo_we'), ('17:30', 'Merenda', 'spuntino'), ('20:00', 'Cena', 'cena')]),
-    'FREE': dict(label='Giorno OFF · pasto libero', target=(1750, 140, 167, 58), slots=[
-        ('09:30', 'Colazione', 'colazione'), ('13:30', 'Pranzo LIBERO', 'free'),
-        ('17:30', 'Merenda', 'spuntino'), ('20:00', 'Cena leggera', 'cena_light')]),
-}
-
-WEEK = [
-    dict(d='lun', name='Lunedì', type='ON', wo='TA', pick=['M1-A', 'M2-B', 'P-A', 'PW-A', 'C-A']),
-    dict(d='mar', name='Martedì', type='ON', wo='LA', pick=['M1-B', 'M2-E', 'P-B', 'PW-B', 'C-G']),
-    dict(d='mer', name='Mercoledì', type='OFF_S', wo=None, pick=['M1-C', 'M2-F', 'P-E', 'S-F', 'C-H']),
-    dict(d='gio', name='Giovedì', type='ON', wo='TB', pick=['M1-D', 'M2-B', 'P-D', 'PW-A', 'C-D']),
-    dict(d='ven', name='Venerdì', type='ON', wo='LB', pick=['M1-D', 'M2-E', 'P-F', 'PW-C', 'C-I']),
-    dict(d='sab', name='Sabato', type='OFF_W', wo=None, pick=['B-H', 'F-E', 'P-G', 'S-G', 'C-E']),
-    dict(d='dom', name='Domenica', type='FREE', wo=None, pick=['B-D', None, 'S-C', 'C-B']),
-]
-
-
 def meal_lines(code, slot):
     return [line(f, g) for f, g in VARIANTS[(code, slot)]]
 
 
-CARBO = ('pasta', 'riso', 'patate', 'pane_int', 'piadina', 'pane_segale', 'pancarre', 'crackers')
-
-
-def porzioni_strane():
-    """Controlla ogni variante con occhi umani: niente panini da 3 fette, niente 30 g di riso."""
-    errori = []
-    for (code, slot), items in VARIANTS.items():
-        g = dict(items)
-        kind = SLOTS[slot]['kind']
-        principali = [f for f in CARBO if f in g]
-        def no(msg):
-            errori.append(f'{code} in {slot}: {msg}')
-        if 'pane_int' in g and (kind in ('m1', 'm2') or code in ('P-D', 'B-C')) and g['pane_int'] % 80:
-            no(f"panino da {g['pane_int']} g (un panino sono 2 fette, 80 g)")
-        if 'pane_int' in g and g['pane_int'] % 40:
-            no(f"pane {g['pane_int']} g: non sono fette intere")
-        if 'pancarre' in g and g['pancarre'] % 54:
-            no(f"pancarré {g['pancarre']} g: un toast sono 2 fette")
-        if 'piadina' in g and g['piadina'] % 100:
-            no(f"piadina {g['piadina']} g: la piadina si mangia intera")
-        if kind == 'pranzo' and g.get('pasta', 80) < 80:
-            no(f"pasta {g['pasta']} g a pranzo")
-        if g.get('riso', 70) < 70:
-            no(f"riso {g['riso']} g")
-        if 'patate' in g and principali == ['patate'] and g['patate'] < 200:
-            no(f"patate {g['patate']} g come unico carboidrato")
-        if kind == 'cena' and principali == ['pane_int'] and g['pane_int'] < 80:
-            no(f"pane {g['pane_int']} g come unico carboidrato della cena")
-    return errori
-
-
 def report():
+    """Totali di ogni giorno come li calcola il sito, con le regole del piano:
+    ±100 kcal dal target, proteine almeno 135 g, grassi almeno 40 g (il giorno con il pasto libero non si conta)."""
     out = []
     ok = True
     for day in WEEK:
@@ -486,32 +83,36 @@ def report():
             k, p, c, fa = totals(ls)
             dk += k; dp += p; dc += c; dfa += fa
             items = ', '.join(f"{F[l['f']]['n'].split(' (')[0]} {l['g']}g" for l in ls)
-            out.append(f"  {time} {code:5s} {k:4d} kcal P{p:5.1f} C{c:5.1f} F{fa:5.1f} | {items}")
+            out.append(f"  {time} {code:14s} {k:4d} kcal P{p:5.1f} C{c:5.1f} F{fa:5.1f} | {items}")
         dp, dc, dfa = r1(dp), r1(dc), r1(dfa)
         out.append(f"  TOTALE {dk} kcal · P {dp} · C {dc} · F {dfa}")
         if day['type'] != 'FREE':
-            tk = dt['target'][0]
-            if abs(dk - tk) > 40:
+            if abs(dk - dt['target'][0]) > 100:
                 ok = False
-                out.append('  !!! fuori tolleranza kcal (±40)')
+                out.append('  !!! fuori tolleranza kcal (±100)')
             if dp < 135:
                 ok = False
                 out.append('  !!! proteine sotto 135 g')
-            if dfa < 45:
+            if dfa < 40:
                 ok = False
-                out.append('  !!! grassi sotto 45 g')
+                out.append('  !!! grassi sotto 40 g')
     for day in WEEK:
-        for (_, _, slot), code in zip(DAYTYPES[day['type']]['slots'], day['pick']):
+        dt = DAYTYPES[day['type']]
+        if len(dt['slots']) != len(day['pick']):
+            ok = False
+            out.append(f"  !!! {day['name']}: {len(day['pick'])} pasti per {len(dt['slots'])} fasce")
+        for (_, _, slot), code in zip(dt['slots'], day['pick']):
             if slot != 'free' and (code, slot) not in VARIANTS:
                 ok = False
                 out.append(f"  !!! {day['name']}: {code} non sta nella fascia {slot}")
-    strane = porzioni_strane()
-    if strane:
+    # il cambio «salto / recupero l'allenamento» scambia le fasce ON e OFF_S una a una
+    if len(DAYTYPES['ON']['slots']) != len(DAYTYPES['OFF_S']['slots']):
         ok = False
-        out.append('\nPORZIONI STRANE:\n  ' + '\n  '.join(strane))
-    if FUORI:
-        out.append('\nRicette tolte da una fascia perché con porzioni vere non ci stanno: '
-                   + ', '.join(f'{c} in {sl} ({d:+d} kcal)' for c, sl, d in FUORI))
+        out.append('  !!! ON e OFF_S devono avere lo stesso numero di fasce')
+    for (code, slot), items in VARIANTS.items():
+        if code not in R or any(f not in F for f, _ in items):
+            ok = False
+            out.append(f'  !!! {code} in {slot}: ricetta o alimento mancante')
     return '\n'.join(out), ok
 
 
@@ -521,10 +122,8 @@ def swap_ranges():
     for tname, dt in DAYTYPES.items():
         if tname == 'FREE':
             continue
-        per_slot = []
-        for _, _, slot in dt['slots']:
-            kind = SLOTS[slot]['kind']
-            per_slot.append([totals(meal_lines(code, slot)) for code in R if (code, slot) in VARIANTS])
+        per_slot = [[totals(meal_lines(code, slot)) for (code, s) in VARIANTS if s == slot]
+                    for _, _, slot in dt['slots']]
         ks, ps, cs, fs = [], [], [], []
         for combo in itertools.product(*per_slot):
             ks.append(sum(x[0] for x in combo)); ps.append(sum(x[1] for x in combo))
@@ -534,29 +133,8 @@ def swap_ranges():
     return '\n'.join(out)
 
 
-# ---------------------------------------------------------------------------
-# EQUIVALENZE (sostituzioni) calcolate dai valori del database
-# ---------------------------------------------------------------------------
 def equivalents():
-    groups = [
-        ('Fonti proteiche · stesse proteine di 100 g di petto di pollo', 'pollo', 100, 'p',
-         ['tacchino', 'vitello', 'lonza', 'manzo5', 'merluzzo', 'orata', 'salmone', 'tonno_fresco', 'tonno_nat',
-          'trota', 'albume', 'bresaola', 'tacchino_arrosto']),
-        ('Carboidrati · stessi carboidrati di 100 g di pasta (cruda)', 'pasta', 100, 'c',
-         ['riso', 'patate', 'pane_int', 'pane_segale', 'piadina', 'pancarre', 'crackers', 'gallette', 'avena']),
-        ('Grassi · stessi grassi di 10 g di olio EVO', 'olio', 10, 'f',
-         ['mandorle', 'nocciole', 'noci', 'burro_arachidi', 'pesto', 'parmigiano']),
-    ]
-    res = []
-    for title, ref, g, key, lst in groups:
-        amount = F[ref][key] * g / 100
-        rows = []
-        for fid in lst:
-            eq = amount / F[fid][key] * 100
-            eq = int(5 * math.floor(eq / 5 + 0.5)) if eq >= 20 else r0(eq)
-            rows.append(dict(f=fid, g=eq))
-        res.append(dict(title=title, ref=ref, g=g, rows=rows))
-    return res
+    return DIETA['equivalents']
 
 
 # ---------------------------------------------------------------------------
@@ -748,16 +326,13 @@ def build_exlib():
 
 EXLIB = build_exlib()
 
-TARGETS = dict(ON=dict(k=2050, p=140, c=249, f=55), OFF=dict(k=1750, p=140, c=167, f=58))
-
-
 def build_data():
     variants = {}
     for (code, slot), items in VARIANTS.items():
         variants.setdefault(slot, {})[code] = [[f, g] for f, g in items]
-    recipes = {code: dict(name=r['name'], how=r['how'], kind=r['kind']) for code, r in R.items()}
+    recipes = R
     return dict(
-        version='2026-09-28',
+        version=DIETA['version'],
         foods=F,
         recipes=recipes,
         variants=variants,

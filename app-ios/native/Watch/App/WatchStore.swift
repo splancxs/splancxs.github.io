@@ -34,6 +34,11 @@ struct WorkoutSession: Codable {
     var restEnd: Date?
     var restNext: String?
     var rt: Date?          // ultima modifica del recupero (per confrontarla con quella dell'iPhone)
+    var sent: Int?         // eventi «serie fatta» mandati al telefono: finché non li conferma (act.q) il suo stato non vale qui
+    var adopted: Bool?     // partito dal telefono: se il telefono lo annulla, qui si annulla subito (senza aspettare i 20 secondi)
+    var browsing: Bool?    // durante il recupero ho scelto con le frecce un'altra serie: si vede la serie, non il timer
+    var picked: Bool?      // la serie di adesso l'ho scelta io con le frecce: resta quella anche se il telefono la fa
+    var sentAt: Date?      // quando ho mandato l'ultimo evento al telefono
 
     var total: Int { items.reduce(0) { $0 + $1.sets.count } }
     var done: Int { items.reduce(0) { $0 + $1.sets.filter(\.done).count } }
@@ -44,10 +49,12 @@ struct WorkoutSession: Codable {
         for (i, it) in items.enumerated() { if let j = it.sets.firstIndex(where: { !$0.done }) { return [i, j] } }
         return nil
     }
+    // la serie che si vede: quella scelta con le frecce (anche già fatta, per correggerla) oppure la prima ancora da fare
     var current: [Int]? {
-        if let c = cur, c.count == 2, c[0] < items.count, c[1] < items[c[0]].sets.count, !items[c[0]].sets[c[1]].done { return c }
+        if let c = cur, c.count == 2, c[0] < items.count, c[1] < items[c[0]].sets.count { return c }
         return firstUndone()
     }
+    var editing: Bool { current.map { items[$0[0]].sets[$0[1]].done } ?? false }
     // dopo una serie: in superserie si alterna con l'esercizio abbinato, se no si resta sullo stesso esercizio
     func next(after i: Int, _ j: Int) -> [Int]? {
         let it = items[i]
@@ -62,12 +69,20 @@ struct WorkoutSession: Codable {
         if let nj = it.sets.firstIndex(where: { !$0.done }) { return [i, nj] }
         return firstUndone()
     }
-    func label(_ c: [Int]) -> String {
+    func label(_ c: [Int], lb: Set<String> = []) -> String {
         let it = items[c[0]], s = it.sets[c[1]]
-        let target = it.unit == "sec" ? "\(s.r)″" : s.kg.map { "\(fmtKg($0)) kg × \(s.r)" } ?? "\(s.r) ripetizioni"
+        let usesLb = lb.contains(it.ex)
+        let target = it.unit == "sec" ? "\(s.r)″" : s.kg.map { usesLb ? "\(fmtKg(lbFrom(kg: $0))) lb × \(s.r)" : "\(fmtKg($0)) kg × \(s.r)" } ?? "\(s.r) ripetizioni"
         return "\(shortName(it.n)) · serie \(c[1] + 1) · \(target)"
     }
 }
+
+// Alcuni macchinari hanno i pesi in libbre: per ogni esercizio si sceglie kg o lb (seconda schermata). Dentro l'app i pesi restano sempre
+// in kg: in lb cambia solo ciò che si vede e si digita (100 lb = 45,36 kg).
+let kgPerLb = 0.45359237
+func lbFrom(kg: Double) -> Double { (kg / kgPerLb * 2).rounded() / 2 }          // al mezzo libbra, così non compare mai «99,9»
+func kgFrom(lb: Double) -> Double { (lb * kgPerLb * 100).rounded() / 100 }
+func lbStep(_ incKg: Double) -> Double { max(2.5, (incKg * 2.20462 / 2.5).rounded() * 2.5) }   // 2,5 kg → 5 lb, 5 kg → 10 lb
 
 func fmtKg(_ kg: Double) -> String {
     kg.truncatingRemainder(dividingBy: 1) == 0 ? String(Int(kg)) : String(format: "%.1f", kg).replacingOccurrences(of: ".", with: ",")
@@ -80,7 +95,34 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate, WKExtende
     @Published var snap: WatchSnapshot? = WatchShared.load()
     @Published var session: WorkoutSession? = WatchStore.loadSession()
     let health = HealthWorkout()   // allenamento in Salute: battito, calorie, anelli
+    // id dell'ultimo allenamento chiuso qui: finché l'iPhone non lo sa ancora (fuori portata) il suo stato lo mostra come «in corso»
+    // e l'orologio lo riprenderebbe in carico (vedi adopt); lo ignoro
+    @Published var closedId: String? = UserDefaults.standard.string(forKey: "closedId") {
+        didSet { UserDefaults.standard.set(closedId, forKey: "closedId") }   // resta anche se l'app si riavvia
+    }
 
+    // esercizi con i pesi in libbre (la scelta resta anche negli allenamenti dopo)
+    @Published var lbSet: Set<String> = Set(UserDefaults.standard.stringArray(forKey: "lbEx") ?? [])
+    func isLb(_ ex: String) -> Bool { lbSet.contains(ex) }
+    private var lbLocalAt = Date.distantPast   // ultima scelta fatta qui: per qualche secondo lo stato del telefono non la scavalca
+    func toggleLb(_ ex: String) {
+        if lbSet.contains(ex) { lbSet.remove(ex) } else { lbSet.insert(ex) }
+        UserDefaults.standard.set(Array(lbSet), forKey: "lbEx")
+        lbLocalAt = Date()
+        WKInterfaceDevice.current().play(.click)
+        send(["a": "wunit", "ex": ex, "lb": lbSet.contains(ex) ? 1 : 0], queued: true)   // il telefono la tiene uguale
+    }
+    // la scelta kg/lb fatta sul telefono arriva con lo stato di oggi
+    private func applyUnits(_ list: [String]?) {
+        guard let list, Date().timeIntervalSince(lbLocalAt) > 10, Set(list) != lbSet else { return }
+        lbSet = Set(list)
+        UserDefaults.standard.set(list, forKey: "lbEx")
+    }
+
+    static let shared = WatchStore()   // unico: lo usano sia la schermata sia il delegato dell'app (apertura da iPhone)
+
+    @Published var tempo: TimerTempo?   // timer di una serie a tempo (plank) in corso
+    private var tempoTimer: [Timer] = []
     private var synced = false     // l'iPhone ha già confermato questo allenamento (vedi reconcile)
     private var finishing = false  // chiusura già in corso: evita di mandare due volte lo stesso allenamento
     private var restTimer: Timer?
@@ -96,6 +138,41 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate, WKExtende
         // un allenamento rimasto aperto da ore (app reinstallata o chiusa, allenamento finito altrove) non deve bloccare l'orologio
         if let s = session, Date().timeIntervalSince(s.start) > 6 * 3600 { session = nil; save() }
         if session != nil { armRest() }
+        // prove nel simulatore («simulatore.sh orologio-prova»): azioni passate come argomenti di avvio
+        let d = UserDefaults.standard
+        if d.string(forKey: "recompStart") != nil || d.bool(forKey: "recompCancel") || d.bool(forKey: "recompFinish") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in self?.simulatorTest() }
+        }
+    }
+
+    private func simulatorTest() {
+        let d = UserDefaults.standard
+        if d.bool(forKey: "recompCancel") { cancel(); return }
+        if d.bool(forKey: "recompFinish") { finish(); return }
+        guard session == nil, let rid = d.string(forKey: "recompStart"), let snap else { return }
+        if let plan = snap.plans?.first(where: { rid == "oggi" ? $0.rid == snap.todayRid : $0.rid == rid }) ?? snap.plans?.first { start(plan) }
+    }
+
+    // MARK: apertura dall'iPhone
+
+    // L'allenamento è partito dal telefono e Salute ha aperto qui l'app (anche se era chiusa). Parte subito la sessione in Salute, che tiene
+    // viva l'app, e si prende in carico lo stato dell'allenamento già consegnato dal telefono (applicationContext) o in arrivo tra poco.
+    // Se entro 25 secondi non arriva nessun allenamento (telefono fuori portata), la sessione in Salute si chiude da sola.
+    func phoneStartedWorkout() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            if self.session == nil, !UserDefaults.standard.bool(forKey: "recompSimulator") {
+                self.health.start { ok in if !ok { self.startRuntime() } }
+            }
+            let ctx = WCSession.default.receivedApplicationContext
+            if !ctx.isEmpty { self.receive(ctx) }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 25) {
+                guard self.session == nil else { return }
+                self.health.discard()
+                self.runtime?.invalidate()
+                self.runtime = nil
+            }
+        }
     }
 
     // MARK: stato di oggi
@@ -105,6 +182,7 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate, WKExtende
               let snapshot = try? JSONDecoder().decode(WatchSnapshot.self, from: data) else { return }
         DispatchQueue.main.async {
             self.store(snapshot)
+            self.applyUnits(snapshot.lb)
             self.reconcile(snapshot)
         }
     }
@@ -112,29 +190,50 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate, WKExtende
     // Durante un allenamento fatto dal polso l'iPhone tiene la stessa scheda: le serie spuntate lì arrivano qui,
     // e il recupero vale quello cambiato per ultimo (iPhone o orologio). Se l'iPhone chiude o annulla, lo faccio anch'io.
     private func reconcile(_ snapshot: WatchSnapshot) {
+        // allenamento partito dal telefono: l'orologio lo prende in carico e si comporta come se fosse partito dal polso
+        if session == nil, snapshot.isToday, let act = snapshot.act, act.id != closedId, !finishing {
+            adopt(act)
+            return
+        }
         guard var s = session else { synced = false; return }
         guard let act = snapshot.act, act.id == s.id else {
             if snapshot.fin?.contains(s.id) == true {
                 synced = false
                 finish()   // l'iPhone l'ha già salvato: chiudo anche qui (vale anche dopo una reinstallazione o un riavvio dell'app)
-            } else if synced, Date().timeIntervalSince(s.start) > 20 {
+            } else if s.adopted == true || (synced && Date().timeIntervalSince(s.start) > 20) {
+                // l'iPhone l'ha annullato. Se l'allenamento era partito dal telefono lo so per certo (ne ho avuto lo stato), quindi subito;
+                // se era partito dal polso aspetto 20 secondi: all'inizio il telefono può non averlo ancora ricevuto
                 synced = false
-                cancel()   // l'iPhone l'ha annullato
+                cancel()
             }
             return
         }
         synced = true
         var changed = false
-        for (i, ai) in act.items.enumerated() where i < s.items.count && s.items[i].ex == ai.ex {
-            for (j, v) in ai.s.enumerated() where j < s.items[i].sets.count && !s.items[i].sets[j].done {
-                guard let v = v, v.count == 2, let r = v[1] else { continue }
-                s.items[i].sets[j].kg = v[0]
-                s.items[i].sets[j].r = Int(r)
-                s.items[i].sets[j].done = true
+        // Il telefono è la fonte giusta: se ha già ricevuto tutti i miei eventi (act.q) prendo il suo stato com'è, cioè serie spuntate
+        // o tolte, kg e ripetizioni, serie ed esercizi aggiunti, tolti o spostati. Se no, i miei sono ancora in viaggio e li tengo.
+        // Se un mio evento si è perso (il telefono non lo conferma da più di 15 secondi pur mandando il suo stato), vale il telefono.
+        let perso = (act.q ?? 0) < (s.sent ?? 0) && Date().timeIntervalSince(s.sentAt ?? .distantPast) > 15
+        if (act.q ?? 0) >= (s.sent ?? 0) || perso {
+            if perso { s.sent = act.q ?? 0 }
+            let nuovi = WatchStore.items(from: act)
+            if nuovi != s.items || (act.name != nil && act.name != s.name) {
+                s.items = nuovi
+                if let n = act.name { s.name = n }
+                if let c = s.cur, c.count == 2, c[0] < s.items.count, c[1] < s.items[c[0]].sets.count {
+                    // la serie che stavo per fare l'ha fatta il telefono: passo alla prossima (come se l'avessi fatta qui).
+                    // Se invece l'avevo scelta io con le frecce (per guardarla o correggerla), resta quella
+                    if s.picked != true && s.items[c[0]].sets[c[1]].done {
+                        s.cur = s.next(after: c[0], c[1])
+                        s.browsing = false
+                    }
+                } else {
+                    s.cur = nil
+                    s.picked = false
+                }
                 changed = true
             }
         }
-        if changed { s.cur = nil }
         if let rv = act.rv, rv > (s.rt?.timeIntervalSince1970 ?? 0) * 1000 {
             let end = (act.re ?? 0) > Date().timeIntervalSince1970 * 1000 ? Date(timeIntervalSince1970: (act.re ?? 0) / 1000) : nil
             if end != s.restEnd {
@@ -149,6 +248,40 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate, WKExtende
         save()
         armRest()
         if s.current == nil { WKInterfaceDevice.current().play(.click) }
+    }
+
+    // Crea la sessione dell'orologio dall'allenamento attivo sul telefono: stesse serie, stesso inizio, stesso recupero.
+    // Da qui in poi funziona come un allenamento partito dal polso: Salute (battito, kcal), vibrazioni, «Termina», musica.
+    // Non parte se è vecchio di ore (stato rimasto indietro) e non manda «wstart»: il telefono ce l'ha già.
+    private func adopt(_ act: WatchAct) {
+        let start = (act.st ?? Date().timeIntervalSince1970 * 1000) / 1000
+        guard Date().timeIntervalSince1970 - start < 6 * 3600, !act.items.isEmpty else { return }
+        let items = WatchStore.items(from: act)
+        var s = WorkoutSession(id: act.id, rid: act.rid ?? "", name: act.name ?? "Allenamento", start: Date(timeIntervalSince1970: start), items: items)
+        s.sent = 0
+        s.adopted = true
+        if let re = act.re, re > Date().timeIntervalSince1970 * 1000 {
+            s.restEnd = Date(timeIntervalSince1970: re / 1000)
+            s.restNext = act.rn
+        }
+        if let rv = act.rv { s.rt = Date(timeIntervalSince1970: rv / 1000) }
+        session = s
+        save()
+        synced = true
+        armRest()
+        send(["a": "wadopt", "id": act.id])   // il telefono sa che l'orologio avvisa: niente notifica di fine recupero sul telefono
+        WKInterfaceDevice.current().play(.start)
+        if UserDefaults.standard.bool(forKey: "recompSimulator") { return }
+        health.start { [weak self] ok in if !ok { self?.startRuntime() } }
+    }
+
+    // le serie dell'allenamento del telefono come le vuole la sessione dell'orologio
+    static func items(from act: WatchAct) -> [SessionItem] {
+        act.items.map { it in
+            SessionItem(ex: it.ex, n: it.n ?? it.ex, unit: it.u ?? "reps", inc: it.inc ?? 2.5, lo: Int(it.lo ?? 8), hi: Int(it.hi ?? 12),
+                        rest: Int(it.rest ?? 90), sup: it.sup?.isEmpty == false ? it.sup : nil,
+                        sets: it.s.map { SessionSet(kg: $0.first ?? nil, r: Int(($0.count > 1 ? $0[1] : nil) ?? 8), done: $0.count > 2 && $0[2] == 1) })
+        }
     }
 
     private func store(_ snapshot: WatchSnapshot) {
@@ -168,7 +301,7 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate, WKExtende
     }
 
     func eat(_ meal: WatchMeal) {
-        guard var s = snap, let index = s.meals.firstIndex(where: { $0.si == meal.si }), !s.meals[index].eaten else { return }
+        guard meal.fuori != true, var s = snap, let index = s.meals.firstIndex(where: { $0.si == meal.si }), !s.meals[index].eaten else { return }
         s.meals[index].eaten = true
         s.kcal += meal.k
         s.p += meal.p
@@ -181,7 +314,7 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate, WKExtende
 
     // toglie la spunta di un pasto segnato per sbaglio
     func uneat(_ meal: WatchMeal) {
-        guard var s = snap, let index = s.meals.firstIndex(where: { $0.si == meal.si }), s.meals[index].eaten else { return }
+        guard meal.fuori != true, var s = snap, let index = s.meals.firstIndex(where: { $0.si == meal.si }), s.meals[index].eaten else { return }
         s.meals[index].eaten = false
         s.kcal = max(0, s.kcal - meal.k)
         s.p = max(0, s.p - meal.p)
@@ -223,15 +356,6 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate, WKExtende
         send(["a": s.crea ? "crea" : "uncrea"])
     }
 
-    // serie dell'allenamento avviato sull'iPhone (quando l'app del telefono è aperta), con kg e ripetizioni fatti
-    func phoneSetDone(kg: Double?, reps: Int) {
-        guard let w = snap?.wo, let i = w.i, let j = w.j else { return }
-        WKInterfaceDevice.current().play(.click)
-        var message: [String: Any] = ["a": "set", "i": i, "j": j, "r": reps]
-        if let kg { message["kg"] = kg }
-        send(message)
-    }
-
     // MARK: allenamento sull'orologio
 
     private static func loadSession() -> WorkoutSession? {
@@ -257,6 +381,8 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate, WKExtende
             send(["a": "wstart", "id": s.id, "rid": s.rid, "name": s.name, "start": s.start.timeIntervalSince1970 * 1000])
         }
         WKInterfaceDevice.current().play(.start)
+        // nel simulatore (argomento di avvio -recompSimulator YES) niente richieste di permessi: coprirebbero lo schermo nelle prove
+        if UserDefaults.standard.bool(forKey: "recompSimulator") { return }
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { _, _ in }
         // allenamento in Salute; se non è permesso, sessione «fisioterapia» per restare attivi col polso giù
         health.start { [weak self] ok in if !ok { self?.startRuntime() } }
@@ -265,6 +391,9 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate, WKExtende
     // «Fatto»: salva kg e ripetizioni fatti, poi recupero (se previsto) e serie dopo
     func complete(kg: Double?, reps: Int) {
         guard var s = session, let c = s.current else { return }
+        // serie già fatta (raggiunta con le frecce): è una correzione di peso o ripetizioni, non una serie nuova
+        if s.items[c[0]].sets[c[1]].done { correct(&s, c, kg: kg, reps: reps); return }
+        s.browsing = false
         s.items[c[0]].sets[c[1]].kg = kg
         s.items[c[0]].sets[c[1]].r = reps
         s.items[c[0]].sets[c[1]].done = true
@@ -275,12 +404,15 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate, WKExtende
         let rest = s.items[c[0]].rest
         if let n = next, rest > 0 {
             s.restEnd = Date().addingTimeInterval(TimeInterval(rest))
-            s.restNext = s.label(n)
+            s.restNext = s.label(n, lb: lbSet)
         } else {
             s.restEnd = nil
             s.restNext = nil
         }
         s.rt = Date()
+        s.sent = (s.sent ?? 0) + 1
+        s.sentAt = Date()
+        s.picked = false
         session = s
         save()
         WKInterfaceDevice.current().play(.click)   // serie fatta: solo un tocco, senza suono
@@ -288,7 +420,7 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate, WKExtende
         // all'iPhone: la serie fatta, con scheda e inizio (se l'avvio è rimasto indietro) e il recupero deciso qui
         var m: [String: Any] = ["a": "wset", "id": s.id, "rid": s.rid, "name": s.name, "start": s.start.timeIntervalSince1970 * 1000,
                                 "ex": s.items[c[0]].ex, "i": c[0], "j": c[1], "r": reps, "t": Date().timeIntervalSince1970 * 1000,
-                                "re": (s.restEnd?.timeIntervalSince1970 ?? 0) * 1000, "rn": s.restNext ?? ""]
+                                "re": (s.restEnd?.timeIntervalSince1970 ?? 0) * 1000, "rn": s.restNext ?? "", "q": s.sent ?? 0]
         if let kg { m["kg"] = kg }
         send(m)
     }
@@ -306,6 +438,7 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate, WKExtende
     func skipRest() {
         guard var s = session else { return }
         s.restEnd = nil
+        s.browsing = false
         s.rt = Date()
         session = s
         save()
@@ -319,9 +452,97 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate, WKExtende
               "next": s.restNext ?? "", "t": Date().timeIntervalSince1970 * 1000])
     }
 
+    // tutte le serie dell'allenamento, nell'ordine: le frecce dell'orologio scorrono tra queste (anche quelle già fatte, per correggerle)
+    private func allSets(_ s: WorkoutSession) -> [[Int]] {
+        s.items.enumerated().flatMap { i, it in it.sets.indices.map { j in [i, j] } }
+    }
+    func canMove(_ delta: Int) -> Bool {
+        guard let s = session, let c = s.current, let k = allSets(s).firstIndex(of: c) else { return false }
+        return allSets(s).indices.contains(k + delta)
+    }
+    // freccia ‹ o ›: passo alla serie precedente o seguente. Se ero in recupero si vede la serie scelta (il timer riparte da solo alla prossima)
+    func moveSet(_ delta: Int) {
+        guard var s = session, let c = s.current else { return }
+        let list = allSets(s)
+        guard let k = list.firstIndex(of: c), list.indices.contains(k + delta) else { return }
+        let t = list[k + delta]
+        s.cur = t
+        s.picked = s.items[t[0]].sets[t[1]].done   // solo una serie già fatta è «scelta»: quella da fare segue il telefono
+        s.browsing = s.restEnd != nil
+        session = s
+        save()
+        WKInterfaceDevice.current().play(.click)
+    }
+    // a fine allenamento: torno all'ultima serie per correggerla
+    func reviewLast() {
+        guard var s = session, let last = s.items.indices.last, let j = s.items[last].sets.indices.last else { return }
+        s.cur = [last, j]
+        s.picked = true
+        session = s
+        save()
+    }
+    // corregge una serie già fatta: nuovi kg e ripetizioni, spunta e recupero restano; il telefono li riceve (wedit) e li conferma con q
+    private func correct(_ s: inout WorkoutSession, _ c: [Int], kg: Double?, reps: Int) {
+        s.items[c[0]].sets[c[1]].kg = kg
+        s.items[c[0]].sets[c[1]].r = reps
+        s.sent = (s.sent ?? 0) + 1
+        s.sentAt = Date()
+        s.cur = nil            // dopo la correzione si torna alla prossima serie da fare
+        s.browsing = false
+        s.picked = false
+        session = s
+        save()
+        WKInterfaceDevice.current().play(.success)
+        var m: [String: Any] = ["a": "wedit", "id": s.id, "ex": s.items[c[0]].ex, "i": c[0], "j": c[1], "r": reps, "q": s.sent ?? 0]
+        if let kg { m["kg"] = kg }
+        send(m)
+    }
+
+    // MARK: timer delle serie a tempo (plank, side plank)
+
+    // ▶ sulla serie: 3″ per mettersi in posizione, poi il conto alla rovescia (side plank: i due lati, 5″ per girarsi).
+    // Vibra a ogni lato; alla fine la serie si segna da sola (e parte il recupero), FERMA salva i secondi tenuti.
+    func avviaTempo(_ secondi: Int) {
+        guard tempo == nil, let s = session, let c = s.current, !s.items[c[0]].sets[c[1]].done else { return }
+        let ex = s.items[c[0]].ex
+        let t = TimerTempo(dove: c, ex: ex, durata: max(5, secondi), lati: TimerTempo.lati(ex), inizio: Date().addingTimeInterval(TimerTempo.pronti))
+        tempo = t
+        WKInterfaceDevice.current().play(.click)
+        for (n, quando) in t.cambi.enumerated() {
+            programma(quando) { [weak self] in
+                guard self?.tempo?.id == t.id else { return }
+                WKInterfaceDevice.current().play(n == 1 ? .directionDown : .start)   // n = 1: primo lato finito, girati
+            }
+        }
+        programma(t.fine) { [weak self] in self?.chiudiTempo(t.id, fermato: false) }
+    }
+    func fermaTempo() { if let t = tempo { chiudiTempo(t.id, fermato: true) } }
+    func annullaTempo() {
+        tempoTimer.forEach { $0.invalidate() }
+        tempoTimer = []
+        tempo = nil
+    }
+    private func programma(_ quando: Date, _ blocco: @escaping () -> Void) {
+        let x = Timer(fire: quando, interval: 0, repeats: false) { _ in blocco() }
+        RunLoop.main.add(x, forMode: .common)
+        tempoTimer.append(x)
+    }
+    private func chiudiTempo(_ id: UUID, fermato: Bool) {
+        guard let t = tempo, t.id == id else { return }
+        let tenuti = fermato ? t.tenuti(Date()) : t.durata
+        annullaTempo()
+        guard tenuti > 0, var s = session, s.items.indices.contains(t.dove[0]), s.items[t.dove[0]].ex == t.ex,
+              s.items[t.dove[0]].sets.indices.contains(t.dove[1]), !s.items[t.dove[0]].sets[t.dove[1]].done else { return }
+        s.cur = t.dove          // la serie che si segna è quella del timer
+        session = s
+        if !fermato { buzz() }  // tempo finito: la vibrazione forte, come a fine recupero
+        complete(kg: nil, reps: tenuti)
+    }
+
     func focus(_ i: Int) {
         guard var s = session, i < s.items.count, let j = s.items[i].sets.firstIndex(where: { !$0.done }) else { return }
         s.cur = [i, j]
+        s.picked = false
         session = s
         save()
     }
@@ -331,7 +552,14 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate, WKExtende
     func finish() {
         guard session != nil, !finishing else { return }
         finishing = true
+        let id = session?.id
         health.finish { [weak self] hr, kcal in self?.sendWorkout(hr: hr, kcal: kcal) }
+        // se Salute non risponde entro 5 secondi chiudo lo stesso: l'allenamento non deve restare aperto sul polso
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+            guard let self, self.finishing, self.session?.id == id else { return }
+            self.health.discard()
+            self.sendWorkout(hr: nil, kcal: 0)
+        }
     }
 
     private func sendWorkout(hr: Int?, kcal: Int) {
@@ -347,6 +575,10 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate, WKExtende
         if !items.isEmpty {
             var w: [String: Any] = ["id": s.id, "rid": s.rid, "name": s.name,
                                     "start": s.start.timeIntervalSince1970 * 1000, "end": Date().timeIntervalSince1970 * 1000, "items": items]
+            w["full"] = s.items.map { it -> [String: Any] in
+                let sets: [[Any]] = it.sets.map { set in [set.kg.map { $0 as Any } ?? NSNull(), set.r, set.done ? 1 : 0] }
+                return ["ex": it.ex, "s": sets]
+            }
             if let hr { w["hr"] = hr }
             if kcal > 0 { w["kcal"] = kcal }
             if let data = try? JSONSerialization.data(withJSONObject: w), let json = String(data: data, encoding: .utf8) {
@@ -364,8 +596,10 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate, WKExtende
     }
 
     private func close() {
+        annullaTempo()
         finishing = false
         synced = false
+        closedId = session?.id
         session = nil
         save()
         armRest()

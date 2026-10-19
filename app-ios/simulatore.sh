@@ -144,6 +144,17 @@ case "${1:-}" in
     case "${3:-}" in "") ;; fine) args+=(-recompStop YES) ;; *) args+=(-recompStart "$3") ;; esac
     xcrun simctl launch --terminate-running-process "$WUDID" "$BUNDLE.watchkitapp" "${args[@]}" >/dev/null
     case "${3:-}" in "") echo "Orologio: pagina ${2:-oggi}" ;; fine) echo "Orologio: allenamento di prova chiuso" ;; *) echo "Orologio: scheda $3 avviata" ;; esac ;;
+  orologio-prova)
+    # azioni sull'orologio simulato: avvia [scheda|oggi] · annulla · fine (l'app Watch si riapre e dopo 3 secondi esegue)
+    WUDID=$(watch_udid)
+    case "${2:-}" in
+      avvia) args=(-recompStart "${3:-oggi}") ;;
+      annulla) args=(-recompCancel YES) ;;
+      fine) args=(-recompFinish YES) ;;
+      *) args=() ;;
+    esac
+    xcrun simctl launch --terminate-running-process "$WUDID" "$BUNDLE.watchkitapp" -recompSimulator YES "${args[@]}" >/dev/null
+    echo "Orologio: ${2:-riaperta}" ;;
   foto|orologio)
     mkdir -p screenshots
     out="screenshots/${2:-$(date +%H%M%S)}.png"
