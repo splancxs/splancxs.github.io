@@ -318,7 +318,7 @@ extension AppStore {
         let settimana = (0..<7).map { di -> String in
             let p = pianoGiorno(di)
             let wo = p.day.wo.flatMap { routine($0)?.name }
-            return "\(p.day.name): \(p.day.type), \(Int(p.tot.k)) kcal" + (wo.map { ", palestra \($0) alle 16:30" } ?? "") + (p.hasFree ? ", pasto libero" : "")
+            return "\(p.day.name): \(p.day.type), \(Int(p.previsti.k)) kcal" + (wo.map { ", palestra \($0) alle 16:30" } ?? "") + (p.hasFree ? " (compreso il pasto libero stimato)" : "")
         }
         t.append("SETTIMANA TIPO DEL PIANO: " + settimana.joined(separator: " · ") + ". Obiettivi giornalieri ON: \(fmtMigliaia(piano.daytypes["ON"]?.target[0] ?? 0)) kcal; OFF: \(fmtMigliaia(piano.daytypes["OFF_S"]?.target[0] ?? 0)) kcal; proteine \(Int(piano.daytypes["ON"]?.target[1] ?? 0)) g.")
         // i pasti di oggi, con i grammi

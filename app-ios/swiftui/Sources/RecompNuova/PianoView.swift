@@ -84,7 +84,7 @@ struct PianoView: View {
     }
 
     private func etichettaGiorno(_ plan: DayPlan) -> String {
-        let tipo = plan.day.type == "ON" ? "ON" : plan.day.type == "FREE" ? "OFF · pasto libero" : "OFF"
+        let tipo = plan.day.type == "ON" ? "ON" : plan.day.type == "FREE" ? "OFF · pasto libero" : plan.day.type == "OFF_W" ? "OFF · weekend" : "OFF"
         let scuola = plan.day.type == "ON" || plan.day.type == "OFF_S" ? " · scuola" : ""
         let palestra = plan.day.wo.flatMap { s.routine($0) }.map { " · \($0.name) alle 16:30" } ?? ""
         return tipo + scuola + palestra
