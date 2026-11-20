@@ -17,8 +17,7 @@ export XTOOL_STD=xtool
 # SDK costruito con xtool patchato: contiene anche watchOS (vedi README)
 export SDK_OROLOGIO=/root/darwin-watch/darwin.xtoolsdk
 
-# plugin ufficiali di Capacitor scaricati con npm (npm install nella cartella app-ios)
-export NPM_CAP=/root/recomp-npm/node_modules/@capacitor
-
 # Python con pymobiledevice3 (parla con l'orologio attraverso l'iPhone)
 export PMD=/root/pmd/bin/python
+# cartella di Windows (vista da WSL) dove copiare i backup automatici di Recomp a ogni rinnovo; vuota = non copiarli
+export BACKUP_DIR="/mnt/c/Users/NOME/Documents/Recomp backup"

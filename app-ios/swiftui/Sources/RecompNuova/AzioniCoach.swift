@@ -11,6 +11,7 @@ enum AzioneCoach: Hashable {
     case creatina
     case peso(Double, Double?)      // kg, vita in cm
     case scambio(Int, String)       // fascia, codice del piatto
+    case ricorda(String)            // nota permanente nella memoria del coach
 }
 
 enum AzioniCoach {
@@ -81,6 +82,10 @@ extension AppStore {
                 guard let si = fascia(a["fascia"]), let codice = a["codice"] as? String, !plan.meals[si].free,
                       piano.variants[plan.meals[si].slot]?[codice] != nil else { continue }
                 x = .scambio(si, codice)
+            case "ricorda":
+                guard let nota = ((a["testo"] as? String) ?? (a["nota"] as? String) ?? (a["nome"] as? String))?.trimmingCharacters(in: .whitespacesAndNewlines),
+                      !nota.isEmpty else { continue }
+                x = .ricorda(String(nota.prefix(220)))
             default:
                 continue
             }
@@ -98,7 +103,8 @@ extension AppStore {
             return nil
         case .mangiato(let si):
             guard plan.meals[safe: si] != nil else { return "Oggi questa fascia non c'è." }
-            if fuoriPerFascia(si) != nil { return "Questo pasto è già segnato fuori piano." }
+            if pastoTolto(si) { return "Questo pasto l'hai tolto da oggi." }
+            if let f = fuoriPerFascia(si) { return f.giaMangiato ? "Questo pasto è già segnato fuori piano." : nil }
             return mangiati().contains(si) ? "Già segnato." : nil
         case .creatina:
             return creatinaPresa() ? "Già presa oggi." : nil
@@ -108,7 +114,23 @@ extension AppStore {
         case .scambio(let si, let codice):
             guard let m = plan.meals[safe: si], piano.variants[m.slot]?[codice] != nil else { return "Non è più un'alternativa di oggi." }
             return m.code == codice ? "È già il piatto di oggi." : nil
+        case .ricorda(let nota):
+            return d.coachMem.contains(where: { $0.caseInsensitiveCompare(nota) == .orderedSame }) ? "Già nella memoria del coach." : nil
         }
+    }
+
+    func aggiungiMemoriaCoach(_ nota: String) {
+        let p = nota.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !p.isEmpty, !d.coachMem.contains(where: { $0.caseInsensitiveCompare(p) == .orderedSame }) else { return }
+        d.coachMem.append(String(p.prefix(220)))
+        if d.coachMem.count > 25 { d.coachMem.removeFirst(d.coachMem.count - 25) }
+        if !d.coachSistema.isEmpty { d.coachSistema = contestoCoach() }
+    }
+
+    func togliMemoriaCoach(_ indice: Int) {
+        guard d.coachMem.indices.contains(indice) else { return }
+        d.coachMem.remove(at: indice)
+        if !d.coachSistema.isEmpty { d.coachSistema = contestoCoach() }
     }
 
     func applica(_ a: AzioneCoach) {
@@ -117,13 +139,15 @@ extension AppStore {
             f.id = UUID().uuidString; f.t = Cal.ms()
             salvaFuori(f)
         case .mangiato(let si):
-            segnaMangiato(si, true)
+            if let f = fuoriPerFascia(si) { mangiaFuori(f.id) } else { segnaMangiato(si, true) }
         case .creatina:
             if !creatinaPresa() { toccaCreatina() }
         case .peso(let kg, let vita):
             aggiungiPeso(giorno: oggiKey, kg: kg, vita: vita ?? pesate.last(where: { $0.d == oggiKey })?.w)
         case .scambio(let si, let codice):
             cambiaPiatto(di: oggiIdx, si: si, codice: codice)
+        case .ricorda(let nota):
+            aggiungiMemoriaCoach(nota)
         }
     }
 
@@ -138,6 +162,9 @@ extension AppStore {
                     "takeoutbag.and.cup.and.straw.fill", Tema.ambra)
         case .mangiato(let si):
             guard let m = plan.meals[safe: si] else { return ("Segna un pasto", "", "checkmark.circle.fill", Tema.verde) }
+            if let f = fuoriPerFascia(si) {
+                return ("Segna «\(f.nome)» come mangiato", "Il tuo pasto al posto di \(nomeFascia(m).lowercased()) · \(Int(f.tot.k)) kcal", "checkmark.circle.fill", Tema.verde)
+            }
             return ("Segna \(nomeFascia(m).lowercased()) come mangiato", "\(piano.recipe(m.code).name) · \(Int(m.tot.k)) kcal", "checkmark.circle.fill", Tema.verde)
         case .creatina:
             return ("Segna la creatina di oggi", serieCreatina() > 0 ? "Serie di \(serieCreatina()) giorni" : "Oggi", "pills.fill", Color(hex: 0x9B7BFF))
@@ -154,6 +181,8 @@ extension AppStore {
             let d = Int(nuovo.k) - Int(m.tot.k)
             return ("\(nomeFascia(m)): \(piano.recipe(codice).name)", "Al posto di \(piano.recipe(m.code).name) · \(Int(nuovo.k)) kcal (\(d > 0 ? "+" : d < 0 ? "−" : "±")\(abs(d)))",
                     "arrow.triangle.2.circlepath", Tema.g)
+        case .ricorda(let nota):
+            return ("Salva nella memoria del coach", nota, "brain.head.profile", Tema.tenue)
         }
     }
 }

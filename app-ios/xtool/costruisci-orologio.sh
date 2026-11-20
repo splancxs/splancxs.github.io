@@ -14,12 +14,19 @@ XC="$B/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib"
 RES="$XC/swift"
 TOOLS="$B/toolset/bin"
 RT="$XC/clang/21/lib/darwin/libclang_rt.watchos.a"
-W="$LAVORO/${WATCH_DIR:-orologio}"   # cartella di lavoro: l'app «Recomp 2» (installa-nuova.sh) ne usa una sua
+W="$LAVORO/orologio"   # cartella di lavoro
 APP="$W/out/RecompWatch.app"
 EXT="$APP/PlugIns/RecompWatchWidgets.appex"
 PHONE="${PHONE_ID:-io.github.splancxs.recomp.prova}"   # identificativo dell'app iPhone (xtool.yml); xtool poi aggiunge il suo prefisso
-GRUPPO="${GROUP_ID:-group.io.github.splancxs.recomp}"   # gruppo condiviso con la complicazione
-NOME="${WATCH_NAME:-Recomp}"
+GRUPPO="group.io.github.splancxs.recomp"   # gruppo condiviso con la complicazione
+NOME="Recomp"
+
+# se il codice dell'orologio (e questo script) non è cambiato dall'ultima volta, l'app già compilata va bene così
+IMPRONTA="$( { find "$REPO/app-ios/native/Watch" -type f -print0 | sort -z | xargs -0 sha1sum; sha1sum "$0" "$REPO/app-ios/resources/icon-1024.png"; echo "$PHONE"; } | sha1sum | cut -d' ' -f1)"
+if [ -s "$APP/RecompWatch" ] && [ "$(cat "$W/impronta" 2>/dev/null)" = "$IMPRONTA" ]; then
+  echo "• app Watch invariata: uso quella già compilata"
+  exit 0
+fi
 
 # le intestazioni del compilatore di questo PC al posto di quelle di Xcode (lo fa «xtool sdk install», qui l'SDK non è installato)
 if [ ! -d "$RES/clang/include" ]; then
@@ -86,4 +93,5 @@ plistlib.dump({"com.apple.security.application-groups": [gruppo]},
               open(ext + "/xtool-entitlements.plist", "wb"))
 EOF
 cp "$REPO/app-ios/resources/icon-1024.png" "$APP/AppIcon.png"
+echo "$IMPRONTA" > "$W/impronta"
 echo "• app Watch pronta: $APP"

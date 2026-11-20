@@ -182,6 +182,17 @@ struct PastoFuori: Codable, Hashable, Identifiable {
     var nome: String
     var voci: [VoceCibo]
     var t: Double
+    var mangiato: Bool? = nil     // false = un tuo pasto preparato al posto di quello del piano, ancora da mangiare (nil = mangiato)
+    var tot: Tot { Tot(k: voci.reduce(0) { $0 + $1.k }, p: voci.reduce(0) { $0 + $1.p }, c: voci.reduce(0) { $0 + $1.c }, fa: voci.reduce(0) { $0 + $1.f }) }
+    var giaMangiato: Bool { mangiato != false }
+}
+
+// uno dei tuoi pasti salvati («I miei pasti»): si rifà con un tocco al posto di un pasto del piano, anche dall'orologio
+struct PastoMio: Codable, Hashable, Identifiable {
+    var id: String = UUID().uuidString
+    var nome: String
+    var voci: [VoceCibo]
+    var t: Double                 // ultima volta che l'hai salvato o usato (i più recenti prima)
     var tot: Tot { Tot(k: voci.reduce(0) { $0 + $1.k }, p: voci.reduce(0) { $0 + $1.p }, c: voci.reduce(0) { $0 + $1.c }, fa: voci.reduce(0) { $0 + $1.f }) }
 }
 
@@ -195,6 +206,17 @@ struct MessaggioCoach: Codable, Hashable, Identifiable {
     var t: Double
     var fatte: [Int]?             // azioni proposte in questa risposta e confermate (indici)
     var scartate: [Int]?          // azioni a cui hai detto «No»
+}
+
+// un messaggio che il coach ti manda da solo (mattina, sera, domenica): arriva come notifica all'ora «alle»
+struct Bigliettino: Codable, Hashable, Identifiable {
+    var id: String                // «mattino-2026-10-26», «sera-2026-10-25»: uno per tipo e giorno
+    var tipo: String              // mattino · sera · settimana
+    var alle: Double              // quando arriva (ms)
+    var testo: String
+    var impronta: String          // i dati con cui è stato scritto: se cambiano prima dell'ora, si riscrive
+    var ai: Bool                  // scritto dal coach (false = scritto dall'app coi numeri, senza AI)
+    var visto: Bool?              // chiuso dalla pagina Oggi
 }
 
 // tutto quello che si salva sul telefono
@@ -221,6 +243,12 @@ struct AppData: Codable {
     var coach: [MessaggioCoach] = []          // la chat in corso con il coach
     var coachSistema: String = ""             // i dati dati al coach all'inizio della chat (restano fissi per tutta la chat)
     var pianoVersione: String = ""            // versione di piano.json con cui valgono scambi e lista della spesa
+    var saltati: [String: [Int]] = [:]        // data → pasti del piano tolti per quel giorno (fasce)
+    var mieiPasti: [PastoMio] = []            // i tuoi pasti salvati, da rifare
+    var bigliettini: [Bigliettino] = []       // i messaggi che il coach ti ha mandato da solo (ultime 2 settimane)
+    var coachScrive: Bool = true              // il coach ti scrive la mattina e la sera
+    var coachMem: [String] = []               // memoria permanente del coach (abitudini, preferenze, attrezzi)
+    var cibiPasto: [String: CibiPasto] = [:]  // «giorno:fascia» → i cibi del piatto cambiati a mano
 
     init() {}
     init(from decoder: Decoder) throws {
@@ -247,8 +275,14 @@ struct AppData: Codable {
         coach = try c.decodeIfPresent([MessaggioCoach].self, forKey: .coach) ?? []
         coachSistema = try c.decodeIfPresent(String.self, forKey: .coachSistema) ?? ""
         pianoVersione = try c.decodeIfPresent(String.self, forKey: .pianoVersione) ?? ""
+        saltati = try c.decodeIfPresent([String: [Int]].self, forKey: .saltati) ?? [:]
+        mieiPasti = try c.decodeIfPresent([PastoMio].self, forKey: .mieiPasti) ?? []
+        bigliettini = try c.decodeIfPresent([Bigliettino].self, forKey: .bigliettini) ?? []
+        coachScrive = try c.decodeIfPresent(Bool.self, forKey: .coachScrive) ?? true
+        coachMem = try c.decodeIfPresent([String].self, forKey: .coachMem) ?? []
+        cibiPasto = try c.decodeIfPresent([String: CibiPasto].self, forKey: .cibiPasto) ?? [:]
     }
-    enum Keys: String, CodingKey { case weights, eaten, swaps, creatina, dayov, workouts, active, lbEx, shopGot, blockStart, superserie, supSpente, notifRest, salute, promemoria, creaOra, migrato, fuori, schede, coach, coachSistema, pianoVersione }
+    enum Keys: String, CodingKey { case weights, eaten, swaps, creatina, dayov, workouts, active, lbEx, shopGot, blockStart, superserie, supSpente, notifRest, salute, promemoria, creaOra, migrato, fuori, schede, coach, coachSistema, pianoVersione, saltati, mieiPasti, bigliettini, coachScrive, coachMem, cibiPasto }
 }
 
 // MARK: date e unità

@@ -1,5 +1,5 @@
 {
- "version": "2026-10-17 piano v3",
+ "version": "2026-11-20 piano v5.2",
  "foods": {
   "pane_bauletto": {
    "id": "pane_bauletto",
@@ -11,7 +11,7 @@
    "f": 3.2,
    "src": "etichetta",
    "u": 25,
-   "note": "1 fetta = 25 g"
+   "note": "1 fetta = 25 g (50 g a panino = 2 fette)"
   },
   "pasta": {
    "id": "pasta",
@@ -51,7 +51,19 @@
    "p": 2,
    "c": 17.5,
    "f": 0.1,
-   "src": "CREA"
+   "src": "CREA",
+   "note": "Interscambiabili con le patate Lamb Weston"
+  },
+  "patate_lw": {
+   "id": "patate_lw",
+   "n": "Patate surgelate Lamb Weston (forno / airfryer)",
+   "cat": "Pane, pasta e cereali",
+   "k": 145,
+   "p": 2.5,
+   "c": 23,
+   "f": 4.5,
+   "src": "etichetta Lamb Weston",
+   "note": "In forno o airfryer · interscambiabili con le patate normali"
   },
   "pane_comune": {
    "id": "pane_comune",
@@ -61,7 +73,7 @@
    "p": 9,
    "c": 56,
    "f": 1.5,
-   "src": "CREA (stima)"
+   "src": "CREA"
   },
   "pane_int": {
    "id": "pane_int",
@@ -71,7 +83,7 @@
    "p": 9,
    "c": 45,
    "f": 2.5,
-   "src": "CREA (stima)"
+   "src": "CREA"
   },
   "avena": {
    "id": "avena",
@@ -85,7 +97,7 @@
   },
   "wrap": {
    "id": "wrap",
-   "n": "Wrap / tortilla",
+   "n": "Wrap / piadina",
    "cat": "Pane, pasta e cereali",
    "k": 300,
    "p": 8.5,
@@ -93,7 +105,19 @@
    "f": 7,
    "src": "media etichette",
    "u": 60,
-   "note": "1 wrap = 60 g"
+   "note": "1 wrap = 60 g (porzione da 2 = 120 g)"
+  },
+  "crackers": {
+   "id": "crackers",
+   "n": "Crackers integrali (Misura o normali)",
+   "cat": "Pane, pasta e cereali",
+   "k": 409,
+   "p": 11,
+   "c": 61,
+   "f": 9.6,
+   "src": "etichetta Misura",
+   "u": 27,
+   "note": "1 pacchetto = 27 g"
   },
   "cereali": {
    "id": "cereali",
@@ -103,7 +127,7 @@
    "p": 7,
    "c": 84,
    "f": 0.9,
-   "src": "media etichette, marca da confermare"
+   "src": "media etichette"
   },
   "tacchino_fette": {
    "id": "tacchino_fette",
@@ -114,8 +138,8 @@
    "c": 2.5,
    "f": 1.5,
    "src": "etichetta",
-   "u": 120,
-   "note": "1 vaschetta = 120 g"
+   "u": 100,
+   "note": "1 vaschetta = 100 g (50 g a panino)"
   },
   "pollo_fette": {
    "id": "pollo_fette",
@@ -126,8 +150,20 @@
    "c": 3.9,
    "f": 1.3,
    "src": "etichetta",
-   "u": 130,
-   "note": "1 vaschetta = 130 g"
+   "u": 100,
+   "note": "1 vaschetta = 100 g (50 g a panino)"
+  },
+  "cotto": {
+   "id": "cotto",
+   "n": "Prosciutto cotto scelto magro",
+   "cat": "Affettati",
+   "k": 115,
+   "p": 20,
+   "c": 1,
+   "f": 3.2,
+   "src": "CREA/etichette",
+   "u": 100,
+   "note": "1 vaschetta = 100 g (50 g a panino)"
   },
   "bresaola": {
    "id": "bresaola",
@@ -137,9 +173,9 @@
    "p": 32,
    "c": 0,
    "f": 2.6,
-   "src": "CREA (stima, marca variabile)",
-   "u": 80,
-   "note": "1 confezione = 80 g"
+   "src": "CREA/etichette",
+   "u": 100,
+   "note": "1 vaschetta = 100 g (50 g a panino)"
   },
   "pollo": {
    "id": "pollo",
@@ -161,6 +197,18 @@
    "f": 1,
    "src": "CREA"
   },
+  "hamburger_pollo": {
+   "id": "hamburger_pollo",
+   "n": "Hamburger di pollo AIA",
+   "cat": "Carne e pesce",
+   "k": 132,
+   "p": 17,
+   "c": 0,
+   "f": 7.1,
+   "src": "etichetta (confezione da 200 g)",
+   "u": 100,
+   "note": "1 hamburger = 100 g (confezione da 2 = 200 g)"
+  },
   "hamburger": {
    "id": "hamburger",
    "n": "Hamburger di manzo (~10 % grassi)",
@@ -169,9 +217,21 @@
    "p": 20,
    "c": 0,
    "f": 10,
-   "src": "stima, da verificare in etichetta",
+   "src": "media etichette",
    "u": 100,
-   "note": "1 hamburger = 100 g"
+   "note": "1 hamburger = 100 g (confezione da 2 = 200 g)"
+  },
+  "cordon_bleu": {
+   "id": "cordon_bleu",
+   "n": "Cordon bleu / cotoletta di pollo (forno / airfryer)",
+   "cat": "Carne e pesce",
+   "k": 215,
+   "p": 15.5,
+   "c": 15,
+   "f": 10,
+   "src": "media etichette (AIA / Amadori)",
+   "u": 120,
+   "note": "1 pezzo = 120 g (in friggitrice ad aria o forno)"
   },
   "merluzzo": {
    "id": "merluzzo",
@@ -191,7 +251,7 @@
    "p": 19,
    "c": 0,
    "f": 4.5,
-   "src": "CREA (allevata, stima)"
+   "src": "CREA"
   },
   "tonno": {
    "id": "tonno",
@@ -247,9 +307,8 @@
    "p": 10.3,
    "c": 3,
    "f": 0,
-   "src": "media etichette",
-   "u": 170,
-   "note": "1 vasetto = 170 g"
+   "src": "media etichette (barattolo 500 g / 1 kg)",
+   "note": "Pesato da barattolo da 500 g o 1 kg"
   },
   "fiocchi_latte": {
    "id": "fiocchi_latte",
@@ -260,8 +319,44 @@
    "c": 3,
    "f": 4,
    "src": "media etichette",
-   "u": 175,
-   "note": "1 vaschetta = 175 g"
+   "u": 150,
+   "note": "1 vasetto intero = 150 g (solo abbinamenti salati)"
+  },
+  "mozz_light": {
+   "id": "mozz_light",
+   "n": "Mozzarella light",
+   "cat": "Latticini e uova",
+   "k": 157,
+   "p": 20,
+   "c": 1,
+   "f": 8,
+   "src": "media etichette (Santa Lucia / Granarolo Light)",
+   "u": 125,
+   "note": "1 busta intera = 125 g"
+  },
+  "formaggio_light": {
+   "id": "formaggio_light",
+   "n": "Formaggio spalmabile light",
+   "cat": "Latticini e uova",
+   "k": 155,
+   "p": 8.5,
+   "c": 4.5,
+   "f": 11,
+   "src": "media etichette (tipo Philadelphia Light)",
+   "u": 200,
+   "note": "10 g a panino (20 g totali sui 2 panini)"
+  },
+  "biraghini": {
+   "id": "biraghini",
+   "n": "Parmigiano / Biraghini Snack",
+   "cat": "Latticini e uova",
+   "k": 418,
+   "p": 37,
+   "c": 0,
+   "f": 30,
+   "src": "etichetta Gran Biraghi / Parmigiano",
+   "u": 16.5,
+   "note": "2 snack = 33 g (1 snack = 16,5 g)"
   },
   "budino": {
    "id": "budino",
@@ -277,13 +372,14 @@
   },
   "parmigiano": {
    "id": "parmigiano",
-   "n": "Parmigiano / grana",
+   "n": "Parmigiano / grana grattugiato",
    "cat": "Latticini e uova",
    "k": 392,
    "p": 33,
    "c": 0,
    "f": 28,
-   "src": "CREA"
+   "src": "CREA",
+   "note": "Sulla pasta"
   },
   "latte": {
    "id": "latte",
@@ -297,46 +393,6 @@
    "u": 250,
    "note": "1 tazza = 250 ml"
   },
-  "pomodori": {
-   "id": "pomodori",
-   "n": "Pomodori",
-   "cat": "Verdura cruda",
-   "k": 18,
-   "p": 1,
-   "c": 3.5,
-   "f": 0.2,
-   "src": "CREA"
-  },
-  "insalata": {
-   "id": "insalata",
-   "n": "Insalata / rucola",
-   "cat": "Verdura cruda",
-   "k": 15,
-   "p": 1.5,
-   "c": 2,
-   "f": 0.3,
-   "src": "CREA"
-  },
-  "carote": {
-   "id": "carote",
-   "n": "Carote",
-   "cat": "Verdura cruda",
-   "k": 35,
-   "p": 1,
-   "c": 7.5,
-   "f": 0.2,
-   "src": "CREA"
-  },
-  "peperoni": {
-   "id": "peperoni",
-   "n": "Peperoni",
-   "cat": "Verdura cruda",
-   "k": 26,
-   "p": 1,
-   "c": 5,
-   "f": 0.3,
-   "src": "CREA"
-  },
   "banana": {
    "id": "banana",
    "n": "Banana (polpa)",
@@ -347,19 +403,7 @@
    "f": 0.3,
    "src": "CREA/USDA",
    "u": 120,
-   "note": "1 banana media = 120 g di polpa"
-  },
-  "kiwi": {
-   "id": "kiwi",
-   "n": "Kiwi (polpa)",
-   "cat": "Frutta",
-   "k": 61,
-   "p": 1.1,
-   "c": 14.5,
-   "f": 0.5,
-   "src": "CREA/USDA",
-   "u": 75,
-   "note": "1 kiwi = 75 g di polpa"
+   "note": "1 banana media = 120 g"
   },
   "mela": {
    "id": "mela",
@@ -372,18 +416,6 @@
    "src": "CREA/USDA",
    "u": 180,
    "note": "1 mela media = 180 g"
-  },
-  "frutti_bosco": {
-   "id": "frutti_bosco",
-   "n": "Frutti di bosco",
-   "cat": "Frutta",
-   "k": 45,
-   "p": 1,
-   "c": 9,
-   "f": 0.3,
-   "src": "CREA (stima)",
-   "u": 125,
-   "note": "1 vaschetta = 125 g"
   },
   "passata": {
    "id": "passata",
@@ -407,26 +439,6 @@
    "f": 99.9,
    "src": "CREA"
   },
-  "mandorle": {
-   "id": "mandorle",
-   "n": "Mandorle",
-   "cat": "Condimenti e dispensa",
-   "k": 600,
-   "p": 22,
-   "c": 5,
-   "f": 52,
-   "src": "CREA"
-  },
-  "burro_arachidi": {
-   "id": "burro_arachidi",
-   "n": "Burro d'arachidi 100 %",
-   "cat": "Condimenti e dispensa",
-   "k": 600,
-   "p": 25,
-   "c": 15,
-   "f": 50,
-   "src": "media etichette"
-  },
   "miele": {
    "id": "miele",
    "n": "Miele",
@@ -436,127 +448,191 @@
    "c": 80,
    "f": 0,
    "src": "CREA"
+  },
+  "verdura": {
+   "id": "verdura",
+   "n": "Verdura a scelta (insalata, pomodori, carote, peperoni, cetrioli)",
+   "cat": "Verdura cruda",
+   "k": 22,
+   "p": 1.1,
+   "c": 4.2,
+   "f": 0.2,
+   "src": "media CREA delle 5 verdure",
+   "u": 150,
+   "note": "1 piatto ≈ 150 g: non serve pesarla. Pomodori al massimo 150 g al giorno"
+  },
+  "frutta": {
+   "id": "frutta",
+   "n": "Frutto di stagione (mela, pera, arancia, 2 mandarini o 2 kiwi)",
+   "cat": "Frutta",
+   "k": 54,
+   "p": 0.7,
+   "c": 13.6,
+   "f": 0.2,
+   "src": "media CREA della frutta di stagione",
+   "u": 170,
+   "note": "1 frutto medio ≈ 170 g. Da novembre a febbraio: mele, pere, arance, mandarini/clementine, kiwi"
   }
  },
  "recipes": {
   "M1-TAC": {
-   "name": "Panino al tacchino (1° panino)",
-   "how": "2 fette di pan bauletto e metà della confezione aperta al mattino.",
+   "name": "Panino al tacchino e formaggio light (1° panino)",
+   "how": "2 fette di pan bauletto (50 g), 10 g di formaggio spalmabile light e metà vaschetta di tacchino (50 g).",
    "kind": "m1"
   },
   "M1-POL": {
-   "name": "Panino al pollo (1° panino)",
-   "how": "2 fette di pan bauletto e metà della confezione aperta al mattino.",
+   "name": "Panino al pollo e formaggio light (1° panino)",
+   "how": "2 fette di pan bauletto (50 g), 10 g di formaggio spalmabile light e metà vaschetta di pollo a fette (50 g).",
+   "kind": "m1"
+  },
+  "M1-COT": {
+   "name": "Panino al prosciutto cotto e formaggio light (1° panino)",
+   "how": "2 fette di pan bauletto (50 g), 10 g di formaggio spalmabile light e metà vaschetta di cotto magro (50 g).",
    "kind": "m1"
   },
   "M1-BRE": {
-   "name": "Panino alla bresaola (1° panino)",
-   "how": "2 fette di pan bauletto e metà della confezione aperta al mattino.",
+   "name": "Panino alla bresaola e formaggio light (1° panino)",
+   "how": "2 fette di pan bauletto (50 g), 10 g di formaggio spalmabile light e metà vaschetta di bresaola (50 g).",
    "kind": "m1"
   },
   "M2-TAC": {
-   "name": "Panino al tacchino (2° panino)",
-   "how": "2 fette di pan bauletto e metà della confezione aperta al mattino.",
+   "name": "Panino al tacchino e formaggio light (2° panino)",
+   "how": "2 fette di pan bauletto (50 g), 10 g di formaggio spalmabile light e l'altra metà della vaschetta di tacchino (50 g).",
    "kind": "m2"
   },
   "M2-POL": {
-   "name": "Panino al pollo (2° panino)",
-   "how": "2 fette di pan bauletto e metà della confezione aperta al mattino.",
+   "name": "Panino al pollo e formaggio light (2° panino)",
+   "how": "2 fette di pan bauletto (50 g), 10 g di formaggio spalmabile light e l'altra metà della vaschetta di pollo (50 g).",
+   "kind": "m2"
+  },
+  "M2-COT": {
+   "name": "Panino al prosciutto cotto e formaggio light (2° panino)",
+   "how": "2 fette di pan bauletto (50 g), 10 g di formaggio spalmabile light e l'altra metà della vaschetta di cotto (50 g).",
    "kind": "m2"
   },
   "M2-BRE": {
-   "name": "Panino alla bresaola (2° panino)",
-   "how": "2 fette di pan bauletto e metà della confezione aperta al mattino.",
+   "name": "Panino alla bresaola e formaggio light (2° panino)",
+   "how": "2 fette di pan bauletto (50 g), 10 g di formaggio spalmabile light e l'altra metà della vaschetta di bresaola (50 g).",
    "kind": "m2"
   },
   "P-PASTAPOLLO": {
-   "name": "Pasta al pomodoro con pollo",
-   "how": "Pollo a pezzetti rosolato in padella con l'olio, poi la passata; si condisce la pasta e si mette il grana.",
+   "name": "Pasta al pomodoro e grana + petto di pollo",
+   "how": "Pasta condita con passata di pomodoro e grana; petto di pollo alla piastra o in padella con l'olio. Con verdura a scelta; nei giorni di palestra anche un frutto di stagione.",
    "kind": "pranzo"
   },
-  "P-INTTONNO": {
-   "name": "Pasta integrale fredda con tonno e pomodori",
-   "how": "Pasta lessata e raffreddata, condita con tonno sgocciolato, pomodori a pezzi e olio. Senza sale aggiunto.",
-   "kind": "pranzo"
-  },
-  "P-INTTACCHINO": {
-   "name": "Pasta integrale con tacchino e peperoni",
-   "how": "Tacchino a striscioline e peperoni in padella con l'olio; si condisce la pasta.",
+  "P-PASTATACCHINO": {
+   "name": "Pasta al pomodoro e grana + fesa di tacchino",
+   "how": "Pasta condita con passata di pomodoro e grana; fesa di tacchino alla piastra o in padella con l'olio. Con verdura a scelta; nei giorni di palestra anche un frutto di stagione.",
    "kind": "pranzo"
   },
   "P-RISOPOLLO": {
-   "name": "Riso con pollo e peperoni",
-   "how": "Pollo a pezzetti e peperoni in padella con l'olio, poi si unisce il riso lessato.",
+   "name": "Riso in bianco + petto di pollo alla piastra",
+   "how": "Riso condito con un filo d'olio (senza grana) e petto di pollo alla piastra. Con verdura a scelta; nei giorni di palestra anche un frutto di stagione.",
+   "kind": "pranzo"
+  },
+  "P-RISOTACCHINO": {
+   "name": "Riso in bianco + fesa di tacchino alla piastra",
+   "how": "Riso condito con un filo d'olio (senza grana) e fesa di tacchino alla piastra. Con verdura a scelta; nei giorni di palestra anche un frutto di stagione.",
+   "kind": "pranzo"
+  },
+  "P-PASTATONNO": {
+   "name": "Pasta al pomodoro e tonno",
+   "how": "Pasta condita con passata di pomodoro, 3 scatolette di tonno al naturale sgocciolato e olio. Con verdura a scelta; nei giorni di palestra anche un frutto di stagione.",
    "kind": "pranzo"
   },
   "P-WRAP": {
-   "name": "Wrap di pollo, insalata e pomodori",
-   "how": "Pollo alla piastra a striscioline; nei wrap con insalata e pomodori conditi con l'olio.",
+   "name": "2 Wrap / piadine con pollo e formaggio light",
+   "how": "2 wrap farciti con petto di pollo a striscioline alla piastra e formaggio spalmabile light. Con verdura a scelta; nei giorni di palestra anche un frutto di stagione.",
    "kind": "pranzo"
   },
-  "C-MERLUZZO": {
-   "name": "Merluzzo al forno con patate e carote",
-   "how": "Patate a spicchi in friggitrice ad aria o forno; merluzzo al forno; carote crude o cotte; olio a crudo.",
+  "C-BURGERPOLLO": {
+   "name": "2 Hamburger di pollo AIA",
+   "how": "Confezione intera da 2 hamburger di pollo AIA (200 g) alla piastra + patate Lamb Weston in airfryer/forno (scambiabili con patate normali). Con verdura a scelta. Nei giorni senza palestra niente patate né pane: al loro posto un frutto di stagione.",
    "kind": "cena"
   },
   "C-BURGER": {
-   "name": "Hamburger nel pane con insalata",
-   "how": "Hamburger alla piastra senza olio; pane tagliato a metà; insalata condita con l'olio.",
+   "name": "2 Hamburger di manzo",
+   "how": "2 hamburger di manzo (200 g) alla piastra accompagnati da pane (o patate normali / Lamb Weston). Con verdura a scelta. Nei giorni senza palestra niente patate né pane: al loro posto un frutto di stagione.",
    "kind": "cena"
   },
-  "C-ORATA": {
-   "name": "Orata al forno con patate e insalata",
-   "how": "Filetti al forno o in friggitrice ad aria; patate a spicchi; olio a crudo.",
+  "C-POLLOLW": {
+   "name": "Petto di pollo alla piastra",
+   "how": "Petto di pollo alla piastra con olio + patate Lamb Weston croccanti in airfryer/forno (scambiabili con patate normali). Con verdura a scelta. Nei giorni senza palestra niente patate né pane: al loro posto un frutto di stagione.",
    "kind": "cena"
   },
-  "C-SGOMBRO": {
-   "name": "Insalata di patate, sgombro e pomodori",
-   "how": "Patate lessate a cubetti, sgombro sgocciolato, pomodori, olio.",
+  "C-TACCHINOPATATE": {
+   "name": "Fesa di tacchino alla piastra",
+   "how": "Fesa di tacchino alla piastra + patate a spicchi in airfryer/forno con olio (scambiabili con patate Lamb Weston). Con verdura a scelta. Nei giorni senza palestra niente patate né pane: al loro posto un frutto di stagione.",
    "kind": "cena"
   },
-  "C-TONNOPATATE": {
-   "name": "Patate, tonno e pomodori",
-   "how": "Patate lessate o al forno, tonno sgocciolato, pomodori, olio a crudo.",
+  "C-CORDONBLEU": {
+   "name": "Cordon bleu al forno + fiocchi di latte",
+   "how": "1 cordon bleu in airfryer/forno (180 °C per 15 min) + 1 vasetto intero di fiocchi di latte (150 g) e pane. Con verdura a scelta. Nei giorni senza palestra niente patate né pane: al loro posto un frutto di stagione.",
+   "kind": "cena"
+  },
+  "C-MOZZAFFETTATO": {
+   "name": "Mozzarella light e affettato",
+   "how": "Piatto freddo veloce: 1 busta intera di mozzarella light (125 g) + 1 vaschetta intera di tacchino/cotto (100 g) e pane. Con verdura a scelta. Nei giorni senza palestra niente patate né pane: al loro posto un frutto di stagione.",
    "kind": "cena"
   },
   "C-FRITTATA": {
-   "name": "Frittata con pane integrale",
-   "how": "Uova e albume sbattuti insieme, in padella antiaderente con l'olio. Giorni ON con pomodori, OFF con insalata.",
+   "name": "Uova e albume in padella",
+   "how": "2 uova intere e 250 g di albume cotti in padella antiaderente con l'olio, serviti con il pane. Con verdura a scelta. Nei giorni senza palestra niente patate né pane: al loro posto un frutto di stagione.",
    "kind": "cena"
+  },
+  "C-MERLUZZO": {
+   "name": "Merluzzo al forno",
+   "how": "Filetti di merluzzo al forno o airfryer con patate a spicchi e olio a crudo. Con verdura a scelta. Nei giorni senza palestra niente patate né pane: al loro posto un frutto di stagione.",
+   "kind": "cena"
+  },
+  "C-ORATA": {
+   "name": "Orata al forno",
+   "how": "Filetti di orata al forno o airfryer con patate a spicchi e olio a crudo. Con verdura a scelta. Nei giorni senza palestra niente patate né pane: al loro posto un frutto di stagione.",
+   "kind": "cena"
+  },
+  "C-TONNOPATATE": {
+   "name": "Tonno al naturale",
+   "how": "3 scatolette di tonno al naturale sgocciolato con patate lessate o al forno e olio. Con verdura a scelta. Nei giorni senza palestra niente patate né pane: al loro posto un frutto di stagione.",
+   "kind": "cena"
+  },
+  "B-YOGAVENA": {
+   "name": "Yogurt greco con avena, miele e banana",
+   "how": "250 g di yogurt greco pesato dal barattolo con fiocchi d'avena, miele e 1 banana a rondelle.",
+   "kind": "colazione"
+  },
+  "B-TOAST": {
+   "name": "2 Toast caldi al prosciutto cotto e formaggio light",
+   "how": "4 fette di pan bauletto tostate con 1 vaschetta intera di cotto (o tacchino) e 20 g di formaggio light.",
+   "kind": "colazione"
   },
   "B-LATTEBANANA": {
    "name": "Latte e cereali con banana",
-   "how": "Banana a rondelle nella tazza.",
+   "how": "Tazza di latte con cereali e 1 banana.",
    "kind": "colazione"
   },
   "B-LATTE": {
-   "name": "Latte e cereali",
-   "how": "",
+   "name": "Latte e cereali con un frutto di stagione",
+   "how": "Tazza di latte con cereali e un frutto di stagione.",
    "kind": "colazione"
   },
-  "S-YOGMANDORLE": {
-   "name": "Yogurt greco, frutti di bosco e mandorle",
-   "how": "",
+  "S-YOGAVENA": {
+   "name": "Yogurt greco con avena e miele",
+   "how": "250 g di yogurt greco pesato dal barattolo con fiocchi d'avena e miele. Se lo mangi con un frutto, quel giorno salta il frutto del pranzo.",
+   "kind": "spuntino"
+  },
+  "S-FIOCCHICRACK": {
+   "name": "Fiocchi di latte con crackers integrali (salato)",
+   "how": "1 vasetto intero di fiocchi di latte (150 g) accompagnato da 1 pacchetto di crackers integrali (27 g).",
+   "kind": "spuntino"
+  },
+  "S-BIRAGHINI": {
+   "name": "Parmigiano / Biraghini Snack con crackers integrali (salato)",
+   "how": "2 snack di Parmigiano / Biraghini (33 g) accompagnati da 1 pacchetto di crackers integrali (27 g).",
    "kind": "spuntino"
   },
   "S-BUDINO": {
    "name": "Budino proteico e banana",
-   "how": "",
-   "kind": "spuntino"
-  },
-  "S-FIOCCHI": {
-   "name": "Fiocchi di latte e kiwi",
-   "how": "",
-   "kind": "spuntino"
-  },
-  "S-YOGARACHIDI": {
-   "name": "Yogurt greco, burro d'arachidi e mela",
-   "how": "",
-   "kind": "spuntino"
-  },
-  "S-YOGBOSCO": {
-   "name": "Yogurt greco e frutti di bosco",
-   "how": "",
+   "how": "1 vasetto intero di budino proteico (200 g) e 1 banana.",
    "kind": "spuntino"
   }
  },
@@ -569,7 +645,11 @@
     ],
     [
      "tacchino_fette",
-     60
+     50
+    ],
+    [
+     "formaggio_light",
+     10
     ]
    ],
    "M1-POL": [
@@ -579,7 +659,25 @@
     ],
     [
      "pollo_fette",
-     65
+     50
+    ],
+    [
+     "formaggio_light",
+     10
+    ]
+   ],
+   "M1-COT": [
+    [
+     "pane_bauletto",
+     50
+    ],
+    [
+     "cotto",
+     50
+    ],
+    [
+     "formaggio_light",
+     10
     ]
    ],
    "M1-BRE": [
@@ -589,7 +687,11 @@
     ],
     [
      "bresaola",
-     40
+     50
+    ],
+    [
+     "formaggio_light",
+     10
     ]
    ]
   },
@@ -601,7 +703,11 @@
     ],
     [
      "tacchino_fette",
-     60
+     50
+    ],
+    [
+     "formaggio_light",
+     10
     ]
    ],
    "M2-POL": [
@@ -611,7 +717,25 @@
     ],
     [
      "pollo_fette",
-     65
+     50
+    ],
+    [
+     "formaggio_light",
+     10
+    ]
+   ],
+   "M2-COT": [
+    [
+     "pane_bauletto",
+     50
+    ],
+    [
+     "cotto",
+     50
+    ],
+    [
+     "formaggio_light",
+     10
     ]
    ],
    "M2-BRE": [
@@ -621,7 +745,11 @@
     ],
     [
      "bresaola",
-     40
+     50
+    ],
+    [
+     "formaggio_light",
+     10
     ]
    ]
   },
@@ -632,8 +760,34 @@
      100
     ],
     [
+     "passata",
+     200
+    ],
+    [
+     "parmigiano",
+     10
+    ],
+    [
      "pollo",
      150
+    ],
+    [
+     "olio",
+     5
+    ],
+    [
+     "verdura",
+     150
+    ],
+    [
+     "frutta",
+     170
+    ]
+   ],
+   "P-PASTATACCHINO": [
+    [
+     "pasta",
+     100
     ],
     [
      "passata",
@@ -641,29 +795,23 @@
     ],
     [
      "parmigiano",
-     20
-    ],
-    [
-     "olio",
      10
-    ]
-   ],
-   "P-INTTONNO": [
-    [
-     "pasta_int",
-     100
     ],
     [
-     "tonno",
-     168
-    ],
-    [
-     "pomodori",
+     "tacchino",
      150
     ],
     [
      "olio",
-     10
+     5
+    ],
+    [
+     "verdura",
+     150
+    ],
+    [
+     "frutta",
+     170
     ]
    ],
    "P-RISOPOLLO": [
@@ -673,20 +821,24 @@
     ],
     [
      "pollo",
-     150
-    ],
-    [
-     "peperoni",
-     200
+     180
     ],
     [
      "olio",
      10
+    ],
+    [
+     "verdura",
+     150
+    ],
+    [
+     "frutta",
+     170
     ]
    ],
-   "P-INTTACCHINO": [
+   "P-RISOTACCHINO": [
     [
-     "pasta_int",
+     "riso",
      100
     ],
     [
@@ -694,12 +846,42 @@
      150
     ],
     [
-     "peperoni",
+     "olio",
+     10
+    ],
+    [
+     "verdura",
+     150
+    ],
+    [
+     "frutta",
+     170
+    ]
+   ],
+   "P-PASTATONNO": [
+    [
+     "pasta",
+     100
+    ],
+    [
+     "passata",
      200
+    ],
+    [
+     "tonno",
+     168
     ],
     [
      "olio",
      10
+    ],
+    [
+     "verdura",
+     150
+    ],
+    [
+     "frutta",
+     170
     ]
    ],
    "P-WRAP": [
@@ -709,19 +891,23 @@
     ],
     [
      "pollo",
-     150
+     160
     ],
     [
-     "insalata",
-     80
-    ],
-    [
-     "pomodori",
-     150
+     "formaggio_light",
+     20
     ],
     [
      "olio",
      10
+    ],
+    [
+     "verdura",
+     150
+    ],
+    [
+     "frutta",
+     170
     ]
    ]
   },
@@ -732,8 +918,30 @@
      80
     ],
     [
+     "passata",
+     200
+    ],
+    [
+     "parmigiano",
+     10
+    ],
+    [
      "pollo",
      150
+    ],
+    [
+     "olio",
+     5
+    ],
+    [
+     "verdura",
+     150
+    ]
+   ],
+   "P-PASTATACCHINO": [
+    [
+     "pasta",
+     80
     ],
     [
      "passata",
@@ -741,29 +949,19 @@
     ],
     [
      "parmigiano",
-     20
-    ],
-    [
-     "olio",
      10
-    ]
-   ],
-   "P-INTTONNO": [
-    [
-     "pasta_int",
-     80
     ],
     [
-     "tonno",
-     168
-    ],
-    [
-     "pomodori",
+     "tacchino",
      150
     ],
     [
      "olio",
-     10
+     5
+    ],
+    [
+     "verdura",
+     150
     ]
    ],
    "P-RISOPOLLO": [
@@ -773,33 +971,55 @@
     ],
     [
      "pollo",
-     150
-    ],
-    [
-     "peperoni",
-     200
+     180
     ],
     [
      "olio",
      10
+    ],
+    [
+     "verdura",
+     150
     ]
    ],
-   "P-INTTACCHINO": [
+   "P-RISOTACCHINO": [
     [
-     "pasta_int",
+     "riso",
      80
     ],
     [
      "tacchino",
-     150
-    ],
-    [
-     "peperoni",
-     200
+     180
     ],
     [
      "olio",
      10
+    ],
+    [
+     "verdura",
+     150
+    ]
+   ],
+   "P-PASTATONNO": [
+    [
+     "pasta",
+     80
+    ],
+    [
+     "passata",
+     200
+    ],
+    [
+     "tonno",
+     168
+    ],
+    [
+     "olio",
+     5
+    ],
+    [
+     "verdura",
+     150
     ]
    ],
    "P-WRAP": [
@@ -809,39 +1029,35 @@
     ],
     [
      "pollo",
+     160
+    ],
+    [
+     "formaggio_light",
+     20
+    ],
+    [
+     "verdura",
      150
-    ],
-    [
-     "insalata",
-     80
-    ],
-    [
-     "pomodori",
-     150
-    ],
-    [
-     "olio",
-     10
     ]
    ]
   },
   "cena_on": {
-   "C-MERLUZZO": [
+   "C-BURGERPOLLO": [
     [
-     "merluzzo",
+     "hamburger_pollo",
      200
     ],
     [
-     "patate",
-     400
-    ],
-    [
-     "carote",
-     150
+     "patate_lw",
+     200
     ],
     [
      "olio",
-     10
+     5
+    ],
+    [
+     "verdura",
+     150
     ]
    ],
    "C-BURGER": [
@@ -854,66 +1070,84 @@
      100
     ],
     [
-     "insalata",
-     80
+     "verdura",
+     150
+    ]
+   ],
+   "C-POLLOLW": [
+    [
+     "pollo",
+     200
+    ],
+    [
+     "patate_lw",
+     200
     ],
     [
      "olio",
      10
+    ],
+    [
+     "verdura",
+     150
     ]
    ],
-   "C-SGOMBRO": [
+   "C-TACCHINOPATATE": [
     [
-     "sgombro",
-     180
+     "tacchino",
+     200
     ],
     [
      "patate",
-     400
-    ],
-    [
-     "pomodori",
-     150
+     350
     ],
     [
      "olio",
      10
+    ],
+    [
+     "verdura",
+     150
     ]
    ],
-   "C-ORATA": [
+   "C-CORDONBLEU": [
     [
-     "orata",
+     "cordon_bleu",
+     120
+    ],
+    [
+     "fiocchi_latte",
      150
     ],
     [
-     "patate",
-     400
+     "pane_comune",
+     100
     ],
     [
-     "insalata",
-     80
-    ],
-    [
-     "olio",
-     10
+     "verdura",
+     150
     ]
    ],
-   "C-TONNOPATATE": [
+   "C-MOZZAFFETTATO": [
     [
-     "tonno",
-     168
+     "mozz_light",
+     125
     ],
     [
-     "patate",
-     400
+     "tacchino_fette",
+     100
     ],
     [
-     "pomodori",
-     150
+     "pane_comune",
+     100
     ],
     [
      "olio",
-     10
+     5
+    ],
+    [
+     "verdura",
+     150
     ]
    ],
    "C-FRITTATA": [
@@ -926,36 +1160,86 @@
      250
     ],
     [
-     "pane_int",
+     "pane_comune",
      100
-    ],
-    [
-     "pomodori",
-     150
     ],
     [
      "olio",
      10
+    ],
+    [
+     "verdura",
+     150
+    ]
+   ],
+   "C-MERLUZZO": [
+    [
+     "merluzzo",
+     250
+    ],
+    [
+     "patate",
+     350
+    ],
+    [
+     "olio",
+     10
+    ],
+    [
+     "verdura",
+     150
+    ]
+   ],
+   "C-ORATA": [
+    [
+     "orata",
+     200
+    ],
+    [
+     "patate",
+     350
+    ],
+    [
+     "olio",
+     10
+    ],
+    [
+     "verdura",
+     150
+    ]
+   ],
+   "C-TONNOPATATE": [
+    [
+     "tonno",
+     168
+    ],
+    [
+     "patate",
+     350
+    ],
+    [
+     "olio",
+     10
+    ],
+    [
+     "verdura",
+     150
     ]
    ]
   },
   "cena_off": {
-   "C-MERLUZZO": [
+   "C-BURGERPOLLO": [
     [
-     "merluzzo",
+     "hamburger_pollo",
      200
     ],
     [
-     "patate",
-     300
-    ],
-    [
-     "carote",
+     "verdura",
      150
     ],
     [
-     "olio",
-     10
+     "frutta",
+     170
     ]
    ],
    "C-BURGER": [
@@ -964,70 +1248,88 @@
      200
     ],
     [
-     "pane_comune",
-     50
-    ],
-    [
-     "insalata",
-     80
-    ],
-    [
-     "olio",
-     10
-    ]
-   ],
-   "C-SGOMBRO": [
-    [
-     "sgombro",
-     180
-    ],
-    [
-     "patate",
-     300
-    ],
-    [
-     "pomodori",
+     "verdura",
      150
     ],
     [
-     "olio",
-     10
+     "frutta",
+     170
     ]
    ],
-   "C-ORATA": [
+   "C-POLLOLW": [
     [
-     "orata",
+     "pollo",
+     200
+    ],
+    [
+     "olio",
+     10
+    ],
+    [
+     "verdura",
      150
     ],
     [
-     "patate",
-     300
-    ],
+     "frutta",
+     170
+    ]
+   ],
+   "C-TACCHINOPATATE": [
     [
-     "insalata",
-     80
+     "tacchino",
+     200
     ],
     [
      "olio",
      10
-    ]
-   ],
-   "C-TONNOPATATE": [
-    [
-     "tonno",
-     168
     ],
     [
-     "patate",
-     300
-    ],
-    [
-     "pomodori",
+     "verdura",
      150
     ],
     [
+     "frutta",
+     170
+    ]
+   ],
+   "C-CORDONBLEU": [
+    [
+     "cordon_bleu",
+     120
+    ],
+    [
+     "fiocchi_latte",
+     150
+    ],
+    [
+     "verdura",
+     150
+    ],
+    [
+     "frutta",
+     170
+    ]
+   ],
+   "C-MOZZAFFETTATO": [
+    [
+     "mozz_light",
+     125
+    ],
+    [
+     "tacchino_fette",
+     100
+    ],
+    [
      "olio",
      10
+    ],
+    [
+     "verdura",
+     150
+    ],
+    [
+     "frutta",
+     170
     ]
    ],
    "C-FRITTATA": [
@@ -1040,20 +1342,106 @@
      250
     ],
     [
-     "pane_int",
-     50
+     "olio",
+     10
     ],
     [
-     "insalata",
-     80
+     "verdura",
+     150
+    ],
+    [
+     "frutta",
+     170
+    ]
+   ],
+   "C-MERLUZZO": [
+    [
+     "merluzzo",
+     250
     ],
     [
      "olio",
      10
+    ],
+    [
+     "verdura",
+     150
+    ],
+    [
+     "frutta",
+     170
+    ]
+   ],
+   "C-ORATA": [
+    [
+     "orata",
+     200
+    ],
+    [
+     "olio",
+     10
+    ],
+    [
+     "verdura",
+     150
+    ],
+    [
+     "frutta",
+     170
+    ]
+   ],
+   "C-TONNOPATATE": [
+    [
+     "tonno",
+     168
+    ],
+    [
+     "olio",
+     10
+    ],
+    [
+     "verdura",
+     150
+    ],
+    [
+     "frutta",
+     170
     ]
    ]
   },
   "colazione": {
+   "B-YOGAVENA": [
+    [
+     "yogurt",
+     250
+    ],
+    [
+     "avena",
+     30
+    ],
+    [
+     "miele",
+     15
+    ],
+    [
+     "banana",
+     120
+    ]
+   ],
+   "B-TOAST": [
+    [
+     "pane_bauletto",
+     100
+    ],
+    [
+     "cotto",
+     100
+    ],
+    [
+     "formaggio_light",
+     20
+    ]
+   ],
    "B-LATTEBANANA": [
     [
      "latte",
@@ -1076,22 +1464,46 @@
     [
      "cereali",
      40
+    ],
+    [
+     "frutta",
+     170
     ]
    ]
   },
   "spuntino": {
-   "S-YOGMANDORLE": [
+   "S-YOGAVENA": [
     [
      "yogurt",
-     170
+     250
     ],
     [
-     "frutti_bosco",
-     125
+     "avena",
+     25
     ],
     [
-     "mandorle",
-     20
+     "miele",
+     15
+    ]
+   ],
+   "S-FIOCCHICRACK": [
+    [
+     "fiocchi_latte",
+     150
+    ],
+    [
+     "crackers",
+     27
+    ]
+   ],
+   "S-BIRAGHINI": [
+    [
+     "biraghini",
+     33
+    ],
+    [
+     "crackers",
+     27
     ]
    ],
    "S-BUDINO": [
@@ -1102,40 +1514,6 @@
     [
      "banana",
      120
-    ]
-   ],
-   "S-FIOCCHI": [
-    [
-     "fiocchi_latte",
-     175
-    ],
-    [
-     "kiwi",
-     150
-    ]
-   ],
-   "S-YOGARACHIDI": [
-    [
-     "yogurt",
-     170
-    ],
-    [
-     "burro_arachidi",
-     15
-    ],
-    [
-     "mela",
-     180
-    ]
-   ],
-   "S-YOGBOSCO": [
-    [
-     "yogurt",
-     340
-    ],
-    [
-     "frutti_bosco",
-     125
     ]
    ]
   }
@@ -1171,8 +1549,8 @@
      "cena_on"
     ],
     [
-     "21:30",
-     "Spuntino",
+     "19:30",
+     "Dopo cena",
      "spuntino"
     ]
    ]
@@ -1207,8 +1585,8 @@
      "cena_off"
     ],
     [
-     "21:30",
-     "Spuntino",
+     "19:30",
+     "Dopo cena",
      "spuntino"
     ]
    ]
@@ -1238,8 +1616,8 @@
      "cena_off"
     ],
     [
-     "22:00",
-     "Spuntino",
+     "20:30",
+     "Dopo cena",
      "spuntino"
     ]
    ]
@@ -1269,8 +1647,8 @@
      "cena_off"
     ],
     [
-     "22:00",
-     "Spuntino",
+     "20:30",
+     "Dopo cena",
      "spuntino"
     ]
    ]
@@ -1300,8 +1678,8 @@
     "M1-TAC",
     "M2-TAC",
     "P-PASTAPOLLO",
-    "C-MERLUZZO",
-    "S-YOGMANDORLE"
+    "C-BURGERPOLLO",
+    "S-YOGAVENA"
    ]
   },
   {
@@ -1310,10 +1688,10 @@
    "type": "ON",
    "wo": "LA",
    "pick": [
-    "M1-POL",
-    "M2-POL",
-    "P-INTTONNO",
-    "C-BURGER",
+    "M1-COT",
+    "M2-COT",
+    "P-RISOTACCHINO",
+    "C-CORDONBLEU",
     "S-BUDINO"
    ]
   },
@@ -1325,9 +1703,9 @@
    "pick": [
     "M1-BRE",
     "M2-BRE",
-    "P-INTTACCHINO",
+    "P-PASTATACCHINO",
     "C-ORATA",
-    "S-FIOCCHI"
+    "S-YOGAVENA"
    ]
   },
   {
@@ -1336,11 +1714,11 @@
    "type": "ON",
    "wo": "TB",
    "pick": [
-    "M1-TAC",
-    "M2-TAC",
+    "M1-POL",
+    "M2-POL",
     "P-RISOPOLLO",
-    "C-SGOMBRO",
-    "S-YOGARACHIDI"
+    "C-MERLUZZO",
+    "S-BIRAGHINI"
    ]
   },
   {
@@ -1349,11 +1727,11 @@
    "type": "ON",
    "wo": "LB",
    "pick": [
-    "M1-POL",
-    "M2-POL",
-    "P-PASTAPOLLO",
-    "C-FRITTATA",
-    "S-YOGMANDORLE"
+    "M1-TAC",
+    "M2-TAC",
+    "P-PASTATONNO",
+    "C-POLLOLW",
+    "S-YOGAVENA"
    ]
   },
   {
@@ -1362,10 +1740,10 @@
    "type": "OFF_W",
    "wo": null,
    "pick": [
-    "B-LATTEBANANA",
+    "B-YOGAVENA",
     "P-WRAP",
-    "C-FRITTATA",
-    "S-YOGBOSCO"
+    "C-BURGER",
+    "S-FIOCCHICRACK"
    ]
   },
   {
@@ -1376,45 +1754,114 @@
    "pick": [
     "B-LATTE",
     null,
-    "C-TONNOPATATE",
-    "S-YOGBOSCO"
+    "C-MOZZAFFETTATO",
+    "S-YOGAVENA"
    ]
   }
  ],
  "equivalents": [
   {
-   "title": "Proteine di pranzo e cena · porzioni scambiabili con 150 g di petto di pollo",
+   "title": "Patate e pane · cena giorni ON (~350–360 kcal: l'app calcola i grammi esatti sulle kcal del piatto)",
+   "ref": "patate_lw",
+   "g": 250,
+   "rows": [
+    {
+     "f": "patate",
+     "g": 450
+    },
+    {
+     "f": "pane_comune",
+     "g": 130
+    },
+    {
+     "f": "pane_int",
+     "g": 150
+    },
+    {
+     "f": "wrap",
+     "g": 120
+    }
+   ]
+  },
+  {
+   "title": "Patate e pane · cena giorni OFF (con pollo/tacchino: 150 g Lamb Weston = 270 g patate = 80 g pane; con hamburger di manzo: 50 g pane = 95 g Lamb Weston = 170 g patate)",
+   "ref": "pane_comune",
+   "g": 50,
+   "rows": [
+    {
+     "f": "patate_lw",
+     "g": 95
+    },
+    {
+     "f": "patate",
+     "g": 170
+    },
+    {
+     "f": "pane_int",
+     "g": 55
+    }
+   ]
+  },
+  {
+   "title": "Proteine di pranzo e cena · porzioni scambiabili tra loro",
    "ref": "pollo",
-   "g": 150,
+   "g": 160,
    "rows": [
     {
      "f": "tacchino",
-     "g": 150
+     "g": 160
     },
     {
-     "f": "merluzzo",
+     "f": "hamburger_pollo",
      "g": 200
     },
     {
-     "f": "orata",
-     "g": 150
+     "f": "hamburger",
+     "g": 200
     },
     {
      "f": "tonno",
      "g": 168
     },
     {
-     "f": "sgombro",
-     "g": 180
+     "f": "merluzzo",
+     "g": 250
     },
     {
-     "f": "hamburger",
+     "f": "orata",
      "g": 200
+    },
+    {
+     "f": "mozz_light",
+     "g": 125
+    },
+    {
+     "f": "fiocchi_latte",
+     "g": 150
     }
    ]
   },
   {
-   "title": "Carboidrati dei giorni ON · porzioni scambiabili con 100 g di pasta (cruda)",
+   "title": "Affettati dei 2 panini · 1 vaschetta da 100 g divisa sui 2 panini (50 g + 50 g)",
+   "ref": "tacchino_fette",
+   "g": 100,
+   "rows": [
+    {
+     "f": "pollo_fette",
+     "g": 100
+    },
+    {
+     "f": "cotto",
+     "g": 100
+    },
+    {
+     "f": "bresaola",
+     "g": 100
+    }
+   ]
+  },
+  {
+   "title": "Primi piatti · scambiabili 1:1 (100 g nei giorni ON · 80 g nei giorni OFF)",
    "ref": "pasta",
    "g": 100,
    "rows": [
@@ -1427,47 +1874,8 @@
      "g": 100
     },
     {
-     "f": "patate",
-     "g": 400
-    },
-    {
-     "f": "pane_comune",
-     "g": 100
-    },
-    {
-     "f": "pane_int",
-     "g": 100
-    },
-    {
      "f": "wrap",
      "g": 120
-    }
-   ]
-  },
-  {
-   "title": "Carboidrati dei giorni OFF · porzioni scambiabili con 80 g di pasta integrale (cruda)",
-   "ref": "pasta_int",
-   "g": 80,
-   "rows": [
-    {
-     "f": "pasta",
-     "g": 80
-    },
-    {
-     "f": "riso",
-     "g": 80
-    },
-    {
-     "f": "patate",
-     "g": 300
-    },
-    {
-     "f": "pane_comune",
-     "g": 50
-    },
-    {
-     "f": "pane_int",
-     "g": 50
     }
    ]
   }

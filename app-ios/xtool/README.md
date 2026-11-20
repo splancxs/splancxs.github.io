@@ -1,65 +1,58 @@
 # Recomp dal PC Windows (senza Mac): iPhone e Apple Watch con xtool
 
-Costruisce e installa l'app iPhone **e l'app Apple Watch** da Windows, con un Apple ID gratuito, usando
-[xtool](https://github.com/xtool-org/xtool) dentro WSL (Linux). La firma gratuita dura **7 giorni**: per rinnovarla basta
-rilanciare un comando.
+Costruisce e installa l'app iPhone (SwiftUI, `app-ios/swiftui`) **e l'app Apple Watch** (`app-ios/native/Watch`) da Windows,
+con un Apple ID gratuito, usando [xtool](https://github.com/xtool-org/xtool) dentro WSL (Linux). La firma gratuita dura
+**7 giorni**: per rinnovarla basta rilanciare lo stesso comando.
 
-L'altra strada (Xcode sul Mac, `app-ios/installa.sh`) resta valida: qui non la sostituisco, la affianco.
+## Rinnovare e aggiornare (ogni 7 giorni, o dopo una modifica)
 
-## Rinnovare (ogni 7 giorni)
-
-1. Collega l'iPhone al PC col cavo e **sbloccalo**. Sblocca anche l'orologio e tienilo al polso.
+1. Collega l'iPhone al PC **col cavo** e sbloccalo. Sblocca anche l'orologio e tienilo al polso.
 2. Da PowerShell, nella cartella del repository:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File app-ios\xtool\windows\installa.ps1
 ```
 
-Fa, in ordine: prepara il progetto dal sito del repository e dai file nativi, compila l'app Watch, compila e firma
-l'app iPhone (con dentro l'app Watch) e la installa, poi installa l'app Watch **direttamente sull'orologio**.
-`installa.ps1 iphone` fa solo l'iPhone, `installa.ps1 orologio` solo l'orologio.
-Dopo aver cambiato il codice dell'app Watch (`app-ios/native/Watch/`): `installa.ps1 watch` ricompila solo l'orologio e
-rifà le due installazioni, senza ricompilare il sito e i plugin. Non esiste un simulatore dell'Apple Watch su Windows
-(è una parte di macOS): si prova sull'orologio vero. Per avere gli screenshot dell'orologio: app Watch dell'iPhone →
-Generali → Abilita screenshot; poi tasto laterale + corona insieme; le immagini finiscono in Foto sull'iPhone.
+In ordine: copia sul PC i backup automatici dell'iPhone (`BACKUP_DIR` in `config.sh`), registra l'orologio sul team se
+serve, prepara il progetto dentro Linux, compila l'app Watch **solo se il suo codice è cambiato**, compila l'app iPhone
+(solo i file cambiati), la firma e la installa, poi installa l'app Watch **direttamente sull'orologio**. Se l'orologio
+risponde «Coordinator found … process-scoped» (installazione di prima rimasta a metà) riprova da solo dopo 20 secondi.
+
+| Comando | Cosa fa |
+|---|---|
+| `installa.ps1` | tutto: iPhone + orologio (anche il rinnovo della firma) |
+| `installa.ps1 orologio` | solo l'installazione sull'orologio, con l'app già pronta dall'ultima volta |
+| `installa.ps1 compila` | controlla che compili, senza telefono |
 
 > **Ordine obbligato**: prima l'app iPhone, poi l'orologio. Reinstallare l'app iPhone fa ritenere all'iPhone che l'app
-> Watch non sia installata (`WCSession: appInstalled NO`, e l'orologio resta su «Apri Recomp sull'iPhone») finché non
-> si reinstalla l'orologio. Il comando lo fa già nell'ordine giusto.
+> Watch non sia installata finché non si reinstalla anche l'orologio: il comando fa sempre tutte e due.
 
-**Senza cavo?** L'iPhone si installa anche via Wi-Fi (serve spegnere «Indirizzo Wi-Fi privato» per la rete di casa, così
-il servizio Apple di Windows lo riconosce, e tenerlo sveglio e sbloccato), ma il servizio che porta all'**orologio**
-(`companion_proxy`) chiude la connessione se l'iPhone è collegato via Wi-Fi: per l'orologio serve il cavo USB.
-Provato il 10/10/2026: `installa.ps1 watch` senza cavo installa l'iPhone ma si ferma all'orologio.
+**Serve il cavo.** In Wi-Fi l'installazione dell'iPhone si blocca e il servizio che porta all'orologio (`companion_proxy`)
+chiude la connessione: lo script si ferma subito se vede l'iPhone solo in Wi-Fi.
 
-**Rete di WSL «mirrored» (consigliata).** Con `C:\Users\<utente>\.wslconfig` contenente
-```
-[wsl2]
-networkingMode=mirrored
-```
-Windows e Linux condividono la rete: `installa.sh` lo riconosce (`wslinfo --networking-mode`) e raggiunge il servizio Apple
-su `127.0.0.1:27015`, senza `porta.ps1`, senza regola firewall e senza permessi di amministratore. Provato il 17/10/2026
-(WSL 3.0.1, Windows 11): iPhone e orologio si installano normalmente. Dopo aver creato il file: `wsl --shutdown`.
+**Rete di WSL «mirrored».** Con `C:\Users\<utente>\.wslconfig` contenente `[wsl2]` e `networkingMode=mirrored`, Linux
+raggiunge il servizio Apple di Windows su `127.0.0.1:27015` senza altro. Se «Non raggiungo l'iPhone»: apri l'app
+**Apple Devices** su Windows e collega e sblocca l'iPhone. Senza la rete mirrored serve `windows\porta.ps1` (amministratore).
 
-Se «Non raggiungo l'iPhone»: apri l'app **Apple Devices** su Windows e collega e sblocca l'iPhone. Senza la rete mirrored,
-dopo un riavvio del PC lancia anche `windows\porta.ps1` (chiede il permesso di amministratore).
+Non esiste un simulatore dell'Apple Watch su Windows: si prova sull'orologio vero. Screenshot dell'orologio: app Watch
+dell'iPhone → Generali → Abilita screenshot, poi tasto laterale + corona insieme (finiscono in Foto sull'iPhone).
 
 ## Che cosa c'è
 
 | Cosa | Dove |
 |---|---|
-| Comando unico (Linux) | `installa.sh` |
+| Comando unico (Linux) e il suo lanciatore per Windows | `installa.sh`, `windows/installa.ps1` |
 | Compilazione dell'app Watch e della complicazione | `costruisci-orologio.sh` |
 | Installazione diretta sull'orologio | `orologio_installa.py` |
-| Abbinamento una tantum e Modalità sviluppatore | `orologio_sviluppatore.py` |
-| Progetto xtool (Package, Info.plist, permessi, guscio SwiftUI) | `progetto/` |
-| Modifiche al codice di xtool | `patches/` |
+| Backup dell'iPhone copiati sul PC a ogni rinnovo | `copia_backup.py` |
+| Abbinamento una tantum e Modalità sviluppatore dell'orologio | `orologio_sviluppatore.py` |
+| Modifiche al codice di xtool (e la loro prova) | `patches/`, `prova-patch.sh` |
 | Preparazione una tantum di Linux | `prepara-wsl.sh` (una ricetta, da leggere) |
-| Wrapper e porta per Windows | `windows/` |
-| Configurazione locale (UDID dell'orologio) | `config.sh` (da `config.esempio.sh`; **non va su GitHub**) |
+| Porta per Windows senza rete mirrored | `windows/porta.ps1` |
+| Configurazione locale (UDID dell'orologio, cartella dei backup) | `config.sh` (da `config.esempio.sh`; **non va su GitHub**) |
 
-I file Swift dell'app non sono duplicati: vengono presi da `app-ios/native/` e il sito da `index.html` e `assets/`.
-Identificativo dell'app: `io.github.splancxs.recomp.prova` (con Apple ID gratuito xtool aggiunge il suo prefisso `XTL-…`).
+I file Swift non sono duplicati: l'app iPhone viene da `app-ios/swiftui`, Live Activity, widget e modelli condivisi da
+`app-ios/native/`. Identificativo: `io.github.splancxs.recomp.prova` (con l'Apple ID gratuito xtool aggiunge `XTL-…`).
 
 ## Perché serve tutto questo (problemi incontrati e come sono risolti)
 

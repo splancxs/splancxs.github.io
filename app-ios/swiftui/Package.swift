@@ -1,6 +1,6 @@
 // swift-tools-version: 6.0
 // App iPhone di Recomp scritta in SwiftUI (niente Capacitor, niente sito dentro). La costruisce xtool da Windows:
-// app-ios/xtool/installa-nuova.sh.
+// app-ios/xtool/installa.sh.
 import PackageDescription
 
 // Il linker di xtool (lld) scrive «sdk 17.0» nel file: iOS allora non applica il Liquid Glass.

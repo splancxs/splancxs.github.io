@@ -13,6 +13,7 @@ final class AppStore: ObservableObject {
     @Published var tabAperta = 0          // 0 Oggi · 1 Allenamento · 2 Piano · 3 Progressi · 4 Profilo
     @Published var mostraRiepilogo: Workout?   // allenamento appena finito
     @Published var mostraSettimana = false      // riepilogo della settimana (dalla notifica della domenica)
+    @Published var mostraCoach = false          // la chat del coach in Oggi (anche da una sua notifica)
     @Published var timerSerie: TimerTempo?      // timer di un esercizio a tempo (plank) in corso
 
     private let file: URL
@@ -28,10 +29,23 @@ final class AppStore: ObservableObject {
             d.superserie = true
         }
         allineaPiano()
+        allineaAllenamentoOggi()
+    }
+
+    // se oggi (giorno OFF di base) hai già registrato o avviato un allenamento e non hai ancora toccato lo switch ON/OFF, passa a ON
+    private func allineaAllenamentoOggi() {
+        let key = oggiKey
+        guard d.dayov[key] == nil, piano.week[oggiIdx].type != "ON" else { return }
+        let allenatoOggi = d.active != nil || cronologia.contains { Cal.key(Date(timeIntervalSince1970: $0.start / 1000)) == key }
+        if allenatoOggi {
+            let rid = d.active?.rid ?? cronologia.first { Cal.key(Date(timeIntervalSince1970: $0.start / 1000)) == key }?.rid
+            // i pasti già mangiati restano con le dosi di prima (keep): cambiano solo quelli ancora da mangiare
+            d.dayov[key] = DayOv(rid: rid, type: "ON", keep: mangiati(key), t: Cal.ms())
+        }
     }
 
     // dieta nuova (cambia la versione di piano.json): i piatti cambiati che non esistono più si tolgono (prima restavano
-    // nascosti e il Piano diceva «hai cambiato dei piatti»), la lista della spesa riparte da zero
+    // nascosti e il Piano diceva «hai cambiato dei piatti»), i cibi cambiati a mano e la lista della spesa ripartono da zero
     private func allineaPiano() {
         guard d.pianoVersione != piano.version else { return }
         d.swaps = d.swaps.filter { chiave, codice in
@@ -40,6 +54,7 @@ final class AppStore: ObservableObject {
                   let fascia = tipo.slots[safe: n[1]] else { return false }
             return piano.variants[fascia.slot]?[codice] != nil
         }
+        d.cibiPasto = [:]
         if !d.pianoVersione.isEmpty || !d.shopGot.isEmpty { d.shopGot = [:] }
         d.pianoVersione = piano.version
     }
@@ -61,13 +76,57 @@ final class AppStore: ObservableObject {
 
     func ov(_ key: String) -> DayOv? { d.dayov[key] }
 
-    // il piano di oggi tiene conto di un eventuale cambio fatto oggi; le altre pagine mostrano la settimana tipo
-    func pianoGiorno(_ di: Int, oggi: Bool = false) -> DayPlan {
+    // la data (yyyy-MM-dd) di un giorno (0 = lunedì … 6 = domenica) di questa settimana
+    func chiaveGiorno(_ di: Int) -> String { Cal.key(Cal.giorni(di, da: Cal.lunedi())) }
+
+    func pianoPerData(_ key: String) -> DayPlan {
+        let di = Cal.dayIdx(Cal.date(key))
         var conv: Conv?
-        if oggi, let o = ov(oggiKey), let t = o.type, !t.isEmpty { conv = Conv(type: t == "ON" ? "ON" : "OFF_S", keep: o.keep ?? []) }
-        return piano.dayPlan(di, conv: conv, swaps: d.swaps)
+        if let o = ov(key), let t = o.type, !t.isEmpty { conv = Conv(type: t == "ON" ? "ON" : "OFF_S", keep: o.keep ?? []) }
+        return piano.dayPlan(di, conv: conv, swaps: d.swaps, cibi: d.cibiPasto)
     }
-    var pianoOggi: DayPlan { pianoGiorno(oggiIdx, oggi: true) }
+
+    // il piano del giorno di questa settimana (tiene conto se la giornata è stata passata a ON o OFF)
+    func pianoGiorno(_ di: Int, oggi: Bool = true) -> DayPlan {
+        var conv: Conv?
+        if oggi, let o = ov(chiaveGiorno(di)), let t = o.type, !t.isEmpty {
+            conv = Conv(type: t == "ON" ? "ON" : "OFF_S", keep: o.keep ?? [])
+        }
+        return piano.dayPlan(di, conv: conv, swaps: d.swaps, cibi: d.cibiPasto)
+    }
+    var pianoOggi: DayPlan { pianoGiorno(oggiIdx) }
+
+    // se il giorno (di default oggi) è in modalità ON (allenamento) oppure OFF (riposo)
+    func giornoOn(_ di: Int? = nil) -> Bool {
+        let p = pianoGiorno(di ?? oggiIdx)
+        return (p.conv.isEmpty ? p.day.type : p.conv).hasPrefix("ON")
+    }
+
+    // switch Giornata ON / OFF: cambia obiettivi e dosi di pranzo e cena per il giorno scelto (oggi o nella vista Piano)
+    func impostaGiornoOn(_ on: Bool, di: Int? = nil) {
+        let idx = di ?? oggiIdx
+        let key = chiaveGiorno(idx)
+        let baseOn = piano.week[idx].type == "ON"
+        let haAllenamento = cronologia.contains { Cal.key(Date(timeIntervalSince1970: $0.start / 1000)) == key }
+        defer {
+            Haptic.medio()
+            if idx == oggiIdx || idx == (oggiIdx + 1) % 7 { riprogrammaPromemoria() }
+        }
+        if on == baseOn && !haAllenamento {
+            d.dayov.removeValue(forKey: key)
+            return
+        }
+        var o = d.dayov[key] ?? DayOv()
+        o.type = on ? "ON" : "OFF"
+        o.skip = on ? nil : true
+        if on, o.rid == nil, idx == oggiIdx {
+            o.rid = d.active?.rid ?? cronologia.first { Cal.key(Date(timeIntervalSince1970: $0.start / 1000)) == key }?.rid
+        }
+        // i pasti già mangiati quel giorno restano con le dosi con cui li hai mangiati: cambiano solo quelli da mangiare
+        o.keep = mangiati(key)
+        o.t = Cal.ms()
+        d.dayov[key] = o
+    }
 
     func mangiati(_ key: String? = nil) -> [Int] { d.eaten[key ?? oggiKey] ?? [] }
     func toccaMangiato(_ si: Int) {
@@ -84,27 +143,124 @@ final class AppStore: ObservableObject {
     func segnaMangiato(_ si: Int, _ mangiato: Bool) {
         if mangiati().contains(si) != mangiato { toccaMangiato(si) }
     }
+    // un piatto nuovo riparte dalla sua ricetta: i cibi cambiati a mano erano di quello di prima
     func cambiaPiatto(di: Int, si: Int, codice: String) {
         let k = "\(di):\(si)"
-        let m = pianoGiorno(di).meals[si]
+        let m = (di == oggiIdx ? pianoOggi : pianoGiorno(di)).meals[si]
         if codice == m.def { d.swaps.removeValue(forKey: k) } else { d.swaps[k] = codice }
+        d.cibiPasto.removeValue(forKey: k)
         Haptic.leggero()
         if d.promemoria["merenda"] == true { riprogrammaPromemoria() }   // il promemoria della sera dice le merende giuste
     }
     func ripristinaGiorno(_ di: Int) {
         d.swaps = d.swaps.filter { !$0.key.hasPrefix("\(di):") }
+        d.cibiPasto = d.cibiPasto.filter { !$0.key.hasPrefix("\(di):") }
+        d.dayov.removeValue(forKey: chiaveGiorno(di))
+        if d.promemoria["merenda"] == true { riprogrammaPromemoria() }
+    }
+    // il giorno ha piatti, cibi o modalità ON/OFF cambiati (il Piano mostra «Rimetti gli originali»)
+    func giornoCambiato(_ di: Int) -> Bool {
+        let p = pianoGiorno(di)
+        return !p.conv.isEmpty || d.swaps.keys.contains { $0.hasPrefix("\(di):") } || p.meals.contains { $0.cambiato }
+    }
+
+    // MARK: i cibi di un pasto
+
+    // si parte dai cibi che il pasto ha adesso (la ricetta o quelli già cambiati) e si salva la lista nuova;
+    // se torna uguale alla ricetta del piano, non resta niente di cambiato
+    private func cambiaCibi(_ di: Int, _ m: MealPlan, _ cambia: (inout [IngredientRef]) -> Void) {
+        guard !m.free else { return }
+        var cibi = m.lines.map(\.ref)
+        cambia(&cibi)
+        let k = "\(di):\(m.si)"
+        if cibi.isEmpty || cibi == piano.variants[m.slot]?[m.code] { d.cibiPasto.removeValue(forKey: k) }
+        else { d.cibiPasto[k] = CibiPasto(slot: m.slot, piatto: m.code, cibi: cibi) }
+        Haptic.leggero()
+        if d.promemoria["merenda"] == true { riprogrammaPromemoria() }   // i panini di domani con i cibi giusti
+    }
+    // un cibo al posto di un altro (se c'è già nel pasto, si sommano i grammi; se rimetti il cibo della ricetta, torna ai grammi esatti della ricetta)
+    func scambiaCibo(di: Int, _ m: MealPlan, _ i: Int, con nuovo: IngredientRef) {
+        cambiaCibi(di, m) { c in
+            guard c.indices.contains(i) else { return }
+            var ref = nuovo
+            if let orig = piano.variants[m.slot]?[m.code], orig.indices.contains(i), orig[i].f == ref.f, ref.nome == nil,
+               let k = piano.foods[ref.f]?.k, abs((orig[i].g - ref.g) * k / 100) <= 18 {
+                ref.g = orig[i].g
+            }
+            if let j = c.indices.first(where: { $0 != i && c[$0].f == ref.f && c[$0].nome == ref.nome }) {
+                c[j].g += ref.g
+                c.remove(at: i)
+            } else { c[i] = ref }
+        }
+    }
+    func grammiCibo(di: Int, _ m: MealPlan, _ i: Int, piu: Bool) {
+        cambiaCibi(di, m) { c in
+            guard c.indices.contains(i) else { return }
+            let passo = piano.passo(c[i])
+            c[i].g = max(5, c[i].g + (piu ? passo : -passo))
+        }
+    }
+    func impostaGrammiCibo(di: Int, _ m: MealPlan, _ i: Int, grammi: Double) {
+        let g = max(1, r0(grammi))
+        cambiaCibi(di, m) { c in
+            guard c.indices.contains(i) else { return }
+            c[i].g = g
+        }
+    }
+    func togliCibo(di: Int, _ m: MealPlan, _ i: Int) {
+        cambiaCibi(di, m) { c in if c.count > 1 && c.indices.contains(i) { c.remove(at: i) } }
+    }
+    func aggiungiCibo(di: Int, _ m: MealPlan, _ fid: String) {
+        aggiungiCiboRef(di: di, m, IngredientRef(f: fid, g: piano.doseNuova(fid, slot: m.slot)))
+    }
+    func aggiungiCiboRef(di: Int, _ m: MealPlan, _ nuovo: IngredientRef) {
+        cambiaCibi(di, m) { c in
+            if let j = c.firstIndex(where: { $0.f == nuovo.f && $0.nome == nuovo.nome }) { c[j].g += nuovo.g } else { c.append(nuovo) }
+        }
+    }
+    // i prodotti esterni usati di recente (codice a barre, Open Food Facts, a mano): pronti con un tocco
+    func cibiEsterniRecenti() -> [IngredientRef] {
+        var visti = Set<String>()
+        var out: [IngredientRef] = []
+        func metti(_ r: IngredientRef) {
+            guard r.k100 != nil, piano.foods[r.f] == nil, let n = r.nome, !n.isEmpty else { return }
+            guard visti.insert(n.lowercased()).inserted else { return }
+            out.append(r)
+        }
+        for x in d.cibiPasto.values { for c in x.cibi { metti(c) } }
+        for g in d.fuori.keys.sorted(by: >) {
+            for p in d.fuori[g] ?? [] {
+                for v in p.voci where v.fonte.map({ piano.foods[$0] == nil }) ?? true {
+                    metti(IngredientRef(f: v.fonte ?? "fuori", g: v.g, nome: v.nome, k100: v.k100, p100: v.p100, c100: v.c100, f100: v.f100))
+                }
+            }
+        }
+        for p in d.mieiPasti {
+            for v in p.voci where v.fonte.map({ piano.foods[$0] == nil }) ?? true {
+                metti(IngredientRef(f: v.fonte ?? "fuori", g: v.g, nome: v.nome, k100: v.k100, p100: v.p100, c100: v.c100, f100: v.f100))
+            }
+        }
+        return Array(out.prefix(8))
+    }
+    func rimettiRicetta(di: Int, _ m: MealPlan) {
+        d.cibiPasto.removeValue(forKey: "\(di):\(m.si)")
+        Haptic.leggero()
+        if d.promemoria["merenda"] == true { riprogrammaPromemoria() }
     }
 
     func totaliMangiati(_ key: String? = nil) -> Tot {
         let k = key ?? oggiKey
-        let plan = k == oggiKey ? pianoOggi : pianoGiorno(Cal.dayIdx(Cal.date(k)))
+        let plan = k == oggiKey ? pianoOggi : pianoPerData(k)
         let eaten = mangiati(k)
         let fuori = d.fuori[k] ?? []
         let sostituite = Set(fuori.compactMap(\.si))
+        let tolti = Set(d.saltati[k] ?? [])
         var t = Tot()
-        for m in plan.meals where !m.free && eaten.contains(m.si) && !sostituite.contains(m.si) { t.k += m.tot.k; t.p += m.tot.p; t.c += m.tot.c; t.fa += m.tot.fa }
-        // i pasti fuori piano contano per quello che hai mangiato davvero
-        for f in fuori { let x = f.tot; t.k += x.k; t.p += x.p; t.c += x.c; t.fa += x.fa }
+        for m in plan.meals where !m.free && eaten.contains(m.si) && !sostituite.contains(m.si) && !tolti.contains(m.si) {
+            t.k += m.tot.k; t.p += m.tot.p; t.c += m.tot.c; t.fa += m.tot.fa
+        }
+        // i pasti fuori piano contano per quello che hai mangiato davvero (i tuoi pasti preparati, solo quando li mangi)
+        for f in fuori where f.giaMangiato { let x = f.tot; t.k += x.k; t.p += x.p; t.c += x.c; t.fa += x.fa }
         return Tot(k: t.k, p: r1(t.p), c: r1(t.c), fa: r1(t.fa))
     }
 
@@ -140,12 +296,7 @@ final class AppStore: ObservableObject {
         d.dayov[key] = o
     }
     func recuperaAllenamento(_ si: Bool) {
-        let key = oggiKey
-        defer { riprogrammaPromemoria() }
-        if !si { d.dayov.removeValue(forKey: key); return }
-        var o = DayOv()
-        o.type = "ON"; o.keep = mangiati(); o.t = Cal.ms()
-        d.dayov[key] = o
+        impostaGiornoOn(si)
     }
 
     // MARK: pesi
@@ -277,10 +428,17 @@ final class AppStore: ObservableObject {
     func fattoOggi(_ rid: String) -> Bool {
         cronologia.contains { $0.rid == rid && Cal.key(Date(timeIntervalSince1970: $0.start / 1000)) == oggiKey }
     }
-    // la scheda di oggi (tiene conto di palestra saltata o recuperata)
+    // la scheda di oggi (tiene conto di palestra saltata, recuperata o già fatta oggi)
     var schedaOggi: String? {
-        if let o = ov(oggiKey) { if o.skip == true { return nil }; if let r = o.rid, !r.isEmpty { return r } }
-        return piano.week[oggiIdx].wo
+        if let o = ov(oggiKey) {
+            if o.skip == true { return nil }
+            if let r = o.rid, !r.isEmpty { return r }
+        }
+        if let r = piano.week[oggiIdx].wo { return r }
+        if giornoOn() {
+            return d.active?.rid ?? cronologia.first { Cal.key(Date(timeIntervalSince1970: $0.start / 1000)) == oggiKey }?.rid
+        }
+        return nil
     }
 }
 

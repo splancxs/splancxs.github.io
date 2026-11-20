@@ -45,7 +45,7 @@ extension AppStore {
                 // i due panini di scuola: nome e ingredienti con i grammi
                 let panini = p.meals.filter { $0.slot == "m1" || $0.slot == "m2" }.map { m in
                     (piano.recipe(m.code).name.components(separatedBy: " (").first ?? piano.recipe(m.code).name) + ": "
-                        + m.lines.map { "\(piano.foodName($0.f).lowercased()) \(Int($0.g)) g" }.joined(separator: ", ")
+                        + m.lines.map { "\(piano.nome($0).lowercased()) \(Int($0.g)) g" }.joined(separator: ", ")
                 }
                 guard !panini.isEmpty else { continue }
                 aggiungi(100 + di, "Prepara i panini per \(p.day.name.lowercased())", panini.joined(separator: " · "),

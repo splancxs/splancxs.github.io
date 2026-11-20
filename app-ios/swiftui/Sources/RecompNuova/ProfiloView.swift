@@ -36,6 +36,16 @@ struct ProfiloView: View {
                 }
                 .buttonStyle(.plain)
                 divisore
+                // backup automatico: tocca per aprire la cartella nell'app File
+                Button {
+                    if let url = URL(string: "shareddocuments://" + AppStore.cartellaBackup.path) { UIApplication.shared.open(url) }
+                } label: {
+                    riga("clock.arrow.circlepath", Color(hex: 0x30B0C7), "Backup automatico",
+                         s.ultimoBackup.map { "Ogni giorno · ultimo \(Cal.testo($0, "d MMM, HH:mm")) · \(s.quantiBackup) copie in File" }
+                            ?? "Ogni giorno, nell'app File → Recomp") { freccia }
+                }
+                .buttonStyle(.plain)
+                divisore
                 Button { messaggio = s.migraDalSito(forza: true) } label: {
                     riga("arrow.triangle.2.circlepath", Color(hex: 0x8E8E93), "Dati dell'app di prima", "Riprende pesi e allenamenti del sito") { freccia }
                 }
@@ -52,9 +62,13 @@ struct ProfiloView: View {
             Titolo(testo: "Coach")
             gruppo {
                 Button { coach = true } label: {
-                    riga("sparkles", Color(hex: 0x5E5CE6), "Coach AI", ChiaveCoach.leggi() != nil ? "Collegato · " + FornitoreCoach.attuale.nome : "Da collegare (Gemini è gratis)") { freccia }
+                    riga("sparkles", Color(hex: 0x5E5CE6), "Coach AI", FornitoreCoach.statoProfilo) { freccia }
                 }
                 .buttonStyle(.plain)
+                divisore
+                riga("text.bubble.fill", Color(hex: 0x5E5CE6), "Il coach ti scrive", "6:50 (9:15 nel weekend) e 21:30") {
+                    Toggle("", isOn: Binding(get: { s.d.coachScrive }, set: { s.impostaCoachScrive($0) })).labelsHidden()
+                }
             }
 
             Titolo(testo: "Promemoria")

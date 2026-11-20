@@ -1,8 +1,8 @@
-// Service worker: prima la rete (contenuti sempre aggiornati), cache come riserva offline.
-const CACHE = 'recomp-v66';
+// Service worker: prima la rete (contenuti sempre aggiornati), la copia salvata solo se manca la connessione.
+const CACHE = 'recomp-v69';
 const ASSETS = [
-  './', './index.html', './assets/css/style.css?v=67', './assets/js/allenamento.js?v=67', './assets/js/coach.js?v=67', './assets/js/app.js?v=67', './assets/js/data.js?v=67', './assets/js/sync.js?v=67', './assets/js/firebase-config.js',
-  './manifest.webmanifest', './assets/icons/favicon.svg', './assets/icons/icon-192.png', './assets/icons/icon-512.png',
+  './', './index.html', './assets/css/style.css?v=70', './assets/js/data.js?v=70', './assets/js/app.js?v=70',
+  './assets/icons/favicon.svg', './assets/icons/apple-touch-icon.png',
 ];
 
 self.addEventListener('install', (e) => {

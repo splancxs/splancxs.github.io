@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleDisplayName</key>
-    <string>Recomp 2</string>
+    <string>Recomp</string>
     <key>UISupportedInterfaceOrientations</key>
     <array>
         <string>UIInterfaceOrientationPortrait</string>
@@ -14,10 +14,10 @@
     <array>
         <dict>
             <key>CFBundleURLName</key>
-            <string>io.github.splancxs.recomp.nuova</string>
+            <string>io.github.splancxs.recomp.prova</string>
             <key>CFBundleURLSchemes</key>
             <array>
-                <string>recomp2</string>
+                <string>recomp</string>
             </array>
         </dict>
     </array>
@@ -26,7 +26,11 @@
     <key>NSCameraUsageDescription</key>
     <string>Per leggere il codice a barre dei cibi confezionati che mangi fuori piano.</string>
     <key>NSHealthShareUsageDescription</key>
-    <string>Recomp legge le pesate, i passi e le calorie attive per il tuo percorso.</string>
+    <string>Recomp legge le pesate, i passi, il sonno e le calorie attive per il tuo percorso.</string>
+    <key>UIFileSharingEnabled</key>
+    <true/>
+    <key>LSSupportsOpeningDocumentsInPlace</key>
+    <true/>
     <key>NSHealthUpdateUsageDescription</key>
     <string>Recomp salva in Salute le pesate, i pasti che segni e i tuoi allenamenti.</string>
 </dict>

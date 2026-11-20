@@ -33,7 +33,9 @@ enum ChiaveCoach {
 // si provano gli altri). Quello che funziona resta salvato in «coach.fornitore».
 
 enum FornitoreCoach: String, CaseIterable {
-    case gemini, mistral, claude
+    case apple, gemini, mistral, claude
+
+    static var conChiave: [FornitoreCoach] { [.gemini, .mistral, .claude] }
 
     // ipotesi dal formato della chiave, quando è sicuro (nil = non si capisce)
     static func ipotesi(_ chiave: String) -> FornitoreCoach? {
@@ -41,15 +43,30 @@ enum FornitoreCoach: String, CaseIterable {
         if chiave.hasPrefix("AIza") { return .gemini }
         return nil
     }
-    // il servizio della chiave salvata
+    // il servizio attivo: Apple Intelligence sul telefono (se scelta o se non c'è una chiave API) oppure quello della chiave
     static var attuale: FornitoreCoach {
-        UserDefaults.standard.string(forKey: "coach.fornitore").flatMap(FornitoreCoach.init(rawValue:)) ?? .gemini
+        let salvato = UserDefaults.standard.string(forKey: "coach.fornitore").flatMap(FornitoreCoach.init(rawValue:))
+        if salvato == .apple {
+            if AppleCoach.disponibile { return .apple }
+            return ChiaveCoach.leggi() != nil ? ultimoConChiave : .apple
+        }
+        if let salvato, ChiaveCoach.leggi() != nil { return salvato }
+        if AppleCoach.disponibile { return .apple }
+        return salvato ?? .gemini
+    }
+    static var ultimoConChiave: FornitoreCoach {
+        UserDefaults.standard.string(forKey: "coach.fornitoreChiave").flatMap(FornitoreCoach.init(rawValue:)) ?? .gemini
+    }
+    static var statoProfilo: String {
+        if attuale == .apple && AppleCoach.disponibile { return "Sul telefono · Apple Intelligence" }
+        if ChiaveCoach.leggi() != nil { return "Collegato · " + attuale.nome }
+        return AppleCoach.disponibile ? "Pronto · Apple Intelligence" : "Da collegare (Gemini è gratis)"
     }
     var nomeBreve: String {
-        switch self { case .gemini: "Gemini"; case .mistral: "Mistral"; case .claude: "Claude" }
+        switch self { case .apple: "iPhone"; case .gemini: "Gemini"; case .mistral: "Mistral"; case .claude: "Claude" }
     }
     var nome: String {
-        switch self { case .gemini: "Google Gemini"; case .mistral: "Mistral"; case .claude: "Claude" }
+        switch self { case .apple: "Apple Intelligence"; case .gemini: "Google Gemini"; case .mistral: "Mistral"; case .claude: "Claude" }
     }
     var gratis: Bool { self != .claude }
 }
@@ -58,9 +75,9 @@ enum ClienteCoach {
     struct Risposta { let testo: String; let contenuto: Data?; let rifiuto: Bool }
     struct Errore: Error { let messaggio: String }
 
-    static func chiedi(sistema: String, messaggi: [MessaggioCoach], chiave: String) async throws -> Risposta {
-        switch FornitoreCoach.attuale {
-        case .gemini: return try await gemini(sistema, messaggi, chiave)
+    static func chiedi(sistema: String, messaggi: [MessaggioCoach], chiave: String, fornitore: FornitoreCoach = FornitoreCoach.attuale) async throws -> Risposta {
+        switch fornitore {
+        case .apple, .gemini: return try await gemini(sistema, messaggi, chiave)
         case .mistral: return try await mistral(sistema, messaggi, chiave)
         case .claude: return try await claude(sistema, messaggi, chiave)
         }
@@ -72,7 +89,7 @@ enum ClienteCoach {
     static func prova(_ chiave: String, _ f: FornitoreCoach) async -> Prova {
         var r: URLRequest
         switch f {
-        case .gemini:
+        case .apple, .gemini:
             r = URLRequest(url: URL(string: "https://generativelanguage.googleapis.com/v1beta/models?pageSize=5")!)
             r.setValue(chiave, forHTTPHeaderField: "x-goog-api-key")
         case .mistral:
@@ -90,7 +107,8 @@ enum ClienteCoach {
 
     // con quale servizio va la chiave: prima quello scelto (o quello che si capisce dal formato), poi gli altri
     static func riconosci(_ chiave: String, preferito: FornitoreCoach) async -> (FornitoreCoach?, Bool) {
-        var ordine = [preferito] + FornitoreCoach.allCases.filter { $0 != preferito }
+        let base = preferito == .apple ? .gemini : preferito
+        var ordine = [base] + FornitoreCoach.conChiave.filter { $0 != base }
         if let i = FornitoreCoach.ipotesi(chiave) { ordine = [i] + ordine.filter { $0 != i } }
         var rete = false
         for f in ordine {
@@ -303,16 +321,21 @@ extension AppStore {
         - "creatina": {"tipo":"creatina"} segna la creatina di oggi.
         - "peso": {"tipo":"peso","kg":64.2} registra la pesata di oggi; aggiungi "vita" in cm solo se la dice.
         - "scambio": {"tipo":"scambio","fascia":2,"codice":"…"} mette al posto del piatto di oggi in quella fascia una delle alternative elencate in PASTI DI OGGI.
+        - "ricorda": {"tipo":"ricorda","testo":"…"} salva un'abitudine, preferenza o nota importante nella memoria permanente del coach.
         Regole: il blocco solo quando c'è davvero qualcosa da registrare, uno solo per risposta, nel JSON i numeri con il punto. Valgono solo per oggi. Non proporre cose già fatte (guarda la riga [Adesso…]). L'app mostra una scheda con «Conferma»: non dire che è già registrato, scrivi per esempio «Te lo segno: conferma qui sotto». Se non sai i grammi, stima porzioni normali e dillo in una frase.
         """#)
-        t.append("PIANO ALIMENTARE [piano \(piano.version)]: preparato dal suo nutrizionista (obiettivi qui sotto); acqua 2,5 l nei giorni ON, 2 l negli OFF. Il pasto libero della domenica (pranzo fuori, senza pesare, circa \(Int(stimaPastoLibero)) kcal) è già dentro le kcal del giorno. Gli scambi si fanno dentro lo stesso pasto con la dose del giorno (ON o OFF). Primo controllo dei numeri con il nutrizionista lunedì 2 novembre: se il peso si ferma, prima si controllano conteggio, acqua e sonno, poi eventualmente si tolgono 100 kcal.")
+        t.append("PIANO ALIMENTARE [piano \(piano.version)]: preparato dal suo nutrizionista (obiettivi qui sotto); acqua 2,5 l nei giorni ON, 2 l negli OFF. Il pasto libero della domenica (pranzo fuori, senza pesare, circa \(Int(stimaPastoLibero)) kcal) è già dentro le kcal del giorno. Gli scambi si fanno dentro lo stesso pasto con la dose del giorno (ON o OFF). Primo controllo dei numeri con il nutrizionista lunedì 2 novembre, poi ogni 2 settimane. Regole del nutrizionista sul ritmo (medie settimanali del peso): calo tra 0,15 e 0,45 kg a settimana = avanti così; sopra 0,45 per 2 settimane = +150 kcal al giorno; sotto 0,15 per 2–3 settimane = prima si cercano gli errori (pesature, olio, weekend, uscite), poi più passi, solo dopo −100 kcal; carichi in calo per 2 settimane o fame molto forte = +100–150 kcal nei giorni ON. Le kcal non le cambi tu: le cambia il nutrizionista.")
         let b = blocco
         t.append("BLOCCO DI ALLENAMENTO: blocco \(b.ciclo), settimana \(b.n) di 7 · \(b.fase).")
+        if !d.coachMem.isEmpty {
+            t.append("MEMORIA DEL COACH (cose da ricordare sempre su di lui):\n" + d.coachMem.map { "- \($0)" }.joined(separator: "\n"))
+        }
         // peso
         let ws = pesate
         if !ws.isEmpty {
             let ultimi = ws.suffix(21).map { "\(Cal.testo(Cal.date($0.d), "d MMM")) \(fmtPeso($0.kg))" + ($0.w.map { " (vita \(fmtNum($0)) cm)" } ?? "") }
             t.append("PESO (kg, mattina a digiuno): partenza 64,70 (28 settembre); obiettivo 62,5, arrivo stimato verso il 22 novembre (tra il 13/11 e il 13/12), ritmo atteso circa 0,35 kg a settimana. Ultime pesate: " + ultimi.joined(separator: " · ") + ".")
+            if let r = ritmoTesto() { t.append(r) }
         }
         // settimana del piano
         let settimana = (0..<7).map { di -> String in
@@ -326,7 +349,7 @@ extension AppStore {
         var pasti: [String] = []
         for m in oggi.meals {
             if m.free { pasti.append("Fascia \(m.si) · \(m.time) \(m.label): pasto libero fuori, senza pesare (circa \(Int(stimaPastoLibero)) kcal; un primo o un secondo con contorno, oppure una pizza)"); continue }
-            let ingr = m.lines.map { "\(piano.foodName($0.f)) \(Int($0.g)) \(piano.unitaPeso($0.f))" }.joined(separator: ", ")
+            let ingr = m.lines.map { "\(piano.nome($0)) \(Int($0.g)) \(piano.unitaPeso($0.f))" }.joined(separator: ", ")
             let alt = (piano.variants[m.slot] ?? [:]).keys.sorted().filter { $0 != m.code }
                 .map { "\($0) = \(piano.recipe($0).name) \(Int(piano.sum(piano.mealLines(m.slot, $0)).k)) kcal" }
             pasti.append("Fascia \(m.si) · \(m.time) \(m.label): \(piano.recipe(m.code).name) [codice \(m.code)] — \(ingr) (\(Int(m.tot.k)) kcal, P \(fmtNum(r1(m.tot.p))), C \(fmtNum(r1(m.tot.c))), G \(fmtNum(r1(m.tot.fa))))"
@@ -369,7 +392,8 @@ extension AppStore {
         let fasce = plan.meals.map { m -> String in
             let nome = m.label.components(separatedBy: " (").first ?? m.label
             if m.free { return "\(m.si) \(nome) libero" }
-            if fuoriPerFascia(m.si) != nil { return "\(m.si) \(nome) fuori piano" }
+            if pastoTolto(m.si) { return "\(m.si) \(nome) tolto da oggi" }
+            if let f = fuoriPerFascia(m.si) { return "\(m.si) \(nome) " + (f.giaMangiato ? "fuori piano ✓" : "suo pasto da mangiare (\(f.nome), \(Int(f.tot.k)) kcal)") }
             return "\(m.si) \(nome) \(m.code)" + (segnati.contains(m.si) ? " ✓" : "")
         }
         let fuori = fuoriOggi().map { "\($0.nome) \(Int($0.tot.k)) kcal" }
@@ -377,7 +401,12 @@ extension AppStore {
         if let a = d.active { palestra = "allenamento \(a.name) in corso" }
         else if let rid = schedaOggi, let r = routine(rid) { palestra = "\(r.name) " + (fattoOggi(rid) ? "già fatto" : "ancora da fare") }
         let peso = pesate.last.map { "ultimo peso \(fmtPeso($0.kg)) kg (\(Cal.testo(Cal.date($0.d), "d MMM")))" } ?? "nessuna pesata"
-        return "[Adesso: \(Cal.testo(Date(), "EEEE d MMMM")), ore \(Cal.fmtOra.string(from: Date())). Mangiato oggi \(Int(t.k)) kcal (P \(Int(t.p)), C \(Int(t.c)), G \(Int(t.fa))) su \(Int(plan.dt.target[0])). Fasce di oggi (numero, pasto, piatto; ✓ = mangiato): \(fasce.joined(separator: ", "))\(fuori.isEmpty ? "" : "; fuori piano: " + fuori.joined(separator: ", ")). Palestra: \(palestra). Creatina \(creatinaPresa() ? "presa" : "non ancora presa"). \(peso).]"
+        let r = ritmoPeso()
+        let ritmo = r.ritmo.map { " Ritmo del peso \($0 >= 0 ? "−" : "+")\(fmtNum(r1Due(abs($0)), 2)) kg a settimana (\(r.titolo.lowercased()))." } ?? ""
+        // sonno e passi da Salute (se collegata), e l'ultimo messaggio che il coach gli ha mandato da solo
+        let salute = Salute.shared.recentiTesto.map { " \($0)." } ?? ""
+        let biglietto = bigliettinoRecente().map { " Ultimo messaggio che gli hai mandato tu, da solo (\(Cal.testo(Date(timeIntervalSince1970: $0.alle / 1000), "EEEE HH:mm"))): «\($0.testo)»." } ?? ""
+        return "[Adesso: \(Cal.testo(Date(), "EEEE d MMMM")), ore \(Cal.fmtOra.string(from: Date())). Mangiato oggi \(Int(t.k)) kcal (P \(Int(t.p)), C \(Int(t.c)), G \(Int(t.fa))) su \(Int(plan.dt.target[0])). Fasce di oggi (numero, pasto, piatto; ✓ = mangiato): \(fasce.joined(separator: ", "))\(fuori.isEmpty ? "" : "; fuori piano: " + fuori.joined(separator: ", ")). Palestra: \(palestra). Creatina \(creatinaPresa() ? "presa" : "non ancora presa"). \(peso).\(ritmo)\(salute)\(biglietto)]"
     }
 }
 
@@ -392,7 +421,9 @@ struct CoachView: View {
     @State private var chiave = ChiaveCoach.leggi()
     @State private var nuovaChiave = ""
     @State private var cambiaChiave = false
+    @State private var mostraMemoria = false
     @State private var scelto: FornitoreCoach = .gemini
+    @State private var fornitoreAttivo: FornitoreCoach = FornitoreCoach.attuale
     @State private var provando = false
     @State private var esito = ""
     @FocusState private var scrivendo: Bool
@@ -400,13 +431,20 @@ struct CoachView: View {
     private let suggerimenti = ["Com'è andata questa settimana?", "Cosa mangio stasera?", "Perché non salgo alla chest press?",
                                 "Sto andando verso l'obiettivo di peso?", "Oggi ho fame: cosa posso aggiungere?", "Cosa miglioro nella scheda?"]
 
+    private var coachPronto: Bool {
+        fornitoreAttivo == .apple ? AppleCoach.disponibile : chiave != nil
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             testata
-            if chiave == nil || cambiaChiave { collega } else { chat }
+            if !coachPronto || cambiaChiave { collega } else { chat }
         }
         .background(Tema.fondo.ignoresSafeArea())
+        .sheet(isPresented: $mostraMemoria) { MemoriaCoachSheet().foglio() }
+        .task { await Salute.shared.aggiornaRecenti() }   // sonno e passi di adesso, per la riga [Adesso…]
         .onAppear {
+            fornitoreAttivo = FornitoreCoach.attuale
             // una chat iniziata prima delle azioni o con un'altra dieta ricomincia: il coach parlerebbe del piano vecchio
             let sistema = s.d.coachSistema
             if !sistema.isEmpty && (!sistema.contains("[azioni-v1]") || !sistema.contains("[piano \(s.piano.version)]")) {
@@ -417,21 +455,45 @@ struct CoachView: View {
 
     private var testata: some View {
         HStack(alignment: .center, spacing: 10) {
-            Image(systemName: "sparkles").font(.system(size: 18, weight: .bold)).foregroundStyle(Tema.inchiostro)
+            Image(systemName: fornitoreAttivo == .apple ? "apple.intelligence" : "sparkles")
+                .font(.system(size: 18, weight: .bold)).foregroundStyle(Tema.inchiostro)
                 .frame(width: 40, height: 40).background(Argento(raggio: 20))
             VStack(alignment: .leading, spacing: 0) {
                 Text("COACH").font(.sport(28))
-                Text((chiave == nil ? "Da collegare" : FornitoreCoach.attuale.nome) + " · conosce piano, schede e pesi").font(.system(size: 12)).foregroundStyle(Tema.tenue)
+                Text((!coachPronto ? "Da collegare" : fornitoreAttivo.nome) + (fornitoreAttivo == .apple ? " · sul telefono" : " · conosce piano, schede e pesi"))
+                    .font(.system(size: 12)).foregroundStyle(Tema.tenue)
             }
             Spacer()
             Menu {
                 // mentre il coach risponde la chat non si ricomincia e la chiave non si cambia
                 Button { s.d.coach = []; s.d.coachSistema = ""; errore = "" } label: { Label("Nuova chat", systemImage: "square.and.pencil") }
                     .disabled(attesa)
-                Button { cambiaChiave = true } label: { Label("Cambia chiave", systemImage: "key") }
+                Button { mostraMemoria = true } label: {
+                    Label(s.d.coachMem.isEmpty ? "Memoria del coach" : "Memoria del coach (\(s.d.coachMem.count))", systemImage: "brain.head.profile")
+                }
+                if AppleCoach.disponibile && fornitoreAttivo != .apple {
+                    Button {
+                        attivaAppleIntelligence()
+                    } label: { Label("Usa Apple Intelligence", systemImage: "apple.intelligence") }
+                        .disabled(attesa)
+                }
+                if fornitoreAttivo == .apple, chiave != nil {
+                    let altro = FornitoreCoach.ultimoConChiave
+                    Button {
+                        UserDefaults.standard.set(altro.rawValue, forKey: "coach.fornitore")
+                        fornitoreAttivo = altro; cambiaChiave = false; errore = ""
+                    } label: { Label("Passa a \(altro.nome)", systemImage: "cloud") }
+                        .disabled(attesa)
+                }
+                Button { cambiaChiave = true } label: { Label("Cambia servizio o chiave", systemImage: "key") }
                     .disabled(attesa)
-                Section {
-                    Button(role: .destructive) { ChiaveCoach.cancella(); chiave = nil } label: { Label("Togli la chiave", systemImage: "trash") }
+                if chiave != nil {
+                    Section {
+                        Button(role: .destructive) {
+                            ChiaveCoach.cancella(); chiave = nil
+                            if AppleCoach.disponibile { attivaAppleIntelligence() }
+                        } label: { Label("Togli la chiave", systemImage: "trash") }
+                    }
                 }
             } label: {
                 Image(systemName: "ellipsis").font(.system(size: 16, weight: .bold)).frame(width: 34, height: 34).background(Tema.scheda, in: Circle())
@@ -443,13 +505,23 @@ struct CoachView: View {
         .padding(.horizontal, 20).padding(.top, 20).padding(.bottom, 10)
     }
 
-    // la prima volta: incolla una chiave (gratis: Google Gemini o Mistral; a pagamento: Claude)
+    private func attivaAppleIntelligence() {
+        UserDefaults.standard.set(FornitoreCoach.apple.rawValue, forKey: "coach.fornitore")
+        fornitoreAttivo = .apple
+        cambiaChiave = false
+        errore = ""
+        Haptic.ok()
+    }
+
+    // scegli Apple Intelligence (sul telefono, senza chiave) oppure incolla una chiave (Gemini, Mistral, Claude)
     private var collega: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                Text("Collega il coach").font(.system(size: 22, weight: .bold))
-                Text("Serve una chiave di un servizio di intelligenza artificiale. Le prime due sono gratis: crei la chiave, la copi e la incolli qui sotto. Resta solo nel portachiavi di questo iPhone.")
+                Text("Scegli il motore del coach").font(.system(size: 22, weight: .bold))
+                schedaAppleIntelligence
+                Text("Oppure usa un servizio online con una chiave API (resta solo nel portachiavi di questo iPhone):")
                     .font(.system(size: 14)).foregroundStyle(Tema.tenue).fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 4)
                 servizio("Google Gemini", "Gratis · consigliato", "Basta un account Google, senza carta. In Google AI Studio tocca «Create API key».",
                          "https://aistudio.google.com/apikey", "Prendi la chiave di Gemini", Tema.verde)
                 servizio("Mistral", "Gratis", "Piano «Experiment» senza carta; chiede il numero di telefono. In «API Keys» crea una chiave.",
@@ -462,7 +534,7 @@ struct CoachView: View {
                     .textInputAutocapitalization(.never).autocorrectionDisabled()
                     .padding(14).background(Tema.scheda, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 Picker("Di quale servizio è la chiave", selection: $scelto) {
-                    ForEach(FornitoreCoach.allCases, id: \.self) { f in Text(f.nomeBreve).tag(f) }
+                    ForEach(FornitoreCoach.conChiave, id: \.self) { f in Text(f.nomeBreve).tag(f) }
                 }
                 .pickerStyle(.segmented)
                 .onChange(of: nuovaChiave) { _, k in if let i = FornitoreCoach.ipotesi(k.trimmingCharacters(in: .whitespacesAndNewlines)) { scelto = i } }
@@ -485,6 +557,33 @@ struct CoachView: View {
         }
     }
 
+    private var schedaAppleIntelligence: some View {
+        Scheda(padding: 16) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Label("Apple Intelligence", systemImage: "apple.intelligence")
+                        .font(.system(size: 17, weight: .bold))
+                    Spacer()
+                    Text("SUL TELEFONO · GRATIS").font(.system(size: 11, weight: .heavy)).foregroundStyle(Tema.inchiostro)
+                        .padding(.horizontal, 8).padding(.vertical, 3).background(Tema.verde, in: Capsule())
+                }
+                Text("Gira direttamente sul tuo iPhone: non serve nessuna chiave, funziona anche offline e i tuoi dati non escono mai dal telefono.")
+                    .font(.system(size: 13)).foregroundStyle(Tema.tenue).fixedSize(horizontal: false, vertical: true)
+                if AppleCoach.disponibile {
+                    Button {
+                        attivaAppleIntelligence()
+                    } label: {
+                        Text(fornitoreAttivo == .apple ? "Continua con Apple Intelligence" : "Usa Apple Intelligence (senza chiave)")
+                    }
+                    .buttonStyle(PulsantePieno(colore: Tema.testo, testo: Tema.fondo))
+                } else if let avviso = AppleCoach.avvisoStato {
+                    Text(avviso).font(.system(size: 13, weight: .semibold)).foregroundStyle(Tema.ambra)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+
     // salvando, la chiave si prova: resta il servizio con cui funziona davvero
     private func salvaChiave() {
         let k = nuovaChiave.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -500,8 +599,10 @@ struct CoachView: View {
             }
             ChiaveCoach.salva(k)
             UserDefaults.standard.set(f.rawValue, forKey: "coach.fornitore")
+            UserDefaults.standard.set(f.rawValue, forKey: "coach.fornitoreChiave")
             UserDefaults.standard.removeObject(forKey: "coach.modelloGemini")
             UserDefaults.standard.removeObject(forKey: "coach.modelliGemini")
+            fornitoreAttivo = f
             chiave = k; nuovaChiave = ""; cambiaChiave = false; errore = ""
             Haptic.ok()
         }
@@ -529,6 +630,13 @@ struct CoachView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 12) {
+                        // la chat, con in mezzo (all'ora giusta) i messaggi che il coach ti ha mandato da solo nelle ultime ore
+                        ForEach(voci) { v in
+                            switch v {
+                            case .domanda(let m): bolla(m).id(v.id)
+                            case .bigliettino(let b): bigliettino(b).id(v.id)
+                            }
+                        }
                         if s.d.coach.isEmpty {
                             Text("Chiedimi qualcosa su pasti, allenamenti o peso: conosco il tuo piano, le schede e i tuoi numeri.")
                                 .font(.system(size: 14)).foregroundStyle(Tema.tenue)
@@ -542,7 +650,6 @@ struct CoachView: View {
                                 }
                             }
                         }
-                        ForEach(s.d.coach) { m in bolla(m).id(m.id) }
                         if attesa {
                             HStack(spacing: 8) {
                                 ProgressView()
@@ -560,9 +667,9 @@ struct CoachView: View {
                     .padding(.horizontal, 20).padding(.vertical, 8)
                 }
                 .scrollDismissesKeyboard(.interactively)
-                .onChange(of: s.d.coach.count) { _, _ in withAnimation { proxy.scrollTo(s.d.coach.last?.id, anchor: .bottom) } }
+                .onChange(of: s.d.coach.count) { _, _ in withAnimation { proxy.scrollTo(voci.last?.id, anchor: .bottom) } }
                 .onChange(of: attesa) { _, v in if v { withAnimation { proxy.scrollTo("attesa", anchor: .bottom) } } }
-                .onAppear { proxy.scrollTo(s.d.coach.last?.id, anchor: .bottom) }
+                .onAppear { proxy.scrollTo(voci.last?.id, anchor: .bottom) }
             }
             HStack(alignment: .bottom, spacing: 10) {
                 TextField("Scrivi al coach…", text: $testo, axis: .vertical)
@@ -579,6 +686,30 @@ struct CoachView: View {
             .padding(.horizontal, 16).padding(.vertical, 10)
             .background(Tema.fondo)
         }
+    }
+
+    // una riga della chat: un messaggio (tuo o del coach) o un messaggio che il coach ti ha mandato da solo
+    private enum Voce: Identifiable {
+        case domanda(MessaggioCoach), bigliettino(Bigliettino)
+        var id: String { switch self { case .domanda(let m): m.id; case .bigliettino(let b): "biglietto-" + b.id } }
+        var t: Double { switch self { case .domanda(let m): m.t; case .bigliettino(let b): b.alle } }
+    }
+    private var voci: [Voce] {
+        (s.d.coach.map { Voce.domanda($0) } + s.bigliettiniArrivati(ore: 16).map { Voce.bigliettino($0) }).sorted { $0.t < $1.t }
+    }
+
+    private func bigliettino(_ b: Bigliettino) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label(b.titolo + " · " + Cal.testo(Date(timeIntervalSince1970: b.alle / 1000), "HH:mm"), systemImage: b.icona)
+                .font(.system(size: 12, weight: .semibold)).foregroundStyle(Tema.tenue)
+            Text(b.testo).font(.system(size: 15)).foregroundStyle(Tema.testo).textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 14).padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Tema.scheda))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Tema.linea, lineWidth: 1))
+        .padding(.trailing, 24)
     }
 
     private func bolla(_ m: MessaggioCoach) -> some View {
@@ -631,7 +762,8 @@ struct CoachView: View {
 
     private func invia(_ domanda: String) {
         let q = domanda.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let k = chiave, !q.isEmpty, !attesa else { return }
+        let usaApple = fornitoreAttivo == .apple
+        guard (usaApple || chiave != nil), !q.isEmpty, !attesa else { return }
         if s.d.coach.isEmpty || s.d.coachSistema.isEmpty { s.d.coachSistema = s.contestoCoach() }
         let inviato = s.statoAdesso() + "\n\n" + q
         let domanda = MessaggioCoach(ruolo: "user", testo: q, contenuto: Data(inviato.utf8), t: Cal.ms())
@@ -641,7 +773,12 @@ struct CoachView: View {
         Task {
             // la domanda si toglie per id (non «l'ultima»): nel frattempo la chat può essere cambiata
             do {
-                let r = try await ClienteCoach.chiedi(sistema: s.d.coachSistema, messaggi: s.d.coach, chiave: k)
+                let r: ClienteCoach.Risposta
+                if usaApple {
+                    r = try await AppleCoach.chiedi(store: s, messaggi: s.d.coach)
+                } else {
+                    r = try await ClienteCoach.chiedi(sistema: s.d.coachSistema, messaggi: s.d.coach, chiave: chiave ?? "", fornitore: fornitoreAttivo)
+                }
                 // la risposta vale solo se la domanda è ancora l'ultima della chat (non ricominciata nel frattempo)
                 guard s.d.coach.last?.id == domanda.id else { attesa = false; return }
                 if r.rifiuto || r.testo.isEmpty {
@@ -661,5 +798,95 @@ struct CoachView: View {
             }
             attesa = false
         }
+    }
+}
+
+// MARK: Memoria permanente del coach (visibile e modificabile dall'utente)
+
+struct MemoriaCoachSheet: View {
+    @EnvironmentObject var s: AppStore
+    @Environment(\.dismiss) private var chiudi
+    @State private var nuovaNota = ""
+
+    var body: some View {
+        VStack(spacing: 0) {
+            TestataFoglio(
+                titolo: "Memoria del coach",
+                sotto: "Cose che il coach tiene sempre a mente, anche quando avvii una Nuova chat",
+                chiudi: { chiudi() }
+            )
+            HStack(spacing: 10) {
+                TextField("Aggiungi una nota (es. orari, macchinari…)", text: $nuovaNota)
+                    .submitLabel(.done)
+                    .onSubmit { aggiungi() }
+                Button { aggiungi() } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 14, weight: .heavy))
+                        .foregroundStyle(Tema.fondo)
+                        .frame(width: 30, height: 30)
+                        .background(Tema.testo, in: Circle())
+                }
+                .disabled(nuovaNota.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .opacity(nuovaNota.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.4 : 1)
+            }
+            .campo()
+            .padding(.horizontal, 20)
+            .padding(.bottom, 10)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 10) {
+                    if s.d.coachMem.isEmpty {
+                        Scheda {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("NESSUNA NOTA SALVATA").font(.sport(18)).foregroundStyle(Tema.tenue)
+                                Text("Puoi aggiungere qui le tue abitudini (per esempio «La Chest Press della mia palestra è in libbre» o «Il giovedì faccio merenda alle 10:30»), oppure scrivere direttamente in chat al coach «Ricordati che…».")
+                                    .font(.system(size: 14)).foregroundStyle(Tema.tenue)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    } else {
+                        TitoloFoglio(testo: "\(s.d.coachMem.count) \(s.d.coachMem.count == 1 ? "nota salvata" : "note salvate")")
+                        VStack(spacing: 0) {
+                            ForEach(Array(s.d.coachMem.enumerated()), id: \.offset) { i, nota in
+                                if i > 0 { Rectangle().fill(Tema.linea).frame(height: 1).padding(.leading, 14) }
+                                HStack(alignment: .center, spacing: 12) {
+                                    Text(nota)
+                                        .font(.system(size: 15))
+                                        .foregroundStyle(Tema.testo)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                    Spacer(minLength: 4)
+                                    Button(role: .destructive) {
+                                        s.togliMemoriaCoach(i)
+                                        Haptic.leggero()
+                                    } label: {
+                                        Image(systemName: "trash")
+                                            .font(.system(size: 14, weight: .semibold))
+                                            .foregroundStyle(Tema.tenue)
+                                            .frame(width: 32, height: 32)
+                                            .background(Tema.scheda2, in: Circle())
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 12)
+                            }
+                        }
+                        .background(Tema.scheda, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 24)
+            }
+            .scrollDismissesKeyboard(.interactively)
+        }
+        .background(Tema.fondo.ignoresSafeArea())
+    }
+
+    private func aggiungi() {
+        let p = nuovaNota.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !p.isEmpty else { return }
+        s.aggiungiMemoriaCoach(p)
+        nuovaNota = ""
+        Haptic.ok()
     }
 }

@@ -3,18 +3,21 @@ import Foundation
 // «2 fette», «1 vasetto», «3 cucchiai»: l'aiuto in pezzi accanto ai grammi (chi pesa il cibo guarda i grammi,
 // l'unità è solo un aiuto). Il peso di un pezzo («u») viene dal piano del nutrizionista (tools/dieta.json).
 private let unita: [String: (String, String)] = [
-    "pane_bauletto": ("fetta", "fette"), "wrap": ("wrap", "wrap"),
-    "tacchino_fette": ("vaschetta da 120 g", "vaschette da 120 g"), "pollo_fette": ("vaschetta da 130 g", "vaschette da 130 g"),
-    "bresaola": ("confezione da 80 g", "confezioni da 80 g"), "hamburger": ("hamburger", "hamburger"),
+    "pane_bauletto": ("fetta", "fette"), "wrap": ("wrap", "wrap"), "crackers": ("pacchetto da 27 g", "pacchetti da 27 g"),
+    "tacchino_fette": ("vaschetta da 100 g", "vaschette da 100 g"), "pollo_fette": ("vaschetta da 100 g", "vaschette da 100 g"),
+    "cotto": ("vaschetta da 100 g", "vaschette da 100 g"), "bresaola": ("vaschetta da 100 g", "vaschette da 100 g"),
+    "hamburger_pollo": ("hamburger da 100 g", "hamburger da 100 g"), "hamburger": ("hamburger da 100 g", "hamburger da 100 g"),
+    "cordon_bleu": ("cordon bleu", "cordon bleu"),
     "tonno": ("scatoletta da 80 g", "scatolette da 80 g"), "sgombro": ("scatoletta", "scatolette"),
-    "uova": ("uovo", "uova"), "yogurt": ("vasetto da 170 g", "vasetti da 170 g"), "fiocchi_latte": ("vaschetta da 175 g", "vaschette da 175 g"),
-    "budino": ("vasetto", "vasetti"), "latte": ("tazza", "tazze"),
+    "uova": ("uovo", "uova"), "fiocchi_latte": ("vasetto da 150 g", "vasetti da 150 g"),
+    "mozz_light": ("busta da 125 g", "buste da 125 g"), "formaggio_light": ("vaschetta da 200 g", "vaschette da 200 g"),
+    "biraghini": ("bastoncino", "bastoncini"), "budino": ("vasetto", "vasetti"), "latte": ("tazza", "tazze"),
     "banana": ("banana", "banane"), "kiwi": ("kiwi", "kiwi"), "mela": ("mela", "mele"), "frutti_bosco": ("vaschetta da 125 g", "vaschette da 125 g"),
     "passata": ("brick da 200 g", "brick da 200 g"),
 ]
 private let cucchiai: [String: (Double, String, String)] = [
     "avena": (10, "cucchiaio", "cucchiai"), "miele": (5, "cucchiaino", "cucchiaini"), "parmigiano": (5, "cucchiaino", "cucchiaini"),
-    "burro_arachidi": (15, "cucchiaio", "cucchiai"),
+    "burro_arachidi": (15, "cucchiaio", "cucchiai"), "formaggio_light": (10, "cucchiaino", "cucchiaini"),
 ]
 private let pezzi: [String: (Double, String)] = ["mandorle": (1.2, "mandorle")]
 
@@ -29,6 +32,12 @@ extension Piano {
         }
         // il latte nella spesa va in litri (brick da 1 l), non in tazze
         if fid == "latte" && spesa { let l = max(1, (g / 1000).rounded(.up)); return "≈ \(Int(l)) \(l == 1 ? "litro" : "litri")" }
+        // lo yogurt greco si compra in barattoli da 500 g / 1 kg e si pesa sulla bilancia
+        if fid == "yogurt" {
+            if !spesa { return "" }
+            let b = max(1, (g / 500).rounded(.up))
+            return "≈ \(Int(b)) \(b == 1 ? "barattolo da 500 g" : "barattoli da 500 g")"
+        }
         if !spesa, let (u, uno, molti) = cucchiai[fid] {
             let n = max(1, (g / u).rounded())
             return "\(abs(g / u - n) < 0.1 ? "" : "≈ ")\(Int(n)) \(n == 1 ? uno : molti)"

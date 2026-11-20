@@ -23,6 +23,16 @@ struct WatchAlt: Codable, Hashable, Identifiable {
     var id: String { code }
 }
 
+// uno dei tuoi pasti salvati sul telefono («I miei pasti»): dall'orologio si mette al posto di un pasto di oggi
+struct WatchMio: Codable, Hashable, Identifiable {
+    var id: String
+    var name: String
+    var k: Int
+    var p: Int
+    var c: Int
+    var f: Int
+}
+
 struct WatchMeal: Codable, Identifiable, Hashable {
     var si: Int
     var time: String
@@ -130,6 +140,7 @@ struct WatchSnapshot: Codable, Hashable {
     var act: WatchAct?
     var fin: [String]?    // allenamenti già salvati sull'iPhone nelle ultime 24 ore
     var lb: [String]?     // esercizi con i pesi in libbre (la scelta kg/lb vale su iPhone e orologio)
+    var miei: [WatchMio]? // i tuoi pasti salvati
 
     var todayPlan: WatchPlan? { plans?.first { $0.rid == todayRid } }
 
@@ -204,12 +215,10 @@ enum WatchShared {
     // lo ricavo dall'identificativo dell'app (lo stesso per app Watch e complicazione).
     static let group: String = {
         let id = Bundle.main.bundleIdentifier ?? ""
-        // l'app SwiftUI («Recomp 2», identificativo …recomp.nuova) ha il suo gruppo, separato da quello dell'app con il sito dentro
-        let coda = id.contains(".recomp.nuova") ? ".nuova" : ""
         if id.hasPrefix("XTL-"), let punto = id.firstIndex(of: ".") {
-            return "group.\(id[..<punto]).io.github.splancxs.recomp\(coda)"
+            return "group.\(id[..<punto]).io.github.splancxs.recomp"
         }
-        return "group.io.github.splancxs.recomp\(coda)"
+        return "group.io.github.splancxs.recomp"
     }()
     private static let key = "snapshot"
     private static var defaults: UserDefaults { UserDefaults(suiteName: group) ?? .standard }

@@ -276,3 +276,38 @@ struct TitoloFoglio: View {
     let testo: String
     var body: some View { Text(testo.uppercased()).font(.sport(19)).foregroundStyle(Tema.tenue).padding(.top, 6) }
 }
+
+// interruttore Giornata ON / OFF: argento con manubrio per ON, grafite con luna per OFF
+struct SwitchGiornoOnOff: View {
+    let on: Bool
+    let azione: (Bool) -> Void
+    var body: some View {
+        HStack(spacing: 2) {
+            voce(titolo: "ON", icona: "dumbbell.fill", attivo: on) { if !on { withAnimation(.snappy(duration: 0.2)) { azione(true) } } }
+            voce(titolo: "OFF", icona: "moon.fill", attivo: !on) { if on { withAnimation(.snappy(duration: 0.2)) { azione(false) } } }
+        }
+        .padding(3)
+        .background(Tema.scheda, in: Capsule())
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Giornata \(on ? "ON allenamento" : "OFF riposo"), tocca per cambiare")
+    }
+
+    private func voce(titolo: String, icona: String, attivo: Bool, tocco: @escaping () -> Void) -> some View {
+        Button(action: tocco) {
+            HStack(spacing: 5) {
+                Image(systemName: icona).font(.system(size: 11, weight: .bold))
+                Text(titolo).font(.sport(16))
+            }
+            .foregroundStyle(attivo ? (titolo == "ON" ? Tema.inchiostro : Tema.testo) : Tema.tenue)
+            .padding(.horizontal, 11).padding(.vertical, 5)
+            .background {
+                if attivo {
+                    if titolo == "ON" { Argento(raggio: 16) }
+                    else { Capsule().fill(Tema.scheda2) }
+                }
+            }
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+}

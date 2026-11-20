@@ -15,7 +15,7 @@ XIP="${XIP:-/mnt/c/Users/$USER/Downloads/Xcode_27.xip}"   # cambia se il file è
 echo "1) programmi di base"
 apt-get update -qq
 apt-get install -y -qq curl ca-certificates git usbmuxd libimobiledevice-utils build-essential python3-venv python3-dev \
-  libz-dev liblzma-dev binutils-gold zip pkg-config xar cpio xz-utils nodejs npm fuse3 libfuse2t64 \
+  libz-dev liblzma-dev binutils-gold zip pkg-config xar cpio xz-utils rsync fuse3 libfuse2t64 \
   libgcc-15-dev libpython3-dev libstdc++-15-dev \
   libimobiledevice-dev libimobiledevice-glue-dev libplist-dev libusbmuxd-dev libssl-dev libzip-dev
 
@@ -34,11 +34,7 @@ fi
 echo "   MANUALE: «xtool setup» (modalità Password, con l'Apple ID che usi per Recomp: meglio uno nuovo e vuoto,"
 echo "   NON quello di AltStore: xtool vorrebbe revocargli il certificato) e indica $XIP"
 
-echo "4) plugin ufficiali di Capacitor"
-mkdir -p "$(dirname "$NPM_CAP")/.." && cd "$(dirname "$(dirname "$NPM_CAP")")"
-cp "$REPO/app-ios/package.json" . && npm install --no-audit --no-fund
-
-echo "5) xtool modificato (Apple Watch)"
+echo "4) xtool modificato (Apple Watch)"
 if [ ! -d "$XTOOL_SRC" ]; then
   git clone https://github.com/xtool-org/xtool "$XTOOL_SRC"
   git -C "$XTOOL_SRC" checkout d802c71
@@ -48,14 +44,14 @@ swift build -c release --product xtool || true       # la prima volta scarica an
 python3 "$QUI/patches/applica-patch.py" "$XTOOL_SRC"
 swift build -c release --product xtool
 
-echo "6) SDK con anche watchOS (3,7 GB, qualche minuto)"
+echo "5) SDK con anche watchOS (3,7 GB, qualche minuto)"
 if [ ! -d "$SDK_OROLOGIO" ]; then
   mkdir -p "$(dirname "$SDK_OROLOGIO")"
   "$XTOOL_PATCHATO" sdk build "$XIP" "$(dirname "$SDK_OROLOGIO")"
   python3 "$QUI/patches/correggi-tbd-watchos.py" "$SDK_OROLOGIO/Developer/Platforms/WatchOS.platform/Developer/SDKs/WatchOS27.0.sdk"
 fi
 
-echo "7) pymobiledevice3 (parla con l'orologio attraverso l'iPhone)"
+echo "6) pymobiledevice3 (parla con l'orologio attraverso l'iPhone)"
 [ -d "$(dirname "$(dirname "$PMD")")" ] || python3 -m venv "$(dirname "$(dirname "$PMD")")"
 "$(dirname "$PMD")/pip" install -q pymobiledevice3
 

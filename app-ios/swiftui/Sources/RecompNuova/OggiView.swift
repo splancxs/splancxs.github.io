@@ -5,24 +5,26 @@ struct OggiView: View {
     @EnvironmentObject var s: AppStore
     @State private var pasto: MealPlan?
     @State private var fuori: AperturaFuori?
-    @State private var coach = false
 
     // quale finestra «fuori piano» aprire: al posto di un pasto (si) o in più, nuova o da modificare
-    struct AperturaFuori: Identifiable { let id = UUID(); let si: Int?; let esistente: PastoFuori? }
+    struct AperturaFuori: Identifiable { let id = UUID(); let si: Int?; let esistente: PastoFuori?; var mio = false }
 
     var body: some View {
         let plan = s.pianoOggi
         Pagina {
             testata(plan)
             cruscotto(plan)
-            if let c = s.consiglioFuori() { consiglio(c) }
+            // l'ultimo messaggio che il coach ti ha mandato da solo (finché non lo chiudi)
+            if let b = s.bigliettiniArrivati(ore: 12).last, b.visto != true { BigliettinoOggi(b: b) }
+            // giornata fuori dal piano: le cene per rimetterla a posto (se no, il consiglio di prima)
+            if let p = s.propostaGiornata() { SistemaGiornata(p: p) } else if let c = s.consiglioFuori() { consiglio(c) }
             adesso(plan)
             creatina
             giornata(plan)
         }
         .sheet(item: $pasto) { m in PastoSheet(di: s.oggiIdx, si: m.si, oggi: true).foglio() }
-        .sheet(item: $fuori) { f in FuoriPianoSheet(si: f.si, esistente: f.esistente).foglio() }
-        .sheet(isPresented: $coach) { CoachView().foglio() }
+        .sheet(item: $fuori) { f in FuoriPianoSheet(si: f.si, esistente: f.esistente, mio: f.mio).foglio() }
+        .sheet(isPresented: $s.mostraCoach) { CoachView().foglio() }
     }
 
     // dopo un pasto fuori piano: cosa cambiare nel resto della giornata
@@ -69,28 +71,33 @@ struct OggiView: View {
             HStack(alignment: .center, spacing: 12) {
                 Text(plan.day.name.uppercased()).font(.sport(54)).lineLimit(1).minimumScaleFactor(0.6)
                 Spacer(minLength: 0)
-                Button { coach = true } label: {
+                Button { s.mostraCoach = true } label: {
                     Label("Coach", systemImage: "sparkles").font(.system(size: 15, weight: .bold)).foregroundStyle(Tema.inchiostro)
                         .padding(.horizontal, 14).frame(height: 38).background(Argento(raggio: 19))
                 }
                 .accessibilityLabel("Apri il coach")
             }
-            Text(etichetta).font(.sport(17)).padding(.horizontal, 12).padding(.vertical, 5)
-                .foregroundStyle(tipo.hasPrefix("ON") ? Tema.inchiostro : tipo == "FREE" ? Tema.ambra : Tema.tenue)
-                .background(tipo.hasPrefix("ON") ? AnyShapeStyle(Color(hex: 0xC4C6C5)) : AnyShapeStyle(tipo == "FREE" ? Tema.ambra.opacity(0.18) : Tema.scheda), in: Capsule())
+            HStack(alignment: .center, spacing: 10) {
+                Text(etichetta).font(.sport(17)).padding(.horizontal, 12).padding(.vertical, 5)
+                    .foregroundStyle(tipo.hasPrefix("ON") ? Tema.inchiostro : tipo == "FREE" ? Tema.ambra : Tema.tenue)
+                    .background(tipo.hasPrefix("ON") ? AnyShapeStyle(Color(hex: 0xC4C6C5)) : AnyShapeStyle(tipo == "FREE" ? Tema.ambra.opacity(0.18) : Tema.scheda), in: Capsule())
+                Spacer(minLength: 4)
+                SwitchGiornoOnOff(on: tipo.hasPrefix("ON")) { s.impostaGiornoOn($0) }
+            }
         }
     }
 
     private func cruscotto(_ plan: DayPlan) -> some View {
         let t = s.totaliMangiati()
+        let previsti = s.previstiOggi()
         return Scheda {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(spacing: 18) {
                     ZStack {
-                        Anello(valore: t.k, totale: plan.previsti.k, spessore: 12)
+                        Anello(valore: t.k, totale: previsti.k, spessore: 12)
                         VStack(spacing: -2) {
                             Text("\(Int(t.k))").font(.sport(40)).monospacedDigit()
-                            Text("di \(Int(plan.previsti.k)) kcal").font(.system(size: 12, weight: .medium)).foregroundStyle(Tema.tenue)
+                            Text("di \(Int(previsti.k)) kcal").font(.system(size: 12, weight: .medium)).foregroundStyle(Tema.tenue)
                         }
                     }
                     .frame(width: 128, height: 128)
@@ -100,7 +107,7 @@ struct OggiView: View {
                         macro("Grassi", t.fa, plan.dt.target[3], Tema.g)
                     }
                 }
-                Text("\(Int(max(0, plan.previsti.k - t.k))) kcal").font(.system(size: 17, weight: .heavy)) + Text(" ancora da mangiare oggi").font(.system(size: 15)).foregroundColor(Tema.tenue)
+                Text("\(Int(max(0, previsti.k - t.k))) kcal").font(.system(size: 17, weight: .heavy)) + Text(" ancora da mangiare oggi").font(.system(size: 15)).foregroundColor(Tema.tenue)
                 if plan.hasFree && !plan.meals.contains(where: { $0.free && s.fuoriPerFascia($0.si) != nil }) {
                     Text("Il pasto libero conta circa \(Int(stimaPastoLibero)) kcal: quando l'hai fatto, toccalo e segna cosa hai mangiato.")
                         .font(.system(size: 12)).foregroundStyle(Tema.tenue).fixedSize(horizontal: false, vertical: true)
@@ -126,7 +133,8 @@ struct OggiView: View {
     private func prossima(_ plan: DayPlan) -> (Voce, String)? {
         let ora = Calendar.current.component(.hour, from: Date()) * 60 + Calendar.current.component(.minute, from: Date())
         func minuti(_ t: String) -> Int { let p = t.split(separator: ":").compactMap { Int($0) }; return (p.first ?? 0) * 60 + (p.count > 1 ? p[1] : 0) }
-        let fatti = Set(s.mangiati()).union(s.fuoriOggi().compactMap(\.si))   // anche i pasti sostituiti fuori piano
+        // fatti: mangiati, sostituiti da quello che hai mangiato davvero, tolti da oggi
+        let fatti = Set(s.mangiati()).union(s.fuoriOggi().filter(\.giaMangiato).compactMap(\.si)).union(s.d.saltati[s.oggiKey] ?? [])
         var voci: [(Int, Voce, Bool)] = plan.meals.map { m in
             let t = minuti(m.time)
             return (t, .pasto(m), fatti.contains(m.si) || (m.free && ora > t + 150))
@@ -153,6 +161,22 @@ struct OggiView: View {
             }
         } else if let (voce, quando) = prossima(plan) {
             switch voce {
+            case .pasto(let m) where s.fuoriPerFascia(m.si) != nil:
+                if let f = s.fuoriPerFascia(m.si) {
+                    argento {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Adesso · \(quando) · il tuo pasto").font(.sport(17)).opacity(0.7)
+                            Text("\(m.time) · \(f.nome.uppercased())").font(.sport(34)).lineLimit(2).minimumScaleFactor(0.7)
+                            Text("\(f.voci.count) \(f.voci.count == 1 ? "cibo" : "cibi") · \(Int(f.tot.k)) kcal · P \(fmtNum(r1(f.tot.p)))").font(.system(size: 15, weight: .medium))
+                            HStack(spacing: 10) {
+                                Button("Segna come mangiato") { s.mangiaFuori(f.id) }.buttonStyle(PulsantePieno())
+                                Button("Modifica") { fuori = AperturaFuori(si: m.si, esistente: f) }
+                                    .font(.system(size: 15, weight: .semibold)).padding(.horizontal, 16).frame(height: 50)
+                                    .background(Tema.inchiostro.opacity(0.14), in: Capsule())
+                            }
+                        }
+                    }
+                }
             case .pasto(let m) where m.free:
                 argento {
                     VStack(alignment: .leading, spacing: 10) {
@@ -286,15 +310,15 @@ struct OggiView: View {
                 Button("Annulla: oggi mi alleno") { s.saltaPalestra(false) }.buttonStyle(PulsanteLeggero())
             }
         } else if conv == "ON" {
-            rigaPalestra(titolo: "Palestra · recupero", dettaglio: "scegli la scheda in Scheda") {
+            rigaPalestra(titolo: "Palestra · recupero", dettaglio: "giornata passata al piano ON · scegli la scheda in Scheda") {
                 HStack(spacing: 8) {
                     Button("Apri Scheda") { s.tabAperta = 1 }.buttonStyle(PulsanteLeggero())
-                    Button("Torna al piano OFF") { s.recuperaAllenamento(false) }.buttonStyle(PulsanteLeggero())
+                    Button("Torna al piano OFF") { s.impostaGiornoOn(false) }.buttonStyle(PulsanteLeggero())
                 }
             }
-        } else if s.piano.week[s.oggiIdx].type == "OFF_S" {
+        } else {
             rigaPalestra(titolo: "Giorno di riposo", dettaglio: "") {
-                Button("Oggi recupero un allenamento") { s.recuperaAllenamento(true) }.buttonStyle(PulsanteLeggero())
+                Button("Oggi recupero un allenamento") { s.impostaGiornoOn(true) }.buttonStyle(PulsanteLeggero())
             }
         }
     }
@@ -336,35 +360,84 @@ struct OggiView: View {
     }
 
     private func riga(_ m: MealPlan, _ mangiato: Bool) -> some View {
+        if s.pastoTolto(m.si) { return AnyView(rigaTolta(m)) }
         if let f = s.fuoriPerFascia(m.si) { return AnyView(rigaSostituita(m, f)) }
         return AnyView(rigaPiano(m, mangiato))
     }
 
-    // un pasto del piano sostituito da quello che hai mangiato davvero
-    private func rigaSostituita(_ m: MealPlan, _ f: PastoFuori) -> some View {
-        Button { fuori = AperturaFuori(si: m.si, esistente: f) } label: {
-            HStack(spacing: 12) {
-                Text(m.time).font(.sport(20)).frame(width: 52, alignment: .leading).foregroundStyle(Tema.tenue)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(m.label.components(separatedBy: " (").first ?? m.label).font(.system(size: 17, weight: .bold)).foregroundStyle(Tema.testo).lineLimit(1)
-                    HStack(spacing: 6) {
-                        Text(m.free ? "LIBERO" : "FUORI PIANO").font(.system(size: 10, weight: .heavy)).foregroundStyle(Tema.inchiostro)
-                            .padding(.horizontal, 6).padding(.vertical, 2).background(Tema.ambra, in: Capsule())
-                        Text(f.nome).font(.system(size: 13)).foregroundStyle(Tema.tenue).lineLimit(1)
+    private func nomeFascia(_ m: MealPlan) -> String { m.label.components(separatedBy: " (").first ?? m.label }
+
+    // un pasto tolto da oggi: si rimette, o al suo posto si prepara un tuo pasto
+    private func rigaTolta(_ m: MealPlan) -> some View {
+        HStack(spacing: 12) {
+            Text(m.time).font(.sport(20)).frame(width: 52, alignment: .leading).foregroundStyle(Tema.tenue)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(m.free ? "Pasto libero" : nomeFascia(m)).font(.system(size: 17, weight: .bold)).foregroundStyle(Tema.tenue).strikethrough().lineLimit(1)
+                Text("Tolto da oggi").font(.system(size: 13)).foregroundStyle(Tema.tenue).lineLimit(1)
+            }
+            Spacer(minLength: 6)
+            Menu {
+                Button { fuori = AperturaFuori(si: m.si, esistente: nil, mio: s.ancoraDaMangiare(m)) } label: {
+                    Label { Text("Un pasto tuo al suo posto"); Text("Con i cibi che vuoi") } icon: { Image(systemName: "fork.knife") }
+                }
+                if !s.mieiPasti.isEmpty {
+                    Section("I miei pasti") {
+                        ForEach(s.mieiPasti.prefix(10)) { r in
+                            Button { s.mettiMio(r, al: m.si) } label: { Label("\(r.nome) · \(Int(r.tot.k)) kcal", systemImage: "star") }
+                        }
                     }
                 }
-                Spacer(minLength: 6)
-                VStack(alignment: .trailing, spacing: 0) {
-                    Text("\(Int(f.tot.k))").font(.sport(24)).monospacedDigit().foregroundStyle(Tema.testo)
-                    Text("P \(fmtNum(r1(f.tot.p)))").font(.system(size: 11)).foregroundStyle(Tema.tenue)
-                }
-                Image(systemName: "checkmark").font(.system(size: 16, weight: .heavy)).frame(width: 40, height: 40)
-                    .foregroundStyle(Tema.inchiostro).background(Tema.ambra, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                Button { s.rimettiPasto(m.si) } label: { Label("Rimetti \(m.free ? "il pasto libero" : nomeFascia(m).lowercased())", systemImage: "arrow.uturn.backward") }
+            } label: {
+                Image(systemName: "ellipsis").font(.system(size: 15, weight: .bold)).frame(width: 40, height: 40)
+                    .foregroundStyle(Tema.testo).background(Tema.scheda2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
-            .padding(.horizontal, 14).padding(.vertical, 10)
-            .background(Tema.scheda, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .accessibilityLabel("Rimetti o crea un tuo pasto")
         }
-        .buttonStyle(.plain)
+        .padding(.horizontal, 14).padding(.vertical, 10)
+        .background(Tema.scheda.opacity(0.6), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    // un pasto del piano sostituito da quello che hai mangiato davvero, o da un tuo pasto (da mangiare: spunta grigia)
+    private func rigaSostituita(_ m: MealPlan, _ f: PastoFuori) -> some View {
+        let mio = !f.giaMangiato
+        return HStack(spacing: 12) {
+            Button { fuori = AperturaFuori(si: m.si, esistente: f) } label: {
+                HStack(spacing: 12) {
+                    Text(m.time).font(.sport(20)).frame(width: 52, alignment: .leading).foregroundStyle(mio ? Tema.testo : Tema.tenue)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(nomeFascia(m)).font(.system(size: 17, weight: .bold)).foregroundStyle(Tema.testo).lineLimit(1)
+                        HStack(spacing: 6) {
+                            Text(mio ? "IL TUO PASTO" : m.free ? "LIBERO" : "FUORI PIANO").font(.system(size: 10, weight: .heavy)).foregroundStyle(Tema.inchiostro)
+                                .padding(.horizontal, 6).padding(.vertical, 2)
+                                .background(mio ? AnyShapeStyle(Color(hex: 0xC4C6C5)) : AnyShapeStyle(Tema.ambra), in: Capsule())
+                            Text(f.nome).font(.system(size: 13)).foregroundStyle(Tema.tenue).lineLimit(1)
+                        }
+                    }
+                    Spacer(minLength: 6)
+                    VStack(alignment: .trailing, spacing: 0) {
+                        Text("\(Int(f.tot.k))").font(.sport(24)).monospacedDigit().foregroundStyle(Tema.testo)
+                        Text("P \(fmtNum(r1(f.tot.p)))").font(.system(size: 11)).foregroundStyle(Tema.tenue)
+                    }
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            Button { if mio { s.mangiaFuori(f.id) } else { s.nonMangiatoFuori(f.id) } } label: {
+                Image(systemName: "checkmark").font(.system(size: 16, weight: .heavy)).frame(width: 40, height: 40)
+                    .foregroundStyle(mio ? Tema.tenue : Tema.inchiostro)
+                    .background(mio ? AnyShapeStyle(Tema.scheda2) : AnyShapeStyle(Tema.ambra), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+            .accessibilityLabel(mio ? "Segna \(f.nome) come mangiato" : "\(f.nome): mangiato")
+            .disabled(!mio && f.si == nil)
+        }
+        .padding(.horizontal, 14).padding(.vertical, 10)
+        .background(Tema.scheda, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .opacity(mio ? 1 : 0.85)
+        .contextMenu {
+            Button { fuori = AperturaFuori(si: m.si, esistente: f) } label: { Label("Modifica", systemImage: "pencil") }
+            Button(role: .destructive) { s.togliFuori(f.id) } label: { Label("Rimetti il pasto del piano", systemImage: "arrow.uturn.backward") }
+        }
     }
 
     private func rigaPiano(_ m: MealPlan, _ mangiato: Bool) -> some View {
@@ -408,9 +481,19 @@ struct OggiView: View {
         .opacity(mangiato ? 0.65 : 1)
         .contextMenu {
             if !m.free {
-                Button { fuori = AperturaFuori(si: m.si, esistente: nil) } label: { Label("Ho mangiato altro", systemImage: "fork.knife") }
+                Button { fuori = AperturaFuori(si: m.si, esistente: nil, mio: s.ancoraDaMangiare(m)) } label: {
+                    Label { Text("Cambia pasto"); Text("Mangiato altro, o un pasto tuo da mangiare") } icon: { Image(systemName: "fork.knife") }
+                }
+                if !s.mieiPasti.isEmpty {
+                    Menu {
+                        ForEach(s.mieiPasti.prefix(12)) { r in
+                            Button { s.mettiMio(r, al: m.si) } label: { Label("\(r.nome) · \(Int(r.tot.k)) kcal", systemImage: "star") }
+                        }
+                    } label: { Label("I miei pasti", systemImage: "star") }
+                }
                 Button { pasto = m } label: { Label("Dettagli e scambio", systemImage: "list.bullet") }
             }
+            Button(role: .destructive) { s.togliPasto(m.si) } label: { Label("Togli da oggi", systemImage: "minus.circle") }
         }
     }
 

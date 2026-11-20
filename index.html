@@ -3,67 +3,38 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Recomp · piano personale</title>
-<meta name="description" content="Piano personale di ricomposizione corporea: alimentazione calcolata al grammo, scheda Torso/Limbs con diario dei carichi e progressi.">
+<title>Recomp · Dieta e Scheda</title>
+<meta name="description" content="Recomp da consultare: il piano alimentare del nutrizionista e la scheda Torso / Limbs. Pasti e allenamenti si segnano nell'app.">
 <meta name="theme-color" content="#f3f3ef" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0d0e0f" media="(prefers-color-scheme: dark)">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Recomp">
 <meta name="format-detection" content="telephone=no">
 <link rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
-<!-- Schermata di avvio iPhone 14 / 13 / 12 (390×844 @3x) -->
-<link rel="apple-touch-startup-image" href="assets/icons/splash-1170x2532.png" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
-<link rel="manifest" href="manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&amp;display=swap">
-<link rel="stylesheet" href="assets/css/style.css?v=67">
+<link rel="stylesheet" href="assets/css/style.css?v=70">
 <script>try{var t=JSON.parse(localStorage.getItem('rc.theme'));if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
-<!-- app iPhone: se lo schermo risulta largo (AirPlay su TV o PC) la pagina resta larga come un telefono, solo ingrandita -->
-<script>(function(){if(location.protocol!=='capacitor:')return;var m=document.querySelector('meta[name=viewport]'),base=m.content,PHONE='width=430, viewport-fit=cover';
-var busy=0;function set(c){if(m.content!==c){m.content=c;busy=Date.now()}}function fit(){if(window.innerWidth>600)set(PHONE)}
-fit();window.addEventListener('resize',function(){if(Date.now()-busy<700)return;set(base);requestAnimationFrame(fit)})})()</script>
 </head>
 <body>
 <a class="skip" href="#main">Vai al contenuto</a>
 
 <header class="topbar">
   <div class="topbar-in">
-    <a class="brand" href="#/oggi" aria-label="Recomp, vai a Oggi">recomp<span>.</span></a>
-    <span class="top-title" id="topTitle" aria-hidden="true"></span>
-    <nav class="nav" aria-label="Sezioni">
-      <a href="#/oggi" data-route="oggi"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg><span>Oggi</span></a>
-      <a href="#/piano" data-route="piano"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M8 2.5v4M16 2.5v4M3 10h18"/></svg><span>Piano</span></a>
-      <a href="#/scheda" data-route="scheda"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 7v10M17.5 7v10M3.5 9.5v5M20.5 9.5v5M6.5 12h11"/></svg><span>Scheda</span></a>
-      <a href="#/progressi" data-route="progressi"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 6-7"/></svg><span>Progressi</span></a>
-      <a href="#/profilo" data-route="profilo"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span>Profilo</span></a>
+    <a class="brand" href="#/dieta" aria-label="Recomp, vai a Dieta">recomp<span>.</span></a>
+    <nav class="top-switch" aria-label="Sezioni">
+      <a href="#/dieta" data-route="dieta">Dieta</a>
+      <a href="#/scheda" data-route="scheda">Scheda</a>
     </nav>
-    <a class="icon-btn" id="coachBtn" href="#/coach" aria-label="Coach"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg></a>
     <button class="icon-btn" id="themeBtn" type="button" aria-label="Cambia tema"></button>
   </div>
 </header>
 
 <main id="main" tabindex="-1">
-  <noscript><p class="card">Per usare il piano serve JavaScript attivo.</p></noscript>
+  <noscript><p class="card">Per consultare dieta e scheda serve JavaScript attivo.</p></noscript>
 </main>
 
-<div class="timer" id="timer" hidden role="status" aria-live="polite">
-  <div class="timer-in">
-    <svg class="t-ring" viewBox="0 0 48 48" aria-hidden="true"><circle class="t-bg" cx="24" cy="24" r="20"/><circle class="t-fg" id="timerRing" cx="24" cy="24" r="20" stroke-dasharray="125.66" stroke-dashoffset="0" transform="rotate(-90 24 24)"/></svg>
-    <div class="t-txt"><span class="timer-time" id="timerTime">0:00</span><span class="timer-next" id="timerNext">Recupero</span></div>
-    <button type="button" class="t-btn" id="timerMinus" aria-label="Togli 15 secondi">−15</button>
-    <button type="button" class="t-btn" id="timerPlus" aria-label="Aggiungi 15 secondi">+15</button>
-    <button type="button" class="t-btn t-x" id="timerStop" aria-label="Chiudi il timer">✕</button>
-  </div>
-</div>
-
-<script src="assets/js/data.js?v=67"></script>
-<script src="assets/js/allenamento.js?v=67"></script>
-<script src="assets/js/coach.js?v=67"></script>
-<script src="assets/js/app.js?v=67"></script>
-<script type="module" src="assets/js/sync.js?v=67"></script>
+<script src="assets/js/data.js?v=70"></script>
+<script src="assets/js/app.js?v=70"></script>
 </body>
 </html>

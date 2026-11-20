@@ -109,7 +109,7 @@ struct HeartLine: View {
 
 // MARK: serie (la stessa schermata per l'allenamento dal polso e per quello avviato sull'iPhone)
 
-// Nome dell'esercizio, riquadri kg e ripetizioni (la corona cambia quello selezionato), FATTO.
+// Nome dell'esercizio, rotelle kg e ripetizioni (la corona gira quella toccata), FATTO.
 struct SetEditor: View {
     let key: String       // cambia a ogni nuova serie: riparto dai valori suggeriti
     let name: String
@@ -127,18 +127,25 @@ struct SetEditor: View {
     var onTimer: ((Int) -> Void)? = nil   // serie a tempo: ▶ fa partire il timer con i secondi scelti
     let onDone: (Double?, Int) -> Void
 
-    @State private var kgValue: Double = 0
-    @State private var repsValue: Double = 0
-    @State private var editingKg = true
-    @State private var crown: Double = 0
-    @FocusState private var crownFocus: Bool // la corona cambia i valori invece di scorrere le pagine
+    // Rotelle di sistema (Picker .wheel): la corona le muove di uno scatto alla volta, con la vibrazione, e il valore scelto
+    // è sempre quello che si vede. Prima c'erano riquadri disegnati a mano con la corona collegata: a volte saltavano indietro.
+    @State private var pesi: [Double] = []        // i valori della rotella dei kg (o lb), a passi dell'esercizio
+    @State private var kgIndice = 0
+    @State private var ripetizioni: [Int] = []    // ripetizioni (1…60) o secondi (a passi di 5)
+    @State private var repsValue: Int = 0
+    @FocusState private var campo: Campo?
+    private enum Campo: Hashable { case kg, reps }
+
+    private var kgValue: Double { pesi.indices.contains(kgIndice) ? pesi[kgIndice] : 0 }
 
     private var sec: Bool { unit == "sec" }
-    private var step: Double { lb ? lbStep(inc) : (inc > 0 ? inc : 2.5) }
-    // kg da salvare: se il numero in lb non è stato toccato resta il peso esatto di prima (niente arrotondamenti nascosti)
+    // sull'orologio niente virgola (non ci sta nella rotella): passi interi di 1 kg (o passo intero in lb)
+    private var step: Double { lb ? lbStep(inc) : 1 }
+    // kg da salvare: se non hai girato la rotella resta il peso esatto dell'iPhone, altrimenti il valore intero scelto
     private var kgOut: Double? {
         if sec { return nil }
         if lb { if let kg, lbFrom(kg: kg) == kgValue { return kg }; return kgFrom(lb: kgValue) }
+        if let kg, kg.rounded() == kgValue { return kg }
         return kgValue
     }
 
@@ -157,26 +164,30 @@ struct SetEditor: View {
                 .lineLimit(1).minimumScaleFactor(0.7)
                 .accessibilityElement(children: .combine)
             }
+            // due rotelle: si tocca quella da cambiare (bordo verde) e si gira la corona
             HStack(spacing: 6) {
                 if !sec {
-                    ValueBox(value: fmtKg(kgValue), unit: lb ? "lb" : "kg", selected: editingKg) { editingKg = true; crown = kgValue }
+                    Picker("Peso", selection: $kgIndice) {
+                        ForEach(pesi.indices, id: \.self) { i in
+                            (Text(fmtKg(pesi[i])).font(.sport(24)) + Text(lb ? " lb" : " kg").font(.system(size: 11, weight: .semibold)))
+                                .monospacedDigit().lineLimit(1).minimumScaleFactor(0.7).tag(i)
+                        }
+                    }
+                    .pickerStyle(.wheel)
+                    .labelsHidden()
+                    .focused($campo, equals: .kg)
                 }
-                ValueBox(value: "\(Int(repsValue))", unit: sec ? "secondi" : "ripetizioni", selected: !editingKg || sec) {
-                    editingKg = false
-                    crown = repsValue
+                Picker(sec ? "Secondi" : "Ripetizioni", selection: $repsValue) {
+                    ForEach(ripetizioni, id: \.self) { r in
+                        (Text("\(r)").font(.sport(24)) + Text(sec ? "″" : " rip.").font(.system(size: 11, weight: .semibold)))
+                            .monospacedDigit().lineLimit(1).minimumScaleFactor(0.7).tag(r)
+                    }
                 }
+                .pickerStyle(.wheel)
+                .labelsHidden()
+                .focused($campo, equals: .reps)
             }
-            .focusable(true)
-            .focused($crownFocus)
-            .digitalCrownRotation($crown, from: 0, through: editingKg && !sec ? (lb ? 900 : 400) : 120, by: editingKg && !sec ? step : 1,
-                                  sensitivity: .low, isContinuous: false, isHapticFeedbackEnabled: true)
-            .onChange(of: crown) { _, v in
-                if editingKg && !sec {
-                    kgValue = max(0, (v / step).rounded() * step)
-                } else if v.rounded() != repsValue {
-                    repsValue = max(1, v.rounded())
-                }
-            }
+            .frame(height: 58)
             HStack(spacing: 5) {
                 Button { onMove(-1) } label: { Image(systemName: "chevron.left").font(.system(size: 15, weight: .bold)) }
                     .buttonStyle(PillButton(filled: false, height: 32)).frame(width: 40).disabled(!canPrev).opacity(canPrev ? 1 : 0.35)
@@ -185,15 +196,15 @@ struct SetEditor: View {
                     .buttonStyle(PillButton(filled: false, height: 32)).frame(width: 40).disabled(!canNext).opacity(canNext ? 1 : 0.35)
                     .accessibilityLabel("Serie successiva")
                 if sec && !editing, let onTimer {
-                    Button { onTimer(Int(repsValue)) } label: { Image(systemName: "play.fill").font(.system(size: 17, weight: .heavy)) }
+                    Button { onTimer(repsValue) } label: { Image(systemName: "play.fill").font(.system(size: 17, weight: .heavy)) }
                         .buttonStyle(PillButton(filled: true, height: 32))
                         .accessibilityLabel("Avvia il timer")
-                    Button { onDone(kgOut, Int(repsValue)) } label: { Image(systemName: "checkmark").font(.system(size: 15, weight: .heavy)) }
+                    Button { onDone(kgOut, repsValue) } label: { Image(systemName: "checkmark").font(.system(size: 15, weight: .heavy)) }
                         .buttonStyle(PillButton(filled: false, height: 32)).frame(width: 40)
                         .accessibilityLabel("Serie fatta")
                 } else {
                     Button {
-                        onDone(kgOut, Int(repsValue))
+                        onDone(kgOut, repsValue)
                     } label: {
                         if editing { Text("SALVA").font(.sport(17)) } else { Image(systemName: "checkmark").font(.system(size: 18, weight: .heavy)) }
                     }
@@ -208,31 +219,19 @@ struct SetEditor: View {
     }
 
     private func load() {
-        kgValue = lb ? lbFrom(kg: kg ?? 0) : (kg ?? 0)
-        repsValue = Double(reps)
-        editingKg = !sec && kg != nil
-        crown = editingKg ? kgValue : repsValue
-        crownFocus = true
-    }
-}
-
-struct ValueBox: View {
-    let value: String
-    let unit: String
-    let selected: Bool
-    var accent = false
-    let tap: () -> Void
-    var body: some View {
-        VStack(spacing: -2) {
-            Text(value).font(.sport(28)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.6)
-                .foregroundStyle(accent ? Palette.accento : .white)
-            Text(unit).font(.system(size: 10, weight: .semibold)).foregroundStyle(selected || accent ? Palette.accento : .secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 4)
-        .background(Color.white.opacity(selected ? 0.16 : 0.07), in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(selected ? Palette.accento : .clear, lineWidth: 2))
-        .onTapGesture(perform: tap)
+        // kg: solo numeri interi sull'orologio (niente virgola che viene tagliata in «12,...»)
+        let iniziale = (lb ? lbFrom(kg: kg ?? 0) : (kg ?? 0)).rounded()
+        var v = stride(from: 0.0, through: lb ? 900 : 400, by: step).map { $0.rounded() }
+        if !v.contains(where: { abs($0 - iniziale) < 0.001 }) { v.append(iniziale); v.sort() }
+        pesi = v
+        kgIndice = v.firstIndex { abs($0 - iniziale) < 0.001 } ?? 0
+        // ripetizioni 1…60; secondi a passi di 5 (più quelli di partenza)
+        var r = sec ? Array(stride(from: 5, through: 300, by: 5)) : Array(1...60)
+        let rip = max(1, reps)
+        if !r.contains(rip) { r.append(rip); r.sort() }
+        ripetizioni = r
+        repsValue = rip
+        campo = !sec && kg != nil ? .kg : .reps
     }
 }
 
@@ -425,14 +424,16 @@ struct SessionView: View {
     // due pagine, si scorre di lato: la serie (o il recupero) e il riepilogo con la fine dell'allenamento
     var body: some View {
         TabView {
-            TimelineView(.periodic(from: .now, by: 1)) { ctx in
+            Group {
                 if let s = store.session {
                     VStack(spacing: 5) {
                         // in alto una barra con un segmento per ogni serie dell'esercizio (fatte piene, quella di adesso bianca)
                         if s.current != nil { HStack(spacing: 6) { SetsBar(s: s); HeartMini() } }
                         if let t = store.tempo, s.items.indices.contains(t.dove[0]) {
-                            TimerTempoView(t: t, nome: s.items[t.dove[0]].n, ora: ctx.date, onFerma: { store.fermaTempo() }, onAnnulla: { store.annullaTempo() })
-                        } else if let end = s.restEnd, end > ctx.date, s.browsing != true {
+                            TimelineView(.periodic(from: .now, by: 0.5)) { ctx in
+                                TimerTempoView(t: t, nome: s.items[t.dove[0]].n, ora: ctx.date, onFerma: { store.fermaTempo() }, onAnnulla: { store.annullaTempo() })
+                            }
+                        } else if let end = s.restEnd, end > Date(), s.browsing != true {
                             RestView(end: end, next: s.restNext, onLess: { store.addRest(-15) }, onSkip: { store.skipRest() },
                                      onBack: store.canMove(-1) ? { store.moveSet(-1) } : nil)
                         } else if let c = s.current {
@@ -721,15 +722,13 @@ struct MealDetail: View {
                 VStack(alignment: .leading, spacing: 8) {
                     // il nome del pasto è già nel titolo in alto: qui solo l'ora e il piatto
                     VStack(alignment: .leading, spacing: 1) {
-                        Tag(text: m.fuori == true ? "\(m.time) · fuori piano" : m.time, color: m.fuori == true ? Palette.c : m.eaten ? .secondary : Palette.accento)
+                        Tag(text: m.fuori == true ? "\(m.time) · \(m.eaten ? "fuori piano" : "il tuo pasto")" : m.time,
+                            color: m.fuori == true ? Palette.c : m.eaten ? .secondary : Palette.accento)
                         Text(m.name).font(.system(size: 15, weight: .semibold)).fixedSize(horizontal: false, vertical: true)
                     }
                     macros(m)
                     // il pulsante sta subito sotto i numeri: non serve scorrere tutti gli ingredienti per segnare il pasto
-                    if m.fuori == true {
-                        Text("Segnato sul telefono al posto del pasto del piano: si cambia da lì.").font(.system(size: 11)).foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    } else if m.eaten {
+                    if m.eaten {
                         Button { store.uneat(m) } label: { Label("ANNULLA", systemImage: "arrow.uturn.backward") }
                             .buttonStyle(CardButton())
                     } else {
@@ -737,7 +736,7 @@ struct MealDetail: View {
                             .buttonStyle(LimeButton())
                     }
                     ingredients(m)
-                    if m.fuori != true, let alt = m.alt, alt.count > 1 {
+                    if (m.alt?.count ?? 0) > 1 || !(store.snap?.miei ?? []).isEmpty {
                         NavigationLink { AltPicker(si: m.si) } label: {
                             HStack {
                                 Image(systemName: "arrow.triangle.2.circlepath").foregroundStyle(Palette.accento)
@@ -811,7 +810,32 @@ struct AltPicker: View {
 
     var body: some View {
         let m = store.snap?.meals.first { $0.si == si }
-        List(m?.alt ?? []) { a in
+        let miei = store.snap?.miei ?? []
+        List {
+          // i tuoi pasti salvati sul telefono: al posto di questo, da mangiare
+          if !miei.isEmpty {
+            Section("I miei pasti") {
+              ForEach(miei) { r in
+                Button {
+                    if let m { store.mettiMio(m, r) }
+                    dismiss()
+                } label: {
+                    HStack(alignment: .top, spacing: 6) {
+                        Image(systemName: "star.fill").foregroundStyle(Palette.c).font(.system(size: 15)).padding(.top, 1)
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text(r.name).font(.system(size: 13, weight: .semibold)).fixedSize(horizontal: false, vertical: true)
+                            HStack(spacing: 4) {
+                                Text("\(r.k) kcal").font(.sport(13)).monospacedDigit()
+                                Text("P \(r.p)").font(.system(size: 11)).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+              }
+            }
+          }
+          Section("Piatti del piano") {
+            ForEach(m?.alt ?? []) { a in
             Button {
                 if let m { store.swap(m, to: a) }
                 dismiss()
@@ -835,6 +859,8 @@ struct AltPicker: View {
                     }
                 }
             }
+            }
+          }
         }
         .navigationTitle("Cambia")
         .pageBackground(Palette.accento, 0.12)

@@ -1,4 +1,5 @@
 import ActivityKit
+import AppIntents
 import SwiftUI
 import WidgetKit
 
@@ -8,10 +9,11 @@ import WidgetKit
 // - Dynamic Island sui modelli che ce l'hanno.
 @main
 struct RecompLiveWidgets: WidgetBundle {
-    var body: some Widget { RestLiveActivity() }
+    var body: some Widget { RestLiveActivity(); RecompHomeWidget() }   // Live Activity e widget della schermata Home
 }
 
-private let lime = Color(red: 0.851, green: 0.859, blue: 0.855)   // accento dell'app: argento (prima era lime)
+private let lime = Color(red: 0.851, green: 0.859, blue: 0.855)       // accento dell'app: argento (prima era lime)
+private let inchiostro = Color(red: 0.071, green: 0.071, blue: 0.078) // testo scuro sopra l'argento
 
 // intervallo sempre valido anche a recupero finito (un intervallo rovesciato chiuderebbe l'estensione)
 private func span(_ end: Date) -> ClosedRange<Date> { min(Date(), end)...end }
@@ -30,11 +32,70 @@ struct RestActivityView: View {
     }
 }
 
-// tra una serie e l'altra (mode «go»): niente conto alla rovescia, la prossima serie e quante ne hai fatte
+// tra una serie e l'altra (mode «go») o quando il timer è arrivato a zero: mostra «Via!» con la serie da fare
 private func traLeSerie(_ s: RestAttributes.ContentState) -> Bool { s.mode == "go" }
+private func recuperoFinito(_ context: ActivityViewContext<RestAttributes>) -> Bool {
+    let s = context.state
+    return traLeSerie(s) || context.isStale || Date().addingTimeInterval(0.4) >= s.end
+}
+private func iconaStato(_ finito: Bool) -> String {
+    finito ? "dumbbell.fill" : "timer"
+}
 private func conteggio(_ s: RestAttributes.ContentState) -> String? {
     guard let d = s.done, let t = s.total, t > 0 else { return nil }
     return "\(d)/\(t) serie"
+}
+
+// Pulsanti rapidi per la Dynamic Island espansa e la schermata di blocco:
+// - durante il recupero: −15″ · +15″ · Salta
+// - a recupero finito (Via!): ✓ Serie fatta
+struct PulsantiIsola: View {
+    let s: RestAttributes.ContentState
+    let finito: Bool
+
+    var body: some View {
+        if !finito {
+            HStack(spacing: 8) {
+                Button(intent: Meno15RecuperoIntent()) {
+                    Text("−15″")
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity, minHeight: 28)
+                        .background(Color.white.opacity(0.14), in: Capsule())
+                }
+                .buttonStyle(.plain)
+                Button(intent: Piu15RecuperoIntent()) {
+                    Text("+15″")
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity, minHeight: 28)
+                        .background(Color.white.opacity(0.14), in: Capsule())
+                }
+                .buttonStyle(.plain)
+                Button(intent: SaltaRecuperoIntent()) {
+                    Text("Salta")
+                        .font(.system(size: 13, weight: .heavy))
+                        .foregroundColor(inchiostro)
+                        .frame(maxWidth: .infinity, minHeight: 28)
+                        .background(lime, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        } else if (s.total ?? 1) == 0 || (s.done ?? 0) < (s.total ?? 1) {
+            Button(intent: SegnaSerieIsolaIntent()) {
+                HStack(spacing: 6) {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 12, weight: .heavy))
+                    Text("Serie fatta")
+                        .font(.system(size: 13, weight: .heavy))
+                }
+                .foregroundColor(inchiostro)
+                .frame(maxWidth: .infinity, minHeight: 28)
+                .background(lime, in: Capsule())
+            }
+            .buttonStyle(.plain)
+        }
+    }
 }
 
 // iPhone: schermata di blocco
@@ -43,18 +104,17 @@ struct RestLockScreen: View {
 
     var body: some View {
         let s = context.state
-        let go = traLeSerie(s)
-        let finito = go || context.isStale
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 12) {
+        let finito = recuperoFinito(context)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 12) {
                 ZStack {
                     Circle().fill(lime.opacity(0.18))
-                    Image(systemName: go ? "dumbbell.fill" : context.isStale ? "checkmark" : "timer")
+                    Image(systemName: iconaStato(finito))
                         .font(.system(size: 18, weight: .bold)).foregroundColor(lime)
                 }
                 .frame(width: 42, height: 42)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text((go ? "Prossima serie" : context.isStale ? "Recupero finito" : "Recupero") + " · \(context.attributes.workout)")
+                    Text((finito ? "Prossima serie" : "Recupero") + " · \(context.attributes.workout)")
                         .font(.caption.weight(.semibold)).foregroundColor(.white.opacity(0.6)).lineLimit(1)
                     Text(s.exercise)
                         .font(.headline).foregroundColor(.white).lineLimit(1).minimumScaleFactor(0.75)
@@ -63,14 +123,15 @@ struct RestLockScreen: View {
                     }
                 }
                 Spacer(minLength: 8)
-                if go {
-                    VStack(alignment: .trailing, spacing: -2) {
-                        Text("\(s.done ?? 0)").font(.system(size: 34, weight: .heavy, design: .rounded)).monospacedDigit().foregroundColor(.white)
-                        Text("di \(s.total ?? 0) serie").font(.caption2.weight(.semibold)).foregroundColor(.white.opacity(0.6))
+                if finito {
+                    VStack(alignment: .trailing, spacing: 0) {
+                        Text("Via!")
+                            .font(.system(size: 30, weight: .heavy, design: .rounded))
+                            .foregroundColor(lime)
+                        if let c = conteggio(s) {
+                            Text(c).font(.caption2.weight(.semibold)).foregroundColor(.white.opacity(0.6))
+                        }
                     }
-                } else if context.isStale {
-                    Text("Via!")
-                        .font(.system(size: 34, weight: .heavy, design: .rounded)).foregroundColor(lime)
                 } else {
                     Text(timerInterval: span(s.end), countsDown: true)
                         .font(.system(size: 34, weight: .heavy, design: .rounded))
@@ -84,7 +145,10 @@ struct RestLockScreen: View {
                     .tint(lime)
             } else if let d = s.done, let t = s.total, t > 0 {
                 ProgressView(value: Double(min(d, t)), total: Double(t)).tint(lime)
+            } else {
+                ProgressView(value: 1, total: 1).tint(lime)
             }
+            PulsantiIsola(s: s, finito: finito)
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 14)
@@ -98,29 +162,27 @@ struct RestWatchView: View {
 
     var body: some View {
         let s = context.state
-        let go = traLeSerie(s)
+        let finito = recuperoFinito(context)
         VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 5) {
-                Image(systemName: go ? "dumbbell.fill" : context.isStale ? "checkmark" : "timer")
+                Image(systemName: iconaStato(finito))
                     .font(.system(size: 11, weight: .bold))
-                Text(go ? "PROSSIMA SERIE" : context.isStale ? "RECUPERO FINITO" : "RECUPERO")
+                Text(finito ? "PROSSIMA SERIE" : "RECUPERO")
                     .font(.system(size: 12, weight: .bold)).tracking(0.6)
                 Spacer(minLength: 0)
                 if let c = conteggio(s) { Text(c).font(.system(size: 11, weight: .semibold)).foregroundColor(.white.opacity(0.6)) }
             }
             .foregroundColor(lime)
             Group {
-                if go {
+                if finito {
                     Text(s.exercise).foregroundColor(.white).minimumScaleFactor(0.5)
-                } else if context.isStale {
-                    Text("Via!").foregroundColor(lime)
                 } else {
                     Text(timerInterval: span(s.end), countsDown: true).foregroundColor(.white)
                 }
             }
-            .font(.system(size: go ? 20 : 27, weight: .heavy, design: .rounded))
+            .font(.system(size: finito ? 20 : 27, weight: .heavy, design: .rounded))
             .monospacedDigit().lineLimit(1)
-            Text(go ? s.detail : s.exercise)
+            Text(finito ? s.detail : s.exercise)
                 .font(.system(size: 13, weight: .semibold)).foregroundColor(.white.opacity(0.75))
                 .lineLimit(1).minimumScaleFactor(0.6)
         }
@@ -138,34 +200,123 @@ struct RestLiveActivity: Widget {
                 .activitySystemActionForegroundColor(lime)
                 .widgetURL(IndirizzoApp.url("scheda?corrente=1")) // toccandola l'app si apre sulla Scheda, sull'esercizio che stai facendo
         } dynamicIsland: { context in
-            DynamicIsland {
+            let s = context.state
+            let finito = recuperoFinito(context)
+            return DynamicIsland {
+                // In alto ai lati della fotocamera: stato con icona nel cerchietto a sinistra, nome scheda a destra.
+                // Sotto la fotocamera (.bottom, a tutta larghezza): esercizio + serie, timer o «Via!», barra e pulsanti rapidi.
                 DynamicIslandExpandedRegion(.leading) {
-                    Text(traLeSerie(context.state) ? "Prossima" : context.isStale ? "Via!" : "Recupero").font(.caption.bold()).foregroundColor(lime)
+                    HStack(spacing: 6) {
+                        ZStack {
+                            Circle().fill(lime.opacity(0.2))
+                            Image(systemName: iconaStato(finito))
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(lime)
+                        }
+                        .frame(width: 24, height: 24)
+                        Text(finito ? "Prossima" : "Recupero")
+                            .font(.caption.weight(.semibold))
+                            .foregroundColor(.white.opacity(0.8))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                    }
+                    .padding(.leading, 4)
+                    .frame(maxHeight: .infinity, alignment: .center)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    if traLeSerie(context.state) {
-                        Text("\(context.state.done ?? 0)/\(context.state.total ?? 0)").monospacedDigit()
-                    } else {
-                        Text(timerInterval: span(context.state.end), countsDown: true)
-                            .monospacedDigit().frame(width: 64)
-                    }
+                    Text(context.attributes.workout)
+                        .font(.caption.weight(.semibold))
+                        .foregroundColor(.white.opacity(0.55))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .padding(.trailing, 6)
+                        .frame(maxHeight: .infinity, alignment: .center)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    Text(context.state.detail.isEmpty ? context.state.exercise : "\(context.state.exercise) · \(context.state.detail)")
-                        .font(.caption).lineLimit(1)
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(alignment: .center, spacing: 12) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(s.exercise)
+                                    .font(.system(size: 18, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.75)
+                                if !s.detail.isEmpty {
+                                    Text(s.detail)
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundColor(lime)
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.8)
+                                }
+                            }
+                            Spacer(minLength: 8)
+                            if finito {
+                                VStack(alignment: .trailing, spacing: 0) {
+                                    Text("Via!")
+                                        .font(.system(size: 28, weight: .heavy, design: .rounded))
+                                        .foregroundColor(lime)
+                                    if let c = conteggio(s) {
+                                        Text(c)
+                                            .font(.caption2.weight(.semibold))
+                                            .foregroundColor(.white.opacity(0.6))
+                                    }
+                                }
+                            } else {
+                                Text(timerInterval: span(s.end), countsDown: true)
+                                    .font(.system(size: 32, weight: .heavy, design: .rounded))
+                                    .monospacedDigit()
+                                    .foregroundColor(.white)
+                                    .multilineTextAlignment(.trailing)
+                                    .frame(width: 88, alignment: .trailing)
+                            }
+                        }
+                        if !finito {
+                            ProgressView(timerInterval: progressSpan(s), countsDown: true, label: { EmptyView() }, currentValueLabel: { EmptyView() })
+                                .tint(lime)
+                        } else if let d = s.done, let t = s.total, t > 0 {
+                            ProgressView(value: Double(min(d, t)), total: Double(t))
+                                .tint(lime)
+                        } else {
+                            ProgressView(value: 1, total: 1)
+                                .tint(lime)
+                        }
+                        PulsantiIsola(s: s, finito: finito)
+                    }
+                    .padding(.horizontal, 6)
+                    .padding(.top, 2)
+                    .padding(.bottom, 4)
                 }
             } compactLeading: {
-                Image(systemName: "dumbbell.fill").foregroundColor(lime)
+                ZStack {
+                    Circle().fill(lime.opacity(0.2))
+                    Image(systemName: iconaStato(finito))
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(lime)
+                }
+                .frame(width: 22, height: 22)
             } compactTrailing: {
-                if traLeSerie(context.state) {
-                    Text("\(context.state.done ?? 0)/\(context.state.total ?? 0)").monospacedDigit()
+                if finito {
+                    Text("Via!")
+                        .font(.system(size: 13, weight: .heavy, design: .rounded))
+                        .foregroundColor(lime)
                 } else {
-                    Text(timerInterval: span(context.state.end), countsDown: true)
-                        .monospacedDigit().frame(width: 44)
+                    Text(timerInterval: span(s.end), countsDown: true)
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundColor(.white)
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 38, alignment: .trailing)
                 }
             } minimal: {
-                Image(systemName: "timer").foregroundColor(lime)
+                ZStack {
+                    Circle().fill(lime.opacity(0.2))
+                    Image(systemName: iconaStato(finito))
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(lime)
+                }
+                .frame(width: 22, height: 22)
             }
+            .keylineTint(lime)
             .widgetURL(IndirizzoApp.url("scheda?corrente=1"))
         }
         .supplementalActivityFamilies([.small]) // layout dedicato per lo Smart Stack dell'Apple Watch

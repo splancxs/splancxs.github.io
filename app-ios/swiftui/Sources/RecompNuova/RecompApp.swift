@@ -9,6 +9,14 @@ struct RecompNuovaApp: App {
     init() {
         WatchBridge.shared.avvia()
         UNUserNotificationCenter.current().delegate = DelegatoNotifiche.shared   // il riepilogo della domenica apre la sua pagina
+        CodaIsola.eseguiDiretto = { tipo in
+            await AppStore.shared.eseguiAzioneIsolaSubito(tipo)
+        }
+        CFNotificationCenterAddObserver(
+            CFNotificationCenterGetDarwinNotifyCenter(), nil,
+            { _, _, _, _, _ in Task { @MainActor in await AppStore.shared.processaAzioniIsolaSubito() } },
+            CodaIsola.notifica as CFString, nil, .deliverImmediately
+        )
     }
 
     var body: some Scene {
@@ -20,12 +28,16 @@ struct RecompNuovaApp: App {
                 // perché iOS non la fa partire con l'app in background
                 .onChange(of: store.d.active) { _, _ in store.aggiornaRecuperoEsterno() }
                 .onChange(of: fase) { _, f in
+                    // uscendo dall'app: salvataggio, backup di oggi e i messaggi del coach di stasera e di domattina
+                    if f == .background { store.salvaOra(); store.backupAutomatico(); store.preparaBigliettini() }
                     guard f == .active else { return }
+                    store.processaAzioniIsola()
                     store.aggiornaRecuperoEsterno()
                     store.riprogrammaPromemoria()   // i promemoria dei prossimi 14 giorni restano sempre programmati
                 }
                 .task {
                     store.migraDalSito()
+                    store.backupAutomatico()
                     store.riprogrammaPromemoria()
                     if store.d.salute { Salute.shared.importaPesi() }
                 }
@@ -34,11 +46,14 @@ struct RecompNuovaApp: App {
 }
 
 extension AppStore {
-    // recomp2://scheda?corrente=1 (Live Activity) · recomp2://oggi (widget della Home)
+    // recomp://scheda?corrente=1 (Live Activity) · recomp://isola/... (pulsanti Dynamic Island) · recomp://oggi (widget della Home)
     func apriIndirizzo(_ url: URL) {
         switch url.host {
         case "oggi": tabAperta = 0
         case "scheda": tabAperta = 1
+        case "isola":
+            tabAperta = 1
+            eseguiAzioneIsola(url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
         case "piano": tabAperta = 2
         case "progressi": tabAperta = 3
         case "profilo": tabAperta = 4

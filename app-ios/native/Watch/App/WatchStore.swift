@@ -80,12 +80,12 @@ struct WorkoutSession: Codable {
 // Alcuni macchinari hanno i pesi in libbre: per ogni esercizio si sceglie kg o lb (seconda schermata). Dentro l'app i pesi restano sempre
 // in kg: in lb cambia solo ciò che si vede e si digita (100 lb = 45,36 kg).
 let kgPerLb = 0.45359237
-func lbFrom(kg: Double) -> Double { (kg / kgPerLb * 2).rounded() / 2 }          // al mezzo libbra, così non compare mai «99,9»
+func lbFrom(kg: Double) -> Double { (kg / kgPerLb).rounded() }                  // sull'orologio solo interi, niente virgola
 func kgFrom(lb: Double) -> Double { (lb * kgPerLb * 100).rounded() / 100 }
-func lbStep(_ incKg: Double) -> Double { max(2.5, (incKg * 2.20462 / 2.5).rounded() * 2.5) }   // 2,5 kg → 5 lb, 5 kg → 10 lb
+func lbStep(_ incKg: Double) -> Double { max(5, (incKg * 2.20462 / 5).rounded() * 5) }
 
 func fmtKg(_ kg: Double) -> String {
-    kg.truncatingRemainder(dividingBy: 1) == 0 ? String(Int(kg)) : String(format: "%.1f", kg).replacingOccurrences(of: ".", with: ",")
+    String(Int(kg.rounded()))
 }
 
 // Riceve lo stato di oggi dall'iPhone e gli manda i tocchi (pasto mangiato, creatina, serie, allenamento finito).
@@ -301,7 +301,7 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate, WKExtende
     }
 
     func eat(_ meal: WatchMeal) {
-        guard meal.fuori != true, var s = snap, let index = s.meals.firstIndex(where: { $0.si == meal.si }), !s.meals[index].eaten else { return }
+        guard var s = snap, let index = s.meals.firstIndex(where: { $0.si == meal.si }), !s.meals[index].eaten else { return }
         s.meals[index].eaten = true
         s.kcal += meal.k
         s.p += meal.p
@@ -314,7 +314,7 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate, WKExtende
 
     // toglie la spunta di un pasto segnato per sbaglio
     func uneat(_ meal: WatchMeal) {
-        guard meal.fuori != true, var s = snap, let index = s.meals.firstIndex(where: { $0.si == meal.si }), s.meals[index].eaten else { return }
+        guard var s = snap, let index = s.meals.firstIndex(where: { $0.si == meal.si }), s.meals[index].eaten else { return }
         s.meals[index].eaten = false
         s.kcal = max(0, s.kcal - meal.k)
         s.p = max(0, s.p - meal.p)
@@ -327,8 +327,17 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate, WKExtende
 
     // cambio piatto: si vede subito il nome nuovo con i suoi numeri; gli ingredienti arrivano dall'iPhone
     func swap(_ meal: WatchMeal, to alt: WatchAlt) {
-        guard var s = snap, let index = s.meals.firstIndex(where: { $0.si == meal.si }), s.meals[index].code != alt.code else { return }
-        if s.meals[index].eaten {
+        guard var s = snap, let index = s.meals.firstIndex(where: { $0.si == meal.si }),
+              s.meals[index].code != alt.code || s.meals[index].fuori == true else { return }
+        if s.meals[index].fuori == true {
+            // al posto c'era un tuo pasto: va via (se l'avevi mangiato, le sue kcal escono dai totali) e il piatto del piano è da mangiare
+            if s.meals[index].eaten {
+                s.kcal = max(0, s.kcal - meal.k); s.p = max(0, s.p - meal.p)
+                s.c = max(0, s.c - (meal.c ?? 0)); s.f = max(0, s.f - (meal.f ?? 0))
+            }
+            s.meals[index].fuori = nil
+            s.meals[index].eaten = false
+        } else if s.meals[index].eaten {
             s.kcal += alt.k - meal.k
             s.p += alt.p - meal.p
             s.c += alt.c - (meal.c ?? 0)
@@ -345,6 +354,28 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate, WKExtende
         store(s)
         WKInterfaceDevice.current().play(.success)
         send(["a": "swap", "si": meal.si, "code": alt.code])
+    }
+
+    // uno dei tuoi pasti al posto di questo: si vede subito (da mangiare), i cibi arrivano dall'iPhone
+    func mettiMio(_ meal: WatchMeal, _ mio: WatchMio) {
+        guard var s = snap, let index = s.meals.firstIndex(where: { $0.si == meal.si }) else { return }
+        if s.meals[index].eaten {
+            s.kcal = max(0, s.kcal - meal.k); s.p = max(0, s.p - meal.p)
+            s.c = max(0, s.c - (meal.c ?? 0)); s.f = max(0, s.f - (meal.f ?? 0))
+        }
+        s.meals[index].name = mio.name
+        s.meals[index].code = nil
+        s.meals[index].k = mio.k
+        s.meals[index].p = mio.p
+        s.meals[index].c = mio.c
+        s.meals[index].f = mio.f
+        s.meals[index].eaten = false
+        s.meals[index].fuori = true
+        s.meals[index].ing = nil
+        s.meals[index].alt = s.meals[index].alt?.map { var a = $0; a.cur = nil; return a }
+        store(s)
+        WKInterfaceDevice.current().play(.success)
+        send(["a": "mio", "si": meal.si, "id": mio.id])
     }
 
     func creatine() {
@@ -630,10 +661,12 @@ final class WatchStore: NSObject, ObservableObject, WCSessionDelegate, WKExtende
     private func restOver() {
         guard var s = session, s.restEnd != nil else { return }
         s.restEnd = nil
+        s.rt = Date()
         session = s
         save()
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["rest"]) // l'app c'è: niente notifica doppia
         buzz()
+        sendRest(s) // avvisa anche l'iPhone così la Dynamic Island passa subito a «VIA!»
     }
 
     // notifica con l'app aperta: si mostra lo stesso, ma mai con il suono

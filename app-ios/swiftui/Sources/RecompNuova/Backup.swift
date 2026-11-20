@@ -16,9 +16,36 @@ struct FileBackup: Transferable {
 // Esporta e importa i dati. L'importazione legge anche il backup dell'app web (Profilo → Esporta backup: un file JSON con le
 // chiavi rc.*): così passi da «Recomp» a «Recomp 2» senza perdere pesi, allenamenti e scambi.
 extension AppStore {
+    // MARK: backup automatico
+    // Una copia al giorno in Documenti/Backup (si vede nell'app File: Sul mio iPhone → Recomp → Backup); quella di oggi si
+    // riscrive ogni volta che esci dall'app, si tengono le ultime 10. A ogni rinnovo dal PC (/ricarica) passano anche sul
+    // computer (app-ios/xtool/copia_backup.py): così restano anche se l'app si cancella. Si ripristinano con «Importa backup».
+    static var cartellaBackup: URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("Backup", isDirectory: true)
+    }
+    private var filesBackup: [URL] {
+        ((try? FileManager.default.contentsOfDirectory(at: AppStore.cartellaBackup, includingPropertiesForKeys: nil)) ?? [])
+            .filter { $0.lastPathComponent.hasPrefix("recomp-") && $0.pathExtension == "json" }
+            .sorted { $0.lastPathComponent > $1.lastPathComponent }
+    }
+    func backupAutomatico() {
+        let fm = FileManager.default
+        try? fm.createDirectory(at: AppStore.cartellaBackup, withIntermediateDirectories: true)
+        guard let data = try? JSONEncoder().encode(d) else { return }
+        try? data.write(to: AppStore.cartellaBackup.appendingPathComponent("recomp-\(Cal.key()).json"), options: .atomic)
+        for vecchio in filesBackup.dropFirst(10) { try? fm.removeItem(at: vecchio) }
+        UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: "backup.ultimo")
+    }
+    // quando è stato salvato l'ultimo backup automatico (per la riga in Profilo)
+    var ultimoBackup: Date? {
+        let t = UserDefaults.standard.double(forKey: "backup.ultimo")
+        return t > 0 && !filesBackup.isEmpty ? Date(timeIntervalSince1970: t) : nil
+    }
+    var quantiBackup: Int { filesBackup.count }
+
     func esportaDati() -> URL? {
         guard let data = try? JSONEncoder().encode(d) else { return nil }
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("recomp2-backup-\(Cal.key()).json")
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("recomp-backup-\(Cal.key()).json")
         try? data.write(to: url, options: .atomic)
         return url
     }

@@ -42,6 +42,8 @@ struct SchedaAttivaView: View {
                 }
             }
             .sheet(item: $esercizioAperto) { x in EsercizioSheet(ex: x.id).foglio() }
+            // esercizi tolti, spostati o cambiati: le note aperte (tenute per posizione) si richiudono, se no finivano sull'esercizio sbagliato
+            .onChange(of: a.items.map(\.ex)) { _, _ in notaAperta = [] }
             .sheet(item: $scelta) { c in
                 ElencoEsercizi { ex in
                     switch c { case .aggiungi: s.aggiungiEsercizio(ex); case .cambia(let i): s.sostituisciEsercizio(i, con: ex) }
@@ -187,7 +189,9 @@ struct CartaEsercizio: View {
         let consiglio = s.consiglio(it)
         let prec = s.serieAltraVolta(it.ex)
         let sec = e.unit == "sec"
-        let a = s.d.active
+        // l'allenamento solo se c'è ancora questo esercizio: dopo «Togli» la scheda viene ridisegnata un'ultima volta
+        // con l'indice vecchio (prima l'app si chiudeva)
+        let a = s.d.active.flatMap { $0.items.indices.contains(i) ? $0 : nil }
         let rec = a.map { s.recuperoDi($0, i) } ?? it.rest
         let inSuper = !it.sup.isEmpty
         let superAttiva = s.superserieAttiva(a?.rid, it.sup)

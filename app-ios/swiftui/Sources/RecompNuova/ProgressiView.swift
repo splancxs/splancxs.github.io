@@ -30,6 +30,7 @@ struct ProgressiView: View {
                 Button { nuovoPeso = true } label: { Label("Peso", systemImage: "plus") }.buttonStyle(PulsanteLeggero())
             }
             eroe(ultimo, media7)
+            if !ws.isEmpty { RitmoPesoScheda() }
             grafico(ws)
             Button { s.mostraSettimana = true } label: { settimana }.buttonStyle(.plain)
             calendario

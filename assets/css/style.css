@@ -1099,3 +1099,37 @@ html.ntabs .nav { display: none !important; }
 .blk h2, .blk .row h2 { font-size: 1.15rem; }
 .blk .blk { border-top: 0; padding-top: 0; }
 .blk .co-setup { border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; }
+
+/* ============ Consultazione Semplice (Dieta e Scheda) ============ */
+.top-switch {
+  display: inline-flex; gap: 4px; padding: 4px; background: var(--surface-3); border-radius: 14px; margin-left: 8px;
+}
+.top-switch a {
+  padding: 7px 16px; border-radius: 10px; font-weight: 750; font-size: 14px; text-decoration: none;
+  color: var(--muted); transition: background .15s ease, color .15s ease;
+}
+.top-switch a[aria-current="page"] {
+  background: var(--ink); color: var(--bg);
+}
+main { padding-bottom: 40px; }
+.alt-details { border-top: 1px solid var(--line); padding: 10px 14px; background: var(--surface-2); }
+.alt-details summary {
+  cursor: pointer; font-size: 13px; font-weight: 700; color: var(--muted); list-style: none;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.alt-details summary::-webkit-details-marker { display: none; }
+.alt-details summary::after { content: "▾"; font-size: 13px; }
+.alt-details[open] summary::after { content: "▴"; }
+.alt-list { margin-top: 10px; display: grid; gap: 8px; }
+.alt-item {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
+  padding: 10px 12px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line);
+  cursor: pointer; text-align: left; width: 100%;
+}
+.alt-item:hover { border-color: var(--ink); }
+.alt-item.active { border-color: var(--accent-text); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
+.ex-photos { display: flex; gap: 8px; padding: 0 14px 12px; overflow-x: auto; }
+.ex-photos img { height: 110px; width: auto; border-radius: 10px; border: 1px solid var(--line); object-fit: cover; }
+
+/* sito da consultare: i chip-link non vanno sottolineati */
+a.chip { text-decoration: none; }

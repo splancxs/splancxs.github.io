@@ -55,35 +55,40 @@ final class WatchBridge: NSObject, WCSessionDelegate {
         let p = store.piano
         let oggi = store.pianoOggi
         let eaten = store.mangiati()
-        let pasti = oggi.meals.filter { !$0.free }
+        let pasti = oggi.meals.filter { !$0.free && !store.pastoTolto($0.si) }
         // i totali sono quelli veri di oggi: contano anche i pasti fuori piano (al posto di un pasto o in più)
         let mangiato = store.totaliMangiati()
+        let previsti = store.previstiOggi()
         let meals: [WatchMeal] = pasti.map { m in
-            // al posto di questo pasto hai mangiato altro: sull'orologio si vede quello, già segnato
-            if let f = store.fuoriPerFascia(m.si) {
+            // i piatti del piano per questa fascia (anche quando al suo posto c'è un tuo pasto: si torna al piano da lì)
+            let fuori = store.fuoriPerFascia(m.si)
+            let alt: [WatchAlt] = (p.variants[m.slot] ?? [:]).keys.sorted().map { code in
+                let t = p.sum(p.mealLines(m.slot, code))
+                return WatchAlt(code: code, name: p.recipe(code).name, k: Int(r0(t.k)), p: Int(r0(t.p)), c: Int(r0(t.c)), f: Int(r0(t.fa)),
+                                cur: fuori == nil && code == m.code ? true : nil)
+            }
+            // al posto di questo pasto c'è un tuo pasto (già mangiato o da mangiare): sull'orologio si vede quello
+            if let f = fuori {
                 let t = f.tot
                 return WatchMeal(si: m.si, time: m.time, label: m.label, name: f.nome, code: nil,
-                                 k: Int(r0(t.k)), p: Int(r0(t.p)), c: Int(r0(t.c)), f: Int(r0(t.fa)), eaten: true,
-                                 ing: f.voci.map { WatchIng(n: $0.nome, g: Int($0.g.rounded()), u: "g", h: nil) }, alt: nil, fuori: true)
+                                 k: Int(r0(t.k)), p: Int(r0(t.p)), c: Int(r0(t.c)), f: Int(r0(t.fa)), eaten: f.giaMangiato,
+                                 ing: f.voci.map { WatchIng(n: $0.nome, g: Int($0.g.rounded()), u: "g", h: nil) }, alt: alt, fuori: true)
             }
             return WatchMeal(si: m.si, time: m.time, label: m.label, name: p.recipe(m.code).name, code: m.code,
                       k: Int(r0(m.tot.k)), p: Int(r0(m.tot.p)), c: Int(r0(m.tot.c)), f: Int(r0(m.tot.fa)), eaten: eaten.contains(m.si),
                       ing: m.lines.map { l in
-                          let h = p.aiuto(l.f, l.g)
-                          return WatchIng(n: p.foods[l.f]?.n ?? l.f, g: Int(l.g), u: p.unitaPeso(l.f), h: h.isEmpty ? nil : h)
+                          let h = p.aiuto(l)
+                          return WatchIng(n: p.foods[l.f]?.n ?? p.nome(l), g: Int(l.g), u: p.unitaPeso(l.f), h: h.isEmpty ? nil : h)
                       },
-                      alt: (p.variants[m.slot] ?? [:]).keys.sorted().map { code in
-                          let t = p.sum(p.mealLines(m.slot, code))
-                          return WatchAlt(code: code, name: p.recipe(code).name, k: Int(r0(t.k)), p: Int(r0(t.p)), c: Int(r0(t.c)), f: Int(r0(t.fa)), cur: code == m.code ? true : nil)
-                      })
+                      alt: alt)
         }
         let rid = store.schedaOggi
         let tipo = (oggi.conv.isEmpty ? oggi.day.type : oggi.conv).hasPrefix("ON") ? "ON" : "OFF"
         let rec = store.d.active.flatMap { store.recuperoAttivo($0) }
         var snap = WatchSnapshot(
             date: Cal.key(), day: oggi.day.name, type: tipo,
-            kcal: Int(r0(mangiato.k)), kcalTarget: Int(r0(oggi.previsti.k)), p: Int(r0(mangiato.p)), pTarget: Int(r0(oggi.previsti.p)),
-            c: Int(r0(mangiato.c)), cTarget: Int(r0(oggi.previsti.c)), f: Int(r0(mangiato.fa)), fTarget: Int(r0(oggi.previsti.fa)),
+            kcal: Int(r0(mangiato.k)), kcalTarget: Int(r0(previsti.k)), p: Int(r0(mangiato.p)), pTarget: Int(r0(previsti.p)),
+            c: Int(r0(mangiato.c)), cTarget: Int(r0(previsti.c)), f: Int(r0(mangiato.fa)), fTarget: Int(r0(previsti.fa)),
             meals: meals, crea: store.creatinaPresa())
         snap.plans = piani()
         snap.todayRid = rid
@@ -91,6 +96,10 @@ final class WatchBridge: NSObject, WCSessionDelegate {
         snap.act = azione()
         snap.fin = store.cronologia.filter { $0.start > Cal.ms() - 864e5 }.map(\.id)
         snap.lb = store.d.lbEx
+        snap.miei = store.mieiPasti.prefix(15).map { r in
+            let t = r.tot
+            return WatchMio(id: r.id, name: r.nome, k: Int(r0(t.k)), p: Int(r0(t.p)), c: Int(r0(t.c)), f: Int(r0(t.fa)))
+        }
         snap.restEnd = rec.map { $0.timeIntervalSince1970 * 1000 }
         snap.restNext = rec != nil ? store.d.active?.restNext : nil
         return snap
@@ -136,11 +145,27 @@ final class WatchBridge: NSObject, WCSessionDelegate {
         let num: (String) -> Double? = { (e[$0] as? NSNumber)?.doubleValue }
         let testo: (String) -> String? = { e[$0] as? String }
         switch a {
-        case "eat": if let si = num("si"), store.fuoriPerFascia(Int(si)) == nil { store.segnaMangiato(Int(si), true) }
-        case "uneat": if let si = num("si") { store.segnaMangiato(Int(si), false) }
+        case "eat":
+            if let si = num("si") {
+                // un tuo pasto preparato al posto di quello del piano: «Mangiato» segna quello
+                if let f = store.fuoriPerFascia(Int(si)) { store.mangiaFuori(f.id) } else { store.segnaMangiato(Int(si), true) }
+            }
+        case "uneat":
+            if let si = num("si") {
+                // un tuo pasto torna «da mangiare»; un pasto del piano perde la spunta
+                if let f = store.fuoriPerFascia(Int(si)) { store.nonMangiatoFuori(f.id) } else { store.segnaMangiato(Int(si), false) }
+            }
         case "swap":
             if let si = num("si"), let code = testo("code"), let m = store.pianoOggi.meals[safe: Int(si)], !m.free, store.piano.variants[m.slot]?[code] != nil {
+                // scelto un piatto del piano al posto di un tuo pasto: il tuo pasto va via
+                if let f = store.fuoriPerFascia(Int(si)) { store.togliFuori(f.id) }
                 store.cambiaPiatto(di: store.oggiIdx, si: Int(si), codice: code)
+            }
+        case "mio":
+            // uno dei tuoi pasti scelto dall'orologio al posto di un pasto di oggi
+            if let si = num("si"), let id = testo("id"), store.pianoOggi.meals.indices.contains(Int(si)),
+               let r = store.d.mieiPasti.first(where: { $0.id == id }) {
+                store.mettiMio(r, al: Int(si))
             }
         case "crea": if !store.creatinaPresa() { store.toccaCreatina() }
         case "uncrea": if store.creatinaPresa() { store.toccaCreatina() }

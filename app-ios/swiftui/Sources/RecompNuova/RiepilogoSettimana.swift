@@ -39,8 +39,8 @@ extension AppStore {
         for g in 0..<passati {
             let key = Cal.key(Cal.giorni(g, da: lun))
             let p = pianoGiorno(g)
-            let sostituite = Set((d.fuori[key] ?? []).compactMap(\.si))
-            let fatti = Set(mangiati(key)).union(sostituite)
+            let sostituite = Set((d.fuori[key] ?? []).filter(\.giaMangiato).compactMap(\.si))
+            let fatti = Set(mangiati(key)).union(sostituite).union(d.saltati[key] ?? [])
             if p.meals.filter({ !$0.free }).allSatisfy({ fatti.contains($0.si) }) { piano += 1 }
             if creatinaPresa(key) { crea += 1 }
             fuori += (d.fuori[key] ?? []).count
@@ -76,19 +76,25 @@ extension AppStore {
     }
 }
 
-// le notifiche toccate: il riepilogo apre la sua pagina (le altre aprono solo l'app, come prima)
+// le notifiche toccate: il riepilogo apre la sua pagina, il coach la chat; le altre aprono solo l'app, come prima
 final class DelegatoNotifiche: NSObject, UNUserNotificationCenterDelegate {
     static let shared = DelegatoNotifiche()
     func userNotificationCenter(_ c: UNUserNotificationCenter, didReceive r: UNNotificationResponse, withCompletionHandler fatto: @escaping () -> Void) {
         let apri = r.notification.request.content.userInfo["apri"] as? String
         Task { @MainActor in
-            if apri == "riepilogo" { AppStore.shared.tabAperta = 3; AppStore.shared.mostraSettimana = true }
+            let s = AppStore.shared
+            switch apri {
+            case "riepilogo": s.tabAperta = 3; s.mostraSettimana = true
+            case "coach": s.tabAperta = 0; s.mostraCoach = true
+            default: break
+            }
             fatto()
         }
     }
-    // con l'app aperta le notifiche non compaiono (come prima)
+    // con l'app aperta compaiono solo i messaggi del coach (gli altri no, come prima)
     func userNotificationCenter(_ c: UNUserNotificationCenter, willPresent n: UNNotification, withCompletionHandler fatto: @escaping (UNNotificationPresentationOptions) -> Void) {
-        fatto([])
+        let apri = n.request.content.userInfo["apri"] as? String
+        fatto(apri == "coach" ? [.banner, .list, .sound] : [])
     }
 }
 
@@ -97,6 +103,7 @@ struct RiepilogoSettimanaView: View {
     @Environment(\.dismiss) private var chiudi
     @State private var indietro = 0
     @State private var dettaglio: Workout?
+    @State private var salute: Salute.Settimana?   // sonno e passi della settimana scelta (da Salute)
 
     var body: some View {
         let w = s.datiSettimana(indietro)
@@ -133,6 +140,20 @@ struct RiepilogoSettimanaView: View {
                              w.pesoMedio.flatMap { p in w.pesoPrima.map { q in let d = p - q; return "peso medio (\(d > 0 ? "+" : d < 0 ? "−" : "±")\(fmtPeso(abs(d))))" } } ?? "peso medio")
                     riquadro("fork.knife", Tema.g, "\(w.giorniPiano)/\(w.giorniPassati)", "giorni con il piano")
                     riquadro("pills.fill", Color(hex: 0x9B7BFF), "\(w.creatina)/\(w.giorniPassati)", "creatina")
+                    // da Salute: sonno medio a notte e passi medi al giorno, con la differenza dalla settimana prima
+                    if s.d.salute {
+                        riquadro("bed.double.fill", Color(hex: 0x5E5CE6), salute?.sonno.map(oreMinuti) ?? "—",
+                                 salute.flatMap { x in x.sonno.flatMap { a in x.sonnoPrima.map { b in "sonno a notte (\(segno(a - b, minuti: true)))" } } }
+                                    ?? (salute?.notti ?? 0 > 0 ? "sonno a notte (\(salute?.notti ?? 0) notti)" : "sonno a notte"))
+                        riquadro("figure.walk", Color(hex: 0x30B0C7), salute?.passi.map { fmtMigliaia(Double($0)) } ?? "—",
+                                 salute.flatMap { x in x.passi.flatMap { a in x.passiPrima.map { b in "passi al giorno (\(segno(Double(a - b), minuti: false)))" } } }
+                                    ?? "passi al giorno")
+                    }
+                }
+                if !s.d.salute {
+                    Text("Collega Salute (Profilo → Salute) per vedere anche sonno e passi della settimana.").font(.system(size: 13)).foregroundStyle(Tema.tenue)
+                } else if salute != nil && salute?.sonno == nil {
+                    Text("Sonno: nessun dato. Si registra dormendo con l'orologio (Salute → Sonno).").font(.system(size: 13)).foregroundStyle(Tema.tenue)
                 }
                 if w.fuoriPiano > 0 {
                     Text("\(w.fuoriPiano) \(w.fuoriPiano == 1 ? "pasto fuori piano" : "pasti fuori piano") questa settimana.").font(.system(size: 13)).foregroundStyle(Tema.tenue)
@@ -164,6 +185,18 @@ struct RiepilogoSettimanaView: View {
         }
         .background(Tema.fondo.ignoresSafeArea())
         .sheet(item: $dettaglio) { x in DettaglioAllenamento(w: x).foglio() }
+        .task(id: indietro) { salute = await Salute.shared.settimana(da: Cal.lunedi(indietro: indietro)) }
+    }
+
+    // 7 h 12′
+    private func oreMinuti(_ t: TimeInterval) -> String {
+        let m = Int((t / 60).rounded())
+        return "\(m / 60) h \(String(format: "%02d", m % 60))′"
+    }
+    // +20′ / −1.200: la differenza dalla settimana prima
+    private func segno(_ d: Double, minuti: Bool) -> String {
+        let v = minuti ? "\(Int(abs(d / 60).rounded()))′" : fmtMigliaia(abs(d))
+        return (d > 0 ? "+" : d < 0 ? "−" : "±") + v
     }
 
     private func variazione(_ ora: Double, _ prima: Double) -> String? {

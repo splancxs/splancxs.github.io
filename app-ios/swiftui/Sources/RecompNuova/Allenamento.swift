@@ -27,6 +27,8 @@ extension AppStore {
     func avvia(_ rid: String?) {
         if d.active != nil { tabAperta = 1; return }
         d.active = nuovoAllenamento(rid.flatMap { routine($0) })
+        if !giornoOn() { impostaGiornoOn(true) }
+        if let rid, var o = d.dayov[oggiKey] { o.rid = rid; d.dayov[oggiKey] = o }
         mostraRiepilogo = nil
         tabAperta = 1
         Haptic.medio()
@@ -48,6 +50,7 @@ extension AppStore {
     }
     // l'esercizio abbinato nella superserie (4a ↔ 4b), se c'è
     func compagno(_ a: ActiveWorkout, _ i: Int) -> Int? {
+        guard a.items.indices.contains(i) else { return nil }
         let sup = a.items[i].sup
         guard !sup.isEmpty else { return nil }
         let base = String(sup.dropLast())
@@ -55,6 +58,7 @@ extension AppStore {
     }
 
     func recuperoDi(_ a: ActiveWorkout, _ i: Int) -> Int {
+        guard a.items.indices.contains(i) else { return 90 }   // esercizio appena tolto: la sua scheda si sta chiudendo
         let it = a.items[i]
         if it.rest > 0 || it.sup.isEmpty || superserieAttiva(a.rid, it.sup) { return it.rest }
         let base = String(it.sup.dropLast())
@@ -97,14 +101,23 @@ extension AppStore {
             if s.r == nil { s.r = ph.r }
             s.done = true
             a.items[i].sets[j] = s
-            d.active = a
+            propagaPeso(&a, i, j)
             let rec = recuperoDi(a, i)
-            if rec > 0 { avviaRecupero(rec, prossima: etichettaProssima(a, i, j)) }
+            if rec > 0 {
+                let ora = Cal.ms()
+                a.restStart = ora
+                a.restEnd = ora + Double(rec) * 1000
+                a.restRv = ora
+                a.restNext = etichettaProssima(a, i, j)
+            }
+            d.active = a
+            aggiornaRecuperoEsterno()
             Haptic.medio()
         } else {
             s.done = false
             a.items[i].sets[j] = s
             d.active = a
+            aggiornaRecuperoEsterno()
         }
     }
 
@@ -115,8 +128,18 @@ extension AppStore {
         if let kg, kg >= 0 { a.items[i].sets[j].kg = kg }
         if let r, r > 0 { a.items[i].sets[j].r = r }
         a.items[i].sets[j].done = true
+        propagaPeso(&a, i, j)
         d.active = a
         return true
+    }
+
+    // le serie dopo dello stesso esercizio (ancora da fare e senza un peso scritto) partono dal carico appena usato:
+    // lo fa anche l'orologio, così quando il telefono gli rimanda lo stato il peso non torna a quello suggerito di prima
+    private func propagaPeso(_ a: inout ActiveWorkout, _ i: Int, _ j: Int) {
+        guard let kg = a.items[i].sets[j].kg else { return }
+        for k in a.items[i].sets.indices where k > j && !a.items[i].sets[k].done && a.items[i].sets[k].kg == nil {
+            a.items[i].sets[k].kg = kg
+        }
     }
 
     func scrivi(_ i: Int, _ j: Int, kg: Double?? = nil, r: Int?? = nil) {
@@ -220,20 +243,99 @@ extension AppStore {
         guard let a, a.restEnd > Cal.ms() else { return nil }
         return Date(timeIntervalSince1970: a.restEnd / 1000)
     }
-    // la prossima serie da fare (per la Live Activity tra una serie e l'altra): esercizio e «Serie 2 di 4 · 40 kg × 10»
-    func prossimaDaFare(_ a: ActiveWorkout) -> (esercizio: String, dettaglio: String) {
-        for it in a.items {
+    // trova l'indice (i, j) della prossima serie da fare, rispettando anche l'alternanza delle superserie
+    func indiceProssimaSerie(_ a: ActiveWorkout) -> (i: Int, j: Int)? {
+        for (i, it) in a.items.enumerated() {
             guard let j = it.sets.firstIndex(where: { !$0.done }) else { continue }
-            let e = esercizio(it.ex)
-            let ph = suggerito(it, j)
-            let s = it.sets[j]
-            let kg = s.kg ?? ph.kg
-            let r = s.r ?? ph.r
-            let numeri = e.unit == "sec" ? " · \(r)″" : kg != nil ? " · \(pesoConUnita(it.ex, kg)) × \(r)" : ""
-            return (nomeBreve(it.ex), "Serie \(j + 1) di \(it.sets.count)" + numeri)
+            if superserieAttiva(a.rid, it.sup), it.sup.hasSuffix("a"), let m = compagno(a, i),
+               let jm = a.items[m].sets.firstIndex(where: { !$0.done }), jm < j {
+                return (m, jm)
+            }
+            return (i, j)
         }
-        if a.items.isEmpty { return (a.name, "Aggiungi gli esercizi dall'app") }
-        return ("Tutte le serie fatte", "Termina l'allenamento e fai il cardio")
+        return nil
+    }
+
+    func descriviSerie(_ a: ActiveWorkout, _ i: Int, _ j: Int) -> (esercizio: String, dettaglio: String, rec: Int) {
+        let it = a.items[i]
+        let e = esercizio(it.ex)
+        let ph = suggerito(it, j)
+        let s = it.sets[j]
+        let kg = s.kg ?? ph.kg
+        let r = s.r ?? ph.r
+        let numeri = e.unit == "sec" ? " · \(r)″" : kg != nil ? " · \(pesoConUnita(it.ex, kg)) × \(r)" : ""
+        return (nomeBreve(it.ex), "Serie \(j + 1) di \(it.sets.count)" + numeri, recuperoDi(a, i))
+    }
+
+    // la prossima serie da fare (per la Live Activity tra una serie e l'altra): esercizio, dettaglio, recupero e serie successiva
+    func prossimaDaFare(_ a: ActiveWorkout) -> (esercizio: String, dettaglio: String, rec: Int, nextEx: String?, nextDet: String?) {
+        if let (i, j) = indiceProssimaSerie(a) {
+            let cur = descriviSerie(a, i, j)
+            var sim = a
+            sim.items[i].sets[j].done = true
+            let dopo = indiceProssimaSerie(sim).map { descriviSerie(sim, $0.i, $0.j) }
+            return (cur.esercizio, cur.dettaglio, cur.rec, dopo?.esercizio, dopo?.dettaglio)
+        }
+        if a.items.isEmpty { return (a.name, "Aggiungi gli esercizi dall'app", 0, nil, nil) }
+        return ("Tutte le serie fatte", "Termina l'allenamento e fai il cardio", 0, nil, nil)
+    }
+
+    // applica un pulsante toccato nella Dynamic Island o nella schermata di blocco (−15″, +15″, Salta, Serie fatta)
+    func eseguiAzioneIsola(_ tipo: String) {
+        guard let a = d.active else { return }
+        switch tipo {
+        case "meno15":
+            if a.restEnd - 15_000 <= Cal.ms() + 500 {
+                saltaRecupero()
+            } else {
+                cambiaRecupero(-15)
+            }
+            Haptic.leggero()
+        case "piu15":
+            if a.restEnd > Cal.ms() {
+                cambiaRecupero(15)
+            } else {
+                avviaRecupero(15, prossima: a.restNext)
+            }
+            Haptic.leggero()
+        case "salta":
+            saltaRecupero()
+            Haptic.medio()
+        case "fatta":
+            if let (i, j) = indiceProssimaSerie(a) {
+                toccaSerie(i, j)
+            }
+        default:
+            break
+        }
+    }
+
+    // applica eventuali azioni accodate nel gruppo condiviso (−15″, +15″, Salta, Serie fatta)
+    func processaAzioniIsola() {
+        let eventi = CodaIsola.leggiESvuota()
+        for ev in eventi { eseguiAzioneIsola(ev.tipo) }
+    }
+
+    func eseguiAzioneIsolaSubito(_ tipo: String) async {
+        eseguiAzioneIsola(tipo)
+        await RecuperoLive.attendiUltimoUpdate()
+        CodaIsola.segnaCompletato()
+    }
+
+    func processaAzioniIsolaSubito() async {
+        let eventi = CodaIsola.leggiESvuota()
+        guard !eventi.isEmpty else { return }
+        for ev in eventi { eseguiAzioneIsola(ev.tipo) }
+        await RecuperoLive.attendiUltimoUpdate()
+        CodaIsola.segnaCompletato()
+    }
+
+    // scatta al secondo esatto di fine recupero (anche in background breve) così la Dynamic Island non resta su 0:00
+    func fineRecuperoAutomatica() {
+        guard var a = d.active, a.restEnd > 0, a.restEnd <= Cal.ms() + 250 else { return }
+        a.restEnd = 0
+        d.active = a
+        aggiornaRecuperoEsterno()
     }
 
     // Live Activity e notifica di fine recupero (la notifica non serve se avvisa già l'orologio).
@@ -246,10 +348,11 @@ extension AppStore {
         }
         let serie = a.items.flatMap(\.sets)
         let fatte = serie.filter(\.done).count
+        let p = prossimaDaFare(a)
         guard a.restEnd > Cal.ms() else {
-            let p = prossimaDaFare(a)
             RecuperoLive.avvia(inizio: Date(), fine: Date(), esercizio: p.esercizio, dettaglio: p.dettaglio, allenamento: a.name,
-                               modo: "go", fatte: fatte, totali: serie.count)
+                               modo: "go", fatte: fatte, totali: serie.count,
+                               restSec: p.rec, nextEx: p.nextEx, nextDet: p.nextDet)
             Notifiche.togliRecupero()
             return
         }
@@ -259,8 +362,9 @@ extension AppStore {
             ? (String(a.restNext.split(separator: "·", maxSplits: 1)[0]).replacingOccurrences(of: "Prossima: ", with: "").replacingOccurrences(of: "Poi: ", with: "").replacingOccurrences(of: "Subito: ", with: "").trimmingCharacters(in: .whitespaces),
                String(a.restNext.split(separator: "·", maxSplits: 1)[1]).trimmingCharacters(in: .whitespaces))
             : (a.restNext, "")
-        RecuperoLive.avvia(inizio: inizio, fine: fine, esercizio: es.isEmpty ? "Recupero" : es, dettaglio: dettaglio, allenamento: a.name,
-                           modo: nil, fatte: fatte, totali: serie.count)
+        RecuperoLive.avvia(inizio: inizio, fine: fine, esercizio: es.isEmpty ? p.esercizio : es, dettaglio: dettaglio.isEmpty ? p.dettaglio : dettaglio, allenamento: a.name,
+                           modo: nil, fatte: fatte, totali: serie.count,
+                           restSec: p.rec, nextEx: p.nextEx, nextDet: p.nextDet)
         if d.notifRest && !a.fromWatch { Notifiche.recupero(fine: fine, testo: a.restNext) } else { Notifiche.togliRecupero() }
     }
 
@@ -365,19 +469,60 @@ extension AppStore {
 @MainActor
 enum RecuperoLive {
     private static var ultimo: String = ""   // l'ultimo stato mandato: lo stesso non si rimanda
+    private static var timerFine: Timer?
+    private static var bgTask: UIBackgroundTaskIdentifier = .invalid
+    private static var taskInCorso: Task<Void, Never>?
+
+    static func attendiUltimoUpdate() async {
+        await taskInCorso?.value
+    }
+
+    private static func rinnovaBg() {
+        let vecchio = bgTask
+        bgTask = UIApplication.shared.beginBackgroundTask(withName: "RecompRecupero") {
+            Task { @MainActor in chiudiBg() }
+        }
+        if vecchio != .invalid {
+            UIApplication.shared.endBackgroundTask(vecchio)
+        }
+    }
+
+    private static func programmaFine(_ fine: Date?) {
+        timerFine?.invalidate()
+        timerFine = nil
+        rinnovaBg()
+        guard let fine, fine.timeIntervalSinceNow > 0 else { return }
+        let t = Timer(fire: fine.addingTimeInterval(0.05), interval: 0, repeats: false) { _ in
+            Task { @MainActor in
+                AppStore.shared.fineRecuperoAutomatica()
+            }
+        }
+        RunLoop.main.add(t, forMode: .common)
+        timerFine = t
+    }
+
+    private static func chiudiBg() {
+        if bgTask != .invalid {
+            UIApplication.shared.endBackgroundTask(bgTask)
+            bgTask = .invalid
+        }
+    }
 
     static func avvia(inizio: Date, fine: Date, esercizio: String, dettaglio: String, allenamento: String,
-                      modo: String? = nil, fatte: Int? = nil, totali: Int? = nil) {
+                      modo: String? = nil, fatte: Int? = nil, totali: Int? = nil,
+                      restSec: Int? = nil, nextEx: String? = nil, nextDet: String? = nil) {
         guard #available(iOS 16.2, *), ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+        programmaFine(modo == "go" ? nil : fine)
         let stato = RestAttributes.ContentState(start: min(inizio, fine), end: fine, exercise: esercizio, detail: dettaglio,
-                                                mode: modo, done: fatte, total: totali)
-        // nel recupero «scaduta» alla fine (l'estensione mostra «Via!»); tra le serie non scade
+                                                mode: modo, done: fatte, total: totali,
+                                                restSec: restSec, nextEx: nextEx, nextDet: nextDet)
+        // nel recupero «scaduta» alla fine (l'estensione mostra «VIA!»); tra le serie non scade
         let contenuto = ActivityContent(state: stato, staleDate: modo == "go" ? nil : fine)
         let chiave = "\(allenamento)|\(modo ?? "r")|\(Int(fine.timeIntervalSince1970))|\(esercizio)|\(dettaglio)|\(fatte ?? 0)/\(totali ?? 0)"
         let aperte = Activity<RestAttributes>.activities
         if chiave == ultimo, aperte.contains(where: { $0.attributes.workout == allenamento && $0.activityState == .active }) { return }
         ultimo = chiave
-        Task {
+        taskInCorso = Task {
             if let a = aperte.first(where: { $0.attributes.workout == allenamento && $0.activityState == .active }) {
                 await a.update(contenuto)
                 for b in aperte where b.id != a.id { await b.end(nil, dismissalPolicy: .immediate) }
@@ -390,8 +535,11 @@ enum RecuperoLive {
     }
     static func termina() {
         guard #available(iOS 16.2, *) else { return }
+        timerFine?.invalidate()
+        timerFine = nil
+        chiudiBg()
         ultimo = ""
-        Task { for a in Activity<RestAttributes>.activities { await a.end(nil, dismissalPolicy: .immediate) } }
+        taskInCorso = Task { for a in Activity<RestAttributes>.activities { await a.end(nil, dismissalPolicy: .immediate) } }
     }
 }
 
