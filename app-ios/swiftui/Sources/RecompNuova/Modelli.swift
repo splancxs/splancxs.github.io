@@ -248,7 +248,7 @@ struct AppData: Codable {
     var bigliettini: [Bigliettino] = []       // i messaggi che il coach ti ha mandato da solo (ultime 2 settimane)
     var coachScrive: Bool = true              // il coach ti scrive la mattina e la sera
     var coachMem: [String] = []               // memoria permanente del coach (abitudini, preferenze, attrezzi)
-    var cibiPasto: [String: CibiPasto] = [:]  // «giorno:fascia» → i cibi del piatto cambiati a mano
+    var cibiPasto: [String: CibiPasto] = [:]  // «2026-11-20:3» (data:fascia) → i cibi del piatto cambiati a mano, solo quel giorno
 
     init() {}
     init(from decoder: Decoder) throws {

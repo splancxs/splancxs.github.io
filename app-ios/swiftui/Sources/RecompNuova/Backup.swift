@@ -29,6 +29,7 @@ extension AppStore {
             .sorted { $0.lastPathComponent > $1.lastPathComponent }
     }
     func backupAutomatico() {
+        guard !AppStore.inProva else { return }   // in prova i dati sono una copia: niente backup
         let fm = FileManager.default
         try? fm.createDirectory(at: AppStore.cartellaBackup, withIntermediateDirectories: true)
         guard let data = try? JSONEncoder().encode(d) else { return }

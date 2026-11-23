@@ -52,7 +52,7 @@ extension AppStore {
     // uscendo dall'app: prepara (o riscrive) il messaggio di stasera e quello della prossima mattina. iOS concede circa
     // 30 secondi in background, bastano per una risposta dell'AI
     func preparaBigliettini() {
-        guard d.coachScrive, !AppStore.preparando else { return }
+        guard d.coachScrive, !AppStore.preparando, !AppStore.inProva else { return }
         AppStore.preparando = true
         AppStore.compito = UIApplication.shared.beginBackgroundTask(withName: "coach") {
             MainActor.assumeIsolated { AppStore.fineCompito() }

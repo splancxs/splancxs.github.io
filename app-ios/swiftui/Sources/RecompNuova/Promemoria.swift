@@ -29,8 +29,10 @@ extension AppStore {
     private func giornoNotifica(_ di: Int) -> Int { (di + 1) % 7 + 1 }
 
     func riprogrammaPromemoria() {
+        guard !AppStore.inProva else { return }   // in prova le notifiche restano quelle dei dati veri
         let c = UNUserNotificationCenter.current()
-        let id100 = (100..<160).map(String.init)
+        // 110–116 erano le pesate ripetute ogni settimana (versioni vecchie): si tolgono insieme alle altre
+        let id100 = (100..<160).map(String.init) + (0..<14).map { "peso-\($0)" }
         c.removePendingNotificationRequests(withIdentifiers: id100)
         func aggiungi(_ id: Int, _ titolo: String, _ corpo: String, _ comp: DateComponents, ripeti: Bool) {
             let n = UNMutableNotificationContent()
@@ -52,10 +54,25 @@ extension AppStore {
                          DateComponents(hour: 21, minute: 0, weekday: giornoNotifica(di)), ripeti: true)
             }
         }
+        // pesata: solo se non ti pesi da 3 giorni (pesato lunedì → arriva giovedì, e poi ogni mattina finché non ti pesi).
+        // Una per giorno nei prossimi 14 giorni, non ripetuta: segnando il peso (anche da Salute) si riprogramma tutto.
         if d.promemoria["peso"] == true {
-            for di in 0..<7 {
-                aggiungi(110 + di, "Pesata del mattino", "A digiuno, dopo il bagno. Poi segnalo in Progressi." + (di == 0 ? " Oggi misura anche la vita." : ""),
-                         DateComponents(hour: di <= 4 ? 6 : 9, minute: di <= 4 ? 35 : 0, weekday: giornoNotifica(di)), ripeti: true)
+            let ultimo = pesate.last?.d ?? ""
+            for i in 0..<14 {
+                guard let giorno = Cal.greg.date(byAdding: .day, value: i, to: Date()),
+                      let dueFa = Cal.greg.date(byAdding: .day, value: -2, to: giorno), ultimo < Cal.key(dueFa) else { continue }
+                let di = Cal.dayIdx(giorno)
+                guard let alle = Cal.greg.date(bySettingHour: di <= 4 ? 6 : 9, minute: di <= 4 ? 35 : 0, second: 0, of: giorno),
+                      alle.timeIntervalSinceNow > 30 else { continue }
+                let giorni = ultimo.isEmpty ? nil : Cal.greg.dateComponents([.day], from: Cal.greg.startOfDay(for: Cal.date(ultimo)),
+                                                                                     to: Cal.greg.startOfDay(for: giorno)).day
+                let n = UNMutableNotificationContent()
+                n.title = "Pesata del mattino"
+                n.body = (giorni.map { "Non ti pesi da \($0) giorni. " } ?? "") + "A digiuno, dopo il bagno; poi segnalo in Progressi."
+                    + (di == 0 ? " Oggi misura anche la vita." : "")
+                n.sound = .default
+                c.add(UNNotificationRequest(identifier: "peso-\(i)", content: n,
+                                            trigger: UNCalendarNotificationTrigger(dateMatching: Cal.greg.dateComponents([.year, .month, .day, .hour, .minute], from: alle), repeats: false)))
             }
         }
         // palestra: una per giorno di allenamento nei prossimi 14 giorni (non ripetuta: oggi non arriva se l'hai saltata,

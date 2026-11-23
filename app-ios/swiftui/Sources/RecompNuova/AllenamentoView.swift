@@ -23,6 +23,12 @@ struct AllenamentoView: View {
                 }
             }
             .sheet(item: $dettaglio) { w in DettaglioAllenamento(w: w).foglio() }
+            // debug dal PC: 1 storico, 2 numeri, 3 il dettaglio dell'ultimo allenamento
+            .onChange(of: s.debugSezioneScheda, initial: true) { _, v in
+                guard let v else { return }
+                s.debugSezioneScheda = nil
+                if v == 3 { sezione = 1; dettaglio = s.cronologia.first } else { sezione = v }
+            }
         }
     }
 
@@ -164,8 +170,11 @@ struct NumeriView: View {
                                 GeometryReader { g in
                                     ZStack(alignment: .leading) {
                                         Capsule().fill(Tema.scheda2)
-                                        Capsule().fill(t > 0 && v >= t ? Tema.verde : Tema.testo)
-                                            .frame(width: v == 0 ? 0 : max(8, g.size.width * min(1, Double(v) / Double(max(1, t)))))
+                                        // senza obiettivo del piano (es. deltoidi anteriori, lavorati di rimbalzo) la barra è
+                                        // grigia e in proporzione al muscolo più allenato, non piena
+                                        let rif = t > 0 ? t : max(1, serie.values.max() ?? 1)
+                                        Capsule().fill(t == 0 ? Tema.tenue : v >= t ? Tema.verde : Tema.testo)
+                                            .frame(width: v == 0 ? 0 : max(8, g.size.width * min(1, Double(v) / Double(rif))))
                                     }
                                 }
                                 .frame(height: 8)
@@ -358,7 +367,7 @@ struct RiepilogoView: View {
                 Text("Allenamento completato").font(.system(size: 15, weight: .semibold)).foregroundStyle(Tema.tenue)
                 Text(w.name).font(.system(size: 40, weight: .heavy))
                 HStack(spacing: 10) {
-                    cifra("\(w.minutes)", "minuti"); cifra(fmtMigliaia(w.volume), "kg"); cifra("\(w.workSets)", "serie")
+                    cifra("\(w.minutes)", w.minutes == 1 ? "minuto" : "minuti"); cifra(fmtMigliaia(w.volume), "kg"); cifra("\(w.workSets)", "serie")
                 }
                 if let hr = w.hr { Text("♥ battito medio \(hr)\(w.kcal.map { " · \($0) kcal attive" } ?? "")").font(.system(size: 15, weight: .semibold)) }
                 if w.prs.isEmpty {
@@ -367,11 +376,47 @@ struct RiepilogoView: View {
                     Titolo(testo: "🏆 Record personali (\(w.prs.count))")
                     ElencoRecord(prs: w.prs)
                 }
+                if !w.items.isEmpty {
+                    Titolo(testo: "Esercizi fatti (\(w.items.count))")
+                    VStack(spacing: 0) {
+                        ForEach(Array(w.items.enumerated()), id: \.offset) { n, it in
+                            if n > 0 { Divider().overlay(Tema.linea).padding(.leading, 52) }
+                            esercizioFatto(it)
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                    .background(Tema.scheda, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                }
                 Button("Fatto") { chiudi() }.buttonStyle(PulsantePieno(colore: Tema.testo, testo: Tema.fondo))
             }
             .padding(20)
         }
         .background(Tema.fondo.ignoresSafeArea())
+    }
+    // un esercizio: foto, nome, le serie di lavoro in fila («62,5 kg × 8 · 60 × 7»), la coppa se c'è un record
+    private func esercizioFatto(_ it: ItemRec) -> some View {
+        let e = s.esercizio(it.ex)
+        let sec = e.unit == "sec"
+        let lavoro = it.sets.filter(\.isWork)
+        let serie = lavoro.enumerated().map { n, st in
+            sec ? "\(st.r ?? 0)″" : st.kg == nil ? "\(st.r ?? 0) rip."
+                : (n == 0 ? s.pesoConUnita(it.ex, st.kg) : s.peso(it.ex, st.kg)) + " × \(st.r ?? 0)"
+        }
+        return HStack(spacing: 12) {
+            MiniaturaEsercizio(ex: it.ex, lato: 40)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    Text(e.n).font(.system(size: 15, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.8)
+                    if w.prs.contains(where: { $0.ex == it.ex }) { Text("🏆").font(.system(size: 12)) }
+                }
+                Text(serie.isEmpty ? "nessuna serie di lavoro" : serie.joined(separator: " · "))
+                    .font(.system(size: 12)).monospacedDigit().foregroundStyle(Tema.tenue).fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 4)
+            Text("\(lavoro.count)").font(.sport(22)).monospacedDigit() + Text(" serie").font(.system(size: 11)).foregroundColor(Tema.tenue)
+        }
+        .padding(.vertical, 9)
+        .accessibilityElement(children: .combine)
     }
     private func cifra(_ v: String, _ u: String) -> some View {
         VStack(alignment: .leading, spacing: 0) {

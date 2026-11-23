@@ -9,8 +9,8 @@ struct RecompNuovaApp: App {
     init() {
         WatchBridge.shared.avvia()
         UNUserNotificationCenter.current().delegate = DelegatoNotifiche.shared   // il riepilogo della domenica apre la sua pagina
-        CodaIsola.eseguiDiretto = { tipo in
-            await AppStore.shared.eseguiAzioneIsolaSubito(tipo)
+        CodaIsola.eseguiDiretto = { tipo, fine in
+            await AppStore.shared.eseguiAzioneIsolaSubito(tipo, fine: fine)
         }
         CFNotificationCenterAddObserver(
             CFNotificationCenterGetDarwinNotifyCenter(), nil,
@@ -28,6 +28,7 @@ struct RecompNuovaApp: App {
                 // perché iOS non la fa partire con l'app in background
                 .onChange(of: store.d.active) { _, _ in store.aggiornaRecuperoEsterno() }
                 .onChange(of: fase) { _, f in
+                    Registro.evento(f == .active ? "app davanti" : f == .background ? "app in background" : "app inattiva")
                     // uscendo dall'app: salvataggio, backup di oggi e i messaggi del coach di stasera e di domattina
                     if f == .background { store.salvaOra(); store.backupAutomatico(); store.preparaBigliettini() }
                     guard f == .active else { return }
@@ -36,6 +37,23 @@ struct RecompNuovaApp: App {
                     store.riprogrammaPromemoria()   // i promemoria dei prossimi 14 giorni restano sempre programmati
                 }
                 .task {
+                    Registro.evento("avvio · piano \(store.piano.version)")
+                    // debug dal PC: «debug.ps1 apri pasto:3» lancia l'app con RECOMP_APRI
+                    let env = ProcessInfo.processInfo.environment
+                    if let az = env["RECOMP_AZIONI"], !az.isEmpty { store.eseguiAzioniProva(az) }
+                    if let a = env["RECOMP_APRI"], !a.isEmpty {
+                        try? await Task.sleep(nanoseconds: 600_000_000)
+                        store.apriPerDebug(a)
+                    }
+                    // modalità prova: il tempo per finestre e scorrimento, poi lo stato in testo e il segnale «pronto»
+                    // (finestre una dentro l'altra o scorrimento: 1,7 s; una pagina semplice: 0,5 s)
+                    if AppStore.inProva {
+                        let a = env["RECOMP_APRI"] ?? "oggi"
+                        let lento = a.contains(":") || ["coach", "settimana", "fuori"].contains(a) || !(env["RECOMP_SCORRI"] ?? "").isEmpty
+                            || (env["RECOMP_AZIONI"] ?? "").contains("finisci")
+                        try? await Task.sleep(nanoseconds: lento ? 1_700_000_000 : 500_000_000)
+                        store.statoPerDebug(a)
+                    }
                     store.migraDalSito()
                     store.backupAutomatico()
                     store.riprogrammaPromemoria()
@@ -78,5 +96,13 @@ struct RootView: View {
         }
         .tint(Tema.testo)
         .sheet(item: $s.mostraRiepilogo) { w in RiepilogoView(w: w).foglio() }
+        // modalità prova (debug dal PC): ben visibile, così non si scambia per l'app vera
+        .overlay(alignment: .top) {
+            if AppStore.inProva {
+                Text("MODALITÀ PROVA · copia dei dati").font(.system(size: 10, weight: .heavy)).foregroundStyle(.white)
+                    .padding(.horizontal, 8).padding(.vertical, 2).background(Tema.rosso, in: Capsule())
+                    .allowsHitTesting(false)
+            }
+        }
     }
 }

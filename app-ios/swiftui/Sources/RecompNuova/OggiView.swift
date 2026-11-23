@@ -25,6 +25,17 @@ struct OggiView: View {
         .sheet(item: $pasto) { m in PastoSheet(di: s.oggiIdx, si: m.si, oggi: true).foglio() }
         .sheet(item: $fuori) { f in FuoriPianoSheet(si: f.si, esistente: f.esistente, mio: f.mio).foglio() }
         .sheet(isPresented: $s.mostraCoach) { CoachView().foglio() }
+        // debug dal PC (Registro.swift): apre la finestra del pasto chiesto; il resto lo fa la finestra stessa
+        .onChange(of: s.debugApri, initial: true) { _, v in
+            guard v != nil, let si = s.debugNumeri.first, let m = s.pianoOggi.meals[safe: si] else { return }
+            if s.debugTipo == "fuori" {
+                fuori = AperturaFuori(si: si, esistente: s.fuoriPerFascia(si), mio: s.ancoraDaMangiare(m))
+                s.debugApri = nil
+                return
+            }
+            pasto = m
+            if s.debugTipo == "pasto" { s.debugApri = nil }
+        }
     }
 
     // dopo un pasto fuori piano: cosa cambiare nel resto della giornata
@@ -147,6 +158,9 @@ struct OggiView: View {
         return (v.1, quando)
     }
 
+    // «Adesso · tra 22 min», ma solo «Adesso» quando è proprio l'ora (non «Adesso · adesso»)
+    private func titoloAdesso(_ quando: String) -> String { quando == "adesso" ? "Adesso" : "Adesso · \(quando)" }
+
     @ViewBuilder private func adesso(_ plan: DayPlan) -> some View {
         if s.d.active != nil {
             argento {
@@ -165,7 +179,7 @@ struct OggiView: View {
                 if let f = s.fuoriPerFascia(m.si) {
                     argento {
                         VStack(alignment: .leading, spacing: 10) {
-                            Text("Adesso · \(quando) · il tuo pasto").font(.sport(17)).opacity(0.7)
+                            Text("\(titoloAdesso(quando)) · il tuo pasto").font(.sport(17)).opacity(0.7)
                             Text("\(m.time) · \(f.nome.uppercased())").font(.sport(34)).lineLimit(2).minimumScaleFactor(0.7)
                             Text("\(f.voci.count) \(f.voci.count == 1 ? "cibo" : "cibi") · \(Int(f.tot.k)) kcal · P \(fmtNum(r1(f.tot.p)))").font(.system(size: 15, weight: .medium))
                             HStack(spacing: 10) {
@@ -180,7 +194,7 @@ struct OggiView: View {
             case .pasto(let m) where m.free:
                 argento {
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Adesso · \(quando)").font(.sport(17)).opacity(0.7)
+                        Text("\(titoloAdesso(quando))").font(.sport(17)).opacity(0.7)
                         Text("\(m.time) · PASTO LIBERO").font(.sport(34)).lineLimit(1).minimumScaleFactor(0.7)
                         Text("Fuori, senza pesare: un primo o un secondo con contorno, oppure una pizza. Circa \(Int(stimaPastoLibero)) kcal.")
                             .font(.system(size: 15, weight: .medium)).fixedSize(horizontal: false, vertical: true)
@@ -190,7 +204,7 @@ struct OggiView: View {
             case .pasto(let m):
                 argento {
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Adesso · \(quando)").font(.sport(17)).opacity(0.7)
+                        Text("\(titoloAdesso(quando))").font(.sport(17)).opacity(0.7)
                         Text("\(m.time) · \(m.label.uppercased())").font(.sport(34)).lineLimit(2).minimumScaleFactor(0.7)
                         Text("\(s.piano.recipe(m.code).name) · \(Int(m.tot.k)) kcal · P \(fmtNum(m.tot.p))").font(.system(size: 15, weight: .medium))
                         HStack(spacing: 10) {
@@ -204,7 +218,7 @@ struct OggiView: View {
             case .palestra(let r):
                 argento {
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Adesso · \(quando)").font(.sport(17)).opacity(0.7)
+                        Text("\(titoloAdesso(quando))").font(.sport(17)).opacity(0.7)
                         HStack(alignment: .firstTextBaseline) {
                             Text("16:30 · \(r.name.uppercased())").font(.sport(34)).lineLimit(1).minimumScaleFactor(0.6)
                             Spacer()

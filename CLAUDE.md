@@ -29,6 +29,18 @@ https://splancxs.github.io) resta come visualizzatore da PC o tablet.
   `powershell -ExecutionPolicy Bypass -File app-ios\xtool\windows\installa.ps1`
   - `installa.ps1 compila`: controlla che compili, senza telefono.
   - `installa.ps1 orologio`: rifà solo l'installazione sull'orologio.
+  - `installa.ps1 iphone`: solo l'iPhone, per le prove (l'orologio torna collegato al prossimo `installa.ps1`).
+- **Debug dal PC sul telefono vero**: `app-ios\xtool\windows\debug.ps1 prepara | apri <schermata> | foto <file> | registro`
+  (vedi `app-ios/xtool/README.md`). Così si controllano le modifiche da soli, senza chiedere screenshot all'utente.
+  `debug.ps1 prova "<azioni>" <schermata> [scorri]` lavora su una COPIA dei dati (scritta rossa «MODALITÀ PROVA», niente
+  Salute, orologio, notifiche): azioni come `aggiungi:3:parmigiano;avvia:TA;serie:0:0;finisci` (elenco in `Registro.swift`).
+  `debug.ps1 elenco` legge tutti i testi della schermata. Gli screenshot ridotti ingannano: i dettagli vanno ritagliati.
+  Prima di installare va chiusa Recomp sull'iPhone, se no l'installazione si ferma al 98%.
+  Per provare in fretta (prima del telefono): `debug.ps1 controlli` (conti sul PC, 3 s), `debug.ps1 stato "<azioni>" <schermata>`
+  (stato dell'app in testo, numeri esatti, 6 s), `debug.ps1 giro <cartella>` (tutto `giro.txt`: testo + screenshot, ~1,5 min),
+  `debug.ps1 crash`. Il testo dello stato è più affidabile degli screenshot per i numeri; gli screenshot servono per la grafica.
+- Se l'accesso ad Apple non va (dal 20/11/2026 Apple risponde 503 ai programmi non ufficiali), `installa.ps1` firma da solo
+  con certificato e profili dell'ultima installazione: si aggiorna l'app ma la firma non si rinnova (scadenza a fine comando).
 - Ricompila solo quello che è cambiato (l'app Watch solo se cambia il suo codice) e riprova da solo l'errore «Coordinator» dell'orologio.
 - Ordine obbligato: prima l'app iPhone, poi l'app Watch installata direttamente sull'orologio (il comando lo fa già).
 - Identificativo `io.github.splancxs.recomp.prova` (nome «Recomp»). Profilo gratuito: 3 app e 10 identificativi nuovi ogni 7 giorni.

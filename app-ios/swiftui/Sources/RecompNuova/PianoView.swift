@@ -23,6 +23,10 @@ struct PianoView: View {
             }
         }
         .sheet(item: $pasto) { m in PastoSheet(di: giorno, si: m.si, oggi: false).foglio() }
+        // debug dal PC: apre una sezione precisa (spesa, scambi, i miei)
+        .onChange(of: s.debugSezionePiano, initial: true) { _, v in
+            if let v { sezione = v; s.debugSezionePiano = nil }
+        }
     }
 
     private var settimana: some View {
@@ -212,15 +216,14 @@ struct PastoSheet: View {
     let oggi: Bool
     @State private var fuoriAperto = false
     @State private var mio = false      // la finestra si apre con il pasto «da mangiare» (dopo) invece che «già mangiato»
-    struct SceltaEsterna: Identifiable { let id = UUID(); let indice: Int?; var scanner = false }
-    @State private var modifica = false // «Cambia i cibi»: − e + sui grammi, scambia, aggiungi, togli
-    @State private var esterno: SceltaEsterna?
-    @State private var rigaGrammi: Int?
-    @State private var testoGrammi = ""
-    private let categorieCibi = ["Carne e pesce", "Affettati", "Latticini e uova", "Pane, pasta e cereali", "Frutta", "Verdura cruda", "Condimenti e dispensa", "Integratori e snack"]
+    struct Scelta: Identifiable { let id = UUID(); let indice: Int }
+    @State private var cibo: Scelta?          // il cibo toccato: si apre la scelta (stesse kcal, grammi, togli)
+    @State private var aggiungi = false       // «Aggiungi al pasto»
+    @State private var salvato = false        // il pasto cambiato è appena finito tra «I miei pasti»
 
     var body: some View {
-        let plan = s.pianoGiorno(di, oggi: oggi)
+        // il giorno con il suo ON/OFF e i cibi cambiati di quella data (anche se non è oggi)
+        let plan = s.pianoGiorno(di)
         let m = plan.meals[si]
         let mangiato = oggi && s.mangiati().contains(si)
         VStack(spacing: 0) {
@@ -243,6 +246,7 @@ struct PastoSheet: View {
                             numero("Kcal", Int(m.tot.k), nil); numero("Prot.", Int(r0(m.tot.p)), Tema.p)
                             numero("Carbo", Int(r0(m.tot.c)), Tema.c); numero("Grassi", Int(r0(m.tot.fa)), Tema.g)
                         }
+                        if m.cambiato { differenza(m) }
                         cibi(m)
                         let come = s.piano.recipe(m.code).how
                         if !come.isEmpty { Text(come).font(.system(size: 14)).foregroundStyle(Tema.tenue).fixedSize(horizontal: false, vertical: true) }
@@ -255,16 +259,17 @@ struct PastoSheet: View {
         }
         .background(Tema.fondo.ignoresSafeArea())
         .sheet(isPresented: $fuoriAperto) { FuoriPianoSheet(si: si, esistente: s.fuoriPerFascia(si), mio: mio).foglio() }
-        .sheet(item: $esterno) { e in CiboPastoSheet(di: di, m: m, indice: e.indice, apriScanner: e.scanner).foglio() }
-        // i grammi scritti a mano: una finestrella dal basso (niente avvisi in mezzo allo schermo)
-        .sheet(isPresented: Binding(get: { rigaGrammi != nil }, set: { if !$0 { rigaGrammi = nil } })) {
-            let l = rigaGrammi.flatMap { m.lines[safe: $0] }
-            GrammiSheet(nome: l.map { s.piano.nome($0) } ?? "", unita: l.map { s.piano.unitaPeso($0.f) } ?? "g", testo: $testoGrammi) { v in
-                if let i = rigaGrammi { s.impostaGrammiCibo(di: di, m, i, grammi: v) }
-                rigaGrammi = nil
+        .sheet(item: $cibo) { c in CiboSceltaSheet(di: di, si: si, indice: c.indice).foglio() }
+        .sheet(isPresented: $aggiungi) { CiboPastoSheet(di: di, m: m, indice: nil).foglio() }
+        // debug dal PC: «cibo:3:1» apre la scelta del cibo 1, «aggiungi:3» la ricerca per aggiungere
+        .onAppear {
+            guard s.debugApri != nil else { return }
+            let tipo = s.debugTipo, n = s.debugNumeri
+            s.debugApri = nil
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                if tipo == "cibo", n.count > 1 { cibo = Scelta(indice: n[1]) }
+                if tipo == "aggiungi" { aggiungi = true }
             }
-            .presentationDetents([.height(300)])
-            .presentationBackground(Tema.fondo)
         }
     }
 
@@ -272,171 +277,114 @@ struct PastoSheet: View {
 
     // MARK: i cibi del pasto
 
-    // in lettura come sempre; con «Cambia i cibi» ogni cibo si scambia con uno equivalente (con i grammi giusti per la fascia),
-    // i grammi si cambiano con − e +, se ne aggiunge o se ne toglie uno. Kcal e macro in alto si aggiornano subito.
+    // ogni cibo si tocca: si apre la scelta (un altro con le stesse kcal, i grammi, toglierlo). In fondo «Aggiungi al pasto».
+    // I cambi valgono solo per quel giorno: il giorno dopo torna il piano. Kcal e macro in alto si aggiornano subito.
     @ViewBuilder private func cibi(_ m: MealPlan) -> some View {
+        let ricetta = s.piano.variants[m.slot]?[m.code] ?? []
         VStack(spacing: 0) {
             ForEach(Array(m.lines.enumerated()), id: \.offset) { n, l in
-                if modifica { rigaModifica(n, l, m) } else { riga(l) }
-                if n < m.lines.count - 1 { Divider().overlay(Tema.linea).padding(.leading, 42) }
+                Button { cibo = Scelta(indice: n) } label: { riga(l, segno: segno(n, l, ricetta)) }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Tocca per cambiarlo, cambiare i grammi o toglierlo")
+                Divider().overlay(Tema.linea).padding(.leading, 42)
             }
+            Button { aggiungi = true } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "plus").font(.system(size: 14, weight: .heavy)).foregroundStyle(Tema.fondo)
+                        .frame(width: 26, height: 26).background(Tema.testo, in: Circle()).frame(width: 30)
+                    Text("Aggiungi al pasto").font(.system(size: 16, weight: .semibold)).foregroundStyle(Tema.testo)
+                    Spacer()
+                }
+                .padding(.vertical, 12).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
         }
         .padding(.horizontal, 14).padding(.vertical, 4)
         .background(Tema.scheda, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        HStack(spacing: 8) {
-            if modifica {
-                aggiungi(m)
-                Button { esterno = SceltaEsterna(indice: nil, scanner: true) } label: {
-                    Image(systemName: "barcode.viewfinder").font(.system(size: 16, weight: .bold)).foregroundStyle(Tema.testo)
-                        .frame(width: 38, height: 38).background(Tema.scheda2, in: Circle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Scansiona codice a barre")
-                Button { withAnimation(.snappy(duration: 0.2)) { modifica = false } } label: {
-                    Text("Fatto").font(.system(size: 15, weight: .bold)).frame(maxWidth: .infinity)
-                }
-                .buttonStyle(PulsanteLeggero())
-            } else {
-                Button { withAnimation(.snappy(duration: 0.2)) { modifica = true } } label: {
-                    Label("Cambia i cibi", systemImage: "slider.horizontal.3").lineLimit(1).frame(maxWidth: .infinity)
-                }
-                .buttonStyle(PulsanteLeggero())
-            }
-            if m.cambiato {
-                Button { s.rimettiRicetta(di: di, m) } label: { Label("Ricetta", systemImage: "arrow.uturn.backward").lineLimit(1) }
-                    .buttonStyle(PulsanteLeggero())
-                    .accessibilityLabel("Rimetti la ricetta del piano")
-            }
-        }
         if m.cambiato {
-            Text("Cibi cambiati da te: valgono ogni \(s.piano.week[di].name.lowercased()) per questo piatto, finché non cambi piatto o rimetti la ricetta.")
-                .font(.system(size: 12)).foregroundStyle(Tema.tenue).fixedSize(horizontal: false, vertical: true)
+            HStack(alignment: .center, spacing: 8) {
+                Text("Cambiato da te solo per \(di == s.oggiIdx ? "oggi" : s.piano.week[di].name.lowercased()): poi torna il piano.")
+                    .font(.system(size: 12)).foregroundStyle(Tema.tenue).fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 4)
+                Button { s.rimettiRicetta(di: di, m); salvato = false } label: { Label("Come il piano", systemImage: "arrow.uturn.backward").lineLimit(1) }
+                    .buttonStyle(PulsanteLeggero())
+            }
+            // il pasto com'è adesso diventa uno dei tuoi pasti: lo rimetti quando vuoi da «I miei pasti»
+            Button { salvaTraIMiei(m) } label: {
+                Label(salvato ? "Salvato tra i miei pasti" : "Salva tra i miei pasti", systemImage: salvato ? "checkmark" : "star")
+                    .lineLimit(1).frame(maxWidth: .infinity)
+            }
+            .buttonStyle(PulsanteLeggero())
+            .disabled(salvato)
+        } else {
+            Text("Tocca un cibo per cambiarlo con un altro o cambiare i grammi.").font(.system(size: 12)).foregroundStyle(Tema.tenue)
         }
     }
 
-    // un cibo in lettura: icona, nome con l'aiuto in pezzi, grammi
-    private func riga(_ l: Line) -> some View {
+    // quanto il pasto cambiato si allontana dalla ricetta del piano (kcal e macro); i valori piccoli non si mostrano
+    private func differenza(_ m: MealPlan) -> some View {
+        let r = s.piano.sum(s.piano.mealLines(m.slot, m.code))
+        let dk = Int(m.tot.k - r.k)
+        let voci: [(String, Double, Color)] = [("P", m.tot.p - r.p, Tema.p), ("C", m.tot.c - r.c, Tema.c), ("G", m.tot.fa - r.fa, Tema.g)]
+        let segno = { (v: Int) in v == 0 ? "±0" : "\(v > 0 ? "+" : "−")\(abs(v))" }
+        return HStack(spacing: 10) {
+            Text("Sul piano").font(.system(size: 12, weight: .semibold)).foregroundStyle(Tema.tenue)
+            Text("\(segno(abs(dk) < 5 ? 0 : dk)) kcal").font(.system(size: 13, weight: .heavy)).monospacedDigit()
+                .foregroundStyle(abs(dk) >= 60 ? Tema.ambra : Tema.testo)
+            ForEach(voci, id: \.0) { v in
+                HStack(spacing: 4) {
+                    Circle().fill(v.2).frame(width: 6, height: 6)
+                    Text("\(v.0) \(segno(Int(r0(v.1))))").font(.system(size: 12, weight: .bold)).monospacedDigit().foregroundStyle(Tema.tenue)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12).padding(.vertical, 8)
+        .background(Tema.scheda, in: Capsule())
+        .accessibilityElement(children: .combine)
+    }
+
+    // i cibi del pasto (anche quelli trovati fuori dal piano) come voci di un pasto tuo
+    private func salvaTraIMiei(_ m: MealPlan) {
+        let voci = m.lines.map { l -> VoceCibo in
+            if let k100 = l.k100 {
+                return VoceCibo(nome: s.piano.nome(l), g: l.g, k100: k100, p100: l.p100 ?? 0, c100: l.c100 ?? 0, f100: l.f100 ?? 0, fonte: l.f)
+            }
+            let f = s.piano.foods[l.f]
+            return VoceCibo(nome: s.piano.nome(l), g: l.g, k100: f?.k ?? 0, p100: f?.p ?? 0, c100: f?.c ?? 0, f100: f?.f ?? 0, fonte: l.f)
+        }
+        _ = s.salvaMio(nome: s.piano.recipe(m.code).name, voci: voci)
+        salvato = true
+        Haptic.leggero()
+    }
+
+    // «cambiato» o «aggiunto» rispetto alla ricetta del piano (nil = com'è nel piano)
+    private func segno(_ n: Int, _ l: Line, _ ricetta: [IngredientRef]) -> String? {
+        guard let r = ricetta[safe: n] else { return "aggiunto" }
+        return r.f == l.f && r.nome == nil && abs(r.g - l.g) < 0.5 ? nil : "cambiato"
+    }
+
+    // un cibo: icona, nome con l'aiuto in pezzi, grammi; il segno se l'hai cambiato o aggiunto
+    private func riga(_ l: Line, segno: String?) -> some View {
         let aiuto = s.piano.aiuto(l)
         return HStack(spacing: 12) {
             Text(s.piano.icona(l)).font(.system(size: 22)).frame(width: 30)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(s.piano.nome(l)).font(.system(size: 16, weight: .semibold))
-                if !aiuto.isEmpty { Text(aiuto).font(.system(size: 12)).foregroundStyle(Tema.tenue) }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(s.piano.nome(l)).font(.system(size: 16, weight: .semibold)).foregroundStyle(Tema.testo).multilineTextAlignment(.leading)
+                HStack(spacing: 6) {
+                    if let segno {
+                        Text(segno.uppercased()).font(.system(size: 9, weight: .heavy)).foregroundStyle(Tema.inchiostro)
+                            .padding(.horizontal, 5).padding(.vertical, 1).background(Tema.ambra, in: Capsule())
+                    }
+                    if !aiuto.isEmpty { Text(aiuto).font(.system(size: 12)).foregroundStyle(Tema.tenue).lineLimit(1) }
+                }
             }
             Spacer()
-            Text("\(Int(l.g)) \(s.piano.unitaPeso(l.f))").font(.sport(24)).monospacedDigit()
+            Text("\(Int(l.g)) \(s.piano.unitaPeso(l.f))").font(.sport(24)).monospacedDigit().foregroundStyle(Tema.testo)
+            Image(systemName: "chevron.right").font(.system(size: 11, weight: .bold)).foregroundStyle(Tema.spento)
         }
         .padding(.vertical, 10)
-    }
-
-    // un cibo da cambiare: tocchi il nome per scambiarlo (anche con codice a barre o ricerca) o toglierlo, − e + o tocco sul numero per i grammi
-    private func rigaModifica(_ n: Int, _ l: Line, _ m: MealPlan) -> some View {
-        let alt = s.piano.alternative(l.f, l.g, slot: m.slot)
-        let passo = s.piano.passo(l.ref)
-        let togli = m.lines.count > 1
-        return HStack(spacing: 10) {
-            Menu {
-                if !alt.isEmpty {
-                    Section("Al posto di \(s.piano.nome(l).lowercased())") {
-                        ForEach(alt, id: \.f) { a in
-                            Button { s.scambiaCibo(di: di, m, n, con: a) } label: {
-                                Label { Text(s.piano.foodName(a.f)); Text("\(Int(a.g)) \(s.piano.unitaPeso(a.f)) · \(Int(s.piano.line(a.f, a.g).k)) kcal") }
-                                    icon: { Image(systemName: "arrow.left.arrow.right") }
-                            }
-                        }
-                    }
-                }
-                Section("Un altro prodotto") {
-                    Button { esterno = SceltaEsterna(indice: n, scanner: true) } label: {
-                        Label("Scansiona codice a barre", systemImage: "barcode.viewfinder")
-                    }
-                    Button { esterno = SceltaEsterna(indice: n, scanner: false) } label: {
-                        Label("Cerca o scrivi a mano…", systemImage: "magnifyingglass")
-                    }
-                }
-                if togli {
-                    Button(role: .destructive) { s.togliCibo(di: di, m, n) } label: { Label("Togli dal pasto", systemImage: "minus.circle") }
-                }
-            } label: {
-                nomeCibo(l, sotto: "Scambia")
-            }
-            Spacer(minLength: 4)
-            HStack(spacing: 6) {
-                tondo("minus", attivo: l.g > 5) { s.grammiCibo(di: di, m, n, piu: false) }
-                    .accessibilityLabel("Meno \(Int(passo)) \(s.piano.unitaPeso(l.f))")
-                Button {
-                    testoGrammi = "\(Int(l.g))"
-                    rigaGrammi = n
-                } label: {
-                    Text("\(Int(l.g))").font(.sport(22)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7).frame(minWidth: 44)
-                        .foregroundStyle(Tema.testo)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("\(Int(l.g)) \(s.piano.unitaPeso(l.f)), tocca per scrivere i grammi")
-                tondo("plus", attivo: true) { s.grammiCibo(di: di, m, n, piu: true) }
-                    .accessibilityLabel("Più \(Int(passo)) \(s.piano.unitaPeso(l.f))")
-            }
-        }
-        .padding(.vertical, 8)
-    }
-
-    private func nomeCibo(_ l: Line, sotto: String) -> some View {
-        HStack(spacing: 12) {
-            Text(s.piano.icona(l)).font(.system(size: 22)).frame(width: 30)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(s.piano.nome(l)).font(.system(size: 16, weight: .semibold)).foregroundStyle(Tema.testo)
-                    .lineLimit(1).minimumScaleFactor(0.8)
-                if !sotto.isEmpty {
-                    HStack(spacing: 3) {
-                        Text(sotto)
-                        Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold))
-                    }
-                    .font(.system(size: 12, weight: .semibold)).foregroundStyle(Tema.tenue)
-                }
-            }
-        }
         .contentShape(Rectangle())
-    }
-
-    private func tondo(_ icona: String, attivo: Bool, _ azione: @escaping () -> Void) -> some View {
-        Button(action: azione) {
-            Image(systemName: icona).font(.system(size: 13, weight: .bold))
-                .frame(width: 32, height: 32).background(Tema.scheda2, in: Circle())
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(attivo ? Tema.testo : Tema.spento)
-        .disabled(!attivo)
-    }
-
-    // aggiungi un cibo al pasto: prodotto esterno (codice a barre, Open Food Facts, a mano) o dal piano
-    private func aggiungi(_ m: MealPlan) -> some View {
-        let presenti = Set(m.lines.map(\.f))
-        return Menu {
-            Section("Prodotto esterno") {
-                Button { esterno = SceltaEsterna(indice: nil, scanner: true) } label: {
-                    Label("Scansiona codice a barre", systemImage: "barcode.viewfinder")
-                }
-                Button { esterno = SceltaEsterna(indice: nil, scanner: false) } label: {
-                    Label("Cerca o scrivi a mano…", systemImage: "magnifyingglass")
-                }
-            }
-            ForEach(categorieCibi, id: \.self) { cat in
-                let lista = s.piano.foods.values.filter { $0.cat == cat && !presenti.contains($0.id) }
-                    .sorted { s.piano.foodName($0.id) < s.piano.foodName($1.id) }
-                if !lista.isEmpty {
-                    Menu(cat) {
-                        ForEach(lista, id: \.id) { f in
-                            Button("\(s.piano.foodName(f.id)) · \(Int(s.piano.doseNuova(f.id, slot: m.slot))) \(s.piano.unitaPeso(f.id))") {
-                                s.aggiungiCibo(di: di, m, f.id)
-                            }
-                        }
-                    }
-                }
-            }
-        } label: {
-            Label("Aggiungi", systemImage: "plus").font(.system(size: 15, weight: .semibold)).foregroundStyle(Tema.testo).lineLimit(1)
-                .padding(.horizontal, 14).frame(maxWidth: .infinity, minHeight: 38).background(Tema.scheda2, in: Capsule())
-        }
     }
 
     // oggi: un pulsante grande (segna), due piccoli (cambia pasto · i miei pasti) e «Togli da oggi»
@@ -553,7 +501,156 @@ struct PastoSheet: View {
     }
 }
 
-// i grammi di un cibo scritti a mano (da «Cambia i cibi», toccando il numero)
+// un cibo del pasto toccato: un altro con le stesse kcal (come nelle tabelle di scambio del nutrizionista: 50 g di pane =
+// 95 g di Lamb Weston = 170 g di patate), i grammi con − e +, un altro prodotto (ricerca, codice a barre, a mano), toglierlo.
+// Vale solo per quel giorno.
+struct CiboSceltaSheet: View {
+    @EnvironmentObject var s: AppStore
+    @Environment(\.dismiss) private var chiudi
+    let di: Int
+    let si: Int
+    let indice: Int
+    @State private var altro = false
+    @State private var grammi = false
+    @State private var testoGrammi = ""
+
+    var body: some View {
+        let m = s.pianoGiorno(di).meals[si]
+        Group {
+            if let l = m.lines[safe: indice] { contenuto(m, l) } else { Color.clear.onAppear { chiudi() } }
+        }
+        .background(Tema.fondo.ignoresSafeArea())
+        .sheet(isPresented: $altro) { CiboPastoSheet(di: di, m: m, indice: indice).foglio() }
+        .sheet(isPresented: $grammi) {
+            GrammiSheet(nome: m.lines[safe: indice].map { s.piano.nome($0) } ?? "", unita: m.lines[safe: indice].map { s.piano.unitaPeso($0.f) } ?? "g",
+                        testo: $testoGrammi) { v in
+                s.impostaGrammiCibo(di: di, s.pianoGiorno(di).meals[si], indice, grammi: v)
+                grammi = false
+            }
+            .presentationDetents([.height(300)])
+            .presentationBackground(Tema.fondo)
+        }
+    }
+
+    private func contenuto(_ m: MealPlan, _ l: Line) -> some View {
+        let alt = s.piano.scambi(l.f, l.g, slot: m.slot)
+        let unita = s.piano.unitaPeso(l.f)
+        return VStack(spacing: 0) {
+            TestataFoglio(titolo: s.piano.nome(l), sotto: "\(Int(l.k)) kcal · P \(fmtNum(l.p)) · C \(fmtNum(l.c)) · G \(fmtNum(l.fa))", chiudi: { chiudi() })
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    // i grammi: − e + di un passo (un pezzo per i cibi a pezzi), tocco sul numero per scriverli
+                    HStack(spacing: 12) {
+                        Text(s.piano.icona(l)).font(.system(size: 26)).frame(width: 40)
+                        Spacer()
+                        tondo("minus", attivo: l.g > 5) { s.grammiCibo(di: di, m, indice, piu: false) }
+                        Button { testoGrammi = "\(Int(l.g))"; grammi = true } label: {
+                            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                                Text("\(Int(l.g))").font(.sport(40)).monospacedDigit()
+                                Text(unita).font(.system(size: 14, weight: .semibold)).foregroundStyle(Tema.tenue)
+                            }
+                            .frame(minWidth: 96)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("\(Int(l.g)) \(unita), tocca per scrivere i grammi")
+                        tondo("plus", attivo: true) { s.grammiCibo(di: di, m, indice, piu: true) }
+                    }
+                    .padding(14)
+                    .background(Tema.scheda, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+
+                    if !alt.isEmpty {
+                        VStack(alignment: .leading, spacing: 2) {
+                            TitoloFoglio(testo: "Al suo posto")
+                            Text(s.piano.notaScambio(l.f, slot: m.slot))
+                                .font(.system(size: 12)).foregroundStyle(Tema.tenue).fixedSize(horizontal: false, vertical: true)
+                        }
+                        VStack(spacing: 0) {
+                            ForEach(Array(alt.enumerated()), id: \.offset) { n, a in
+                                if n > 0 { Divider().overlay(Tema.linea).padding(.leading, 56) }
+                                alternativa(m, l, a)
+                            }
+                        }
+                        .padding(.horizontal, 14)
+                        .background(Tema.scheda, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    }
+
+                    Button { altro = true } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "magnifyingglass").font(.system(size: 15, weight: .bold)).foregroundStyle(Tema.testo)
+                                .frame(width: 34, height: 34).background(Tema.scheda2, in: Circle())
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text("Un altro cibo o prodotto").font(.system(size: 15, weight: .semibold)).foregroundStyle(Tema.testo)
+                                Text("Cerca, codice a barre o a mano").font(.system(size: 12)).foregroundStyle(Tema.tenue)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right").font(.system(size: 11, weight: .bold)).foregroundStyle(Tema.spento)
+                        }
+                        .padding(14).contentShape(Rectangle())
+                        .background(Tema.scheda, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+
+                    if m.lines.count > 1 {
+                        Button { s.togliCibo(di: di, m, indice); chiudi() } label: {
+                            Label("Togli dal pasto", systemImage: "minus.circle").font(.system(size: 15, weight: .semibold)).foregroundStyle(Tema.rosso)
+                                .frame(maxWidth: .infinity, minHeight: 40)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 20).padding(.bottom, 24)
+            }
+        }
+    }
+
+    // un cibo che può prendere il posto: icona, nome, proteine e grassi (con l'olio), grammi, olio da aggiungere o togliere,
+    // e le kcal che restano diverse (solo se l'olio del pasto non basta per pareggiare)
+    private func alternativa(_ m: MealPlan, _ l: Line, _ x: Piano.Scambio) -> some View {
+        let a = x.ref
+        let nuova = s.piano.line(a)
+        // l'olio che si può davvero togliere è quello che il pasto ha (oltre a quello del cibo cambiato)
+        let olioNelPasto = m.lines.enumerated().filter { $0.offset != indice && $0.element.f == "olio" }.reduce(0) { $0 + $1.element.g }
+        let olio = x.olio < 0 ? -min(-x.olio, olioNelPasto) : x.olio
+        let o = s.piano.line("olio", abs(olio))
+        let segno: Double = olio < 0 ? -1 : 1
+        let k = nuova.k + segno * o.k, p = nuova.p, g = nuova.fa + segno * o.fa
+        let diff = Int(k - l.k)
+        return Button { s.scambiaCibo(di: di, m, indice, con: a, olio: x.olio); Haptic.leggero(); chiudi() } label: {
+            HStack(spacing: 12) {
+                Text(s.piano.icona(a.f)).font(.system(size: 20)).frame(width: 34, height: 34).background(Tema.scheda2, in: Circle())
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(s.piano.foodName(a.f)).font(.system(size: 15, weight: .semibold)).foregroundStyle(Tema.testo).lineLimit(1).minimumScaleFactor(0.85)
+                    Text("P \(fmtNum(r1(p))) · G \(fmtNum(r1(g))) · \(Int(k)) kcal").font(.system(size: 12)).foregroundStyle(Tema.tenue).lineLimit(1)
+                }
+                Spacer(minLength: 4)
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("\(Int(a.g)) \(s.piano.unitaPeso(a.f))").font(.sport(22)).monospacedDigit().foregroundStyle(Tema.testo)
+                    if olio != 0 {
+                        Text("\(olio > 0 ? "+" : "−") \(Int(abs(olio))) g d'olio").font(.system(size: 10, weight: .bold)).foregroundStyle(Tema.testo)
+                    }
+                    if abs(diff) >= 15 {
+                        Text("\(diff > 0 ? "+" : "−")\(abs(diff)) kcal").font(.system(size: 10, weight: .bold)).foregroundStyle(Tema.ambra)
+                    }
+                }
+            }
+            .padding(.vertical, 10).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(s.piano.foodName(a.f)), \(Int(a.g)) \(s.piano.unitaPeso(a.f))" + (olio != 0 ? ", \(olio > 0 ? "più" : "meno") \(Int(abs(olio))) grammi d'olio" : "") + ", \(Int(k)) kcal")
+    }
+
+    private func tondo(_ icona: String, attivo: Bool, _ azione: @escaping () -> Void) -> some View {
+        Button(action: azione) {
+            Image(systemName: icona).font(.system(size: 15, weight: .bold))
+                .frame(width: 40, height: 40).background(Tema.scheda2, in: Circle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(attivo ? Tema.testo : Tema.spento)
+        .disabled(!attivo)
+    }
+}
+
+// i grammi di un cibo scritti a mano (dalla scelta del cibo, toccando il numero)
 struct GrammiSheet: View {
     @Environment(\.dismiss) private var chiudi
     let nome: String
@@ -805,7 +902,7 @@ struct SostituzioniView: View {
             Scheda(padding: 16) {
                 VStack(alignment: .leading, spacing: 14) {
                     regola("arrow.left.arrow.right", Tema.ambra, "Un pasto intero", "Tocca il pasto nel Piano e scegli un'alternativa della stessa fascia: tutti i piatti della fascia sono interscambiabili al 100 %.")
-                    regola("scalemass.fill", Tema.g, "Un solo alimento", "Apri un pasto e tocca «Cambia i cibi»: scambi un cibo con uno equivalente (le dosi qui sotto), cambi i grammi con − e +, ne aggiungi o ne togli uno.")
+                    regola("scalemass.fill", Tema.g, "Un solo alimento", "Apri un pasto e tocca un cibo: lo scambi con uno equivalente (stesse kcal, come qui sotto), cambi i grammi o lo togli; con «Aggiungi al pasto» ne metti un altro. Vale solo per quel giorno.")
                     regola("flame.fill", Tema.c, "Patate Lamb Weston, patate e pane", "Lo scambio nel pasto ricalcola i grammi esatti con le stesse kcal: 250 g Lamb Weston = 450 g patate = 130 g pane (giorni ON); 150 g Lamb Weston = 270 g patate = 80 g pane (giorni OFF); con gli hamburger di manzo OFF, 50 g pane = 95 g Lamb Weston = 170 g patate.")
                     regola("takeoutbag.and.cup.and.straw.fill", Tema.verde, "Panini e dopo cena", "I 2 panini di scuola hanno sempre 50 g di pan bauletto + 10 g di formaggio light + 50 g di affettato a panino (1 vaschetta da 100 g divisa in due: tacchino, pollo, cotto o bresaola). Gli spuntini del dopo cena (dolci con yogurt greco pesato o salati con fiocchi di latte / Biraghini e crackers) si scambiano liberamente.")
                 }

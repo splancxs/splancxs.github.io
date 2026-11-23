@@ -1,5 +1,5 @@
 {
- "version": "2026-11-20 piano v5.2",
+ "version": "2026-11-23 piano v5.4",
  "foods": {
   "pane_bauletto": {
    "id": "pane_bauletto",
@@ -275,29 +275,7 @@
    "f": 7,
    "src": "media etichette",
    "u": 90,
-   "note": "1 scatoletta = 90 g sgocciolati"
-  },
-  "uova": {
-   "id": "uova",
-   "n": "Uova intere",
-   "cat": "Latticini e uova",
-   "k": 128,
-   "p": 12.4,
-   "c": 0.5,
-   "f": 8.7,
-   "src": "CREA",
-   "u": 55,
-   "note": "1 uovo medio = 55 g"
-  },
-  "albume": {
-   "id": "albume",
-   "n": "Albume in brick",
-   "cat": "Latticini e uova",
-   "k": 48,
-   "p": 10.5,
-   "c": 0.7,
-   "f": 0.2,
-   "src": "media etichette"
+   "note": "1 scatoletta = 90 g sgocciolati (2 scatolette = 180 g)"
   },
   "yogurt": {
    "id": "yogurt",
@@ -472,6 +450,40 @@
    "src": "media CREA della frutta di stagione",
    "u": 170,
    "note": "1 frutto medio ≈ 170 g. Da novembre a febbraio: mele, pere, arance, mandarini/clementine, kiwi"
+  },
+  "pesto": {
+   "id": "pesto",
+   "n": "Pesto alla genovese",
+   "cat": "Condimenti e dispensa",
+   "k": 500,
+   "p": 5,
+   "c": 6,
+   "f": 50,
+   "src": "media etichette (da verificare)",
+   "note": "2 cucchiai = 30 g · il vasetto aperto dura circa una settimana in frigo"
+  },
+  "crudo": {
+   "id": "crudo",
+   "n": "Prosciutto crudo",
+   "cat": "Affettati",
+   "k": 260,
+   "p": 26,
+   "c": 0,
+   "f": 17.5,
+   "src": "CREA/etichette (stima)",
+   "u": 100,
+   "note": "1 vaschetta = 100 g (metà in una piadina): è molto salato"
+  },
+  "ketchup": {
+   "id": "ketchup",
+   "n": "Ketchup",
+   "cat": "Condimenti e dispensa",
+   "k": 100,
+   "p": 1.2,
+   "c": 23,
+   "f": 0.1,
+   "src": "media etichette",
+   "note": "1 cucchiaio = 20 g · la maionese vale molto di più: al massimo 1 cucchiaino (10 g, ~70 kcal)"
   }
  },
  "recipes": {
@@ -575,11 +587,6 @@
    "how": "Piatto freddo veloce: 1 busta intera di mozzarella light (125 g) + 1 vaschetta intera di tacchino/cotto (100 g) e pane. Con verdura a scelta. Nei giorni senza palestra niente patate né pane: al loro posto un frutto di stagione.",
    "kind": "cena"
   },
-  "C-FRITTATA": {
-   "name": "Uova e albume in padella",
-   "how": "2 uova intere e 250 g di albume cotti in padella antiaderente con l'olio, serviti con il pane. Con verdura a scelta. Nei giorni senza palestra niente patate né pane: al loro posto un frutto di stagione.",
-   "kind": "cena"
-  },
   "C-MERLUZZO": {
    "name": "Merluzzo al forno",
    "how": "Filetti di merluzzo al forno o airfryer con patate a spicchi e olio a crudo. Con verdura a scelta. Nei giorni senza palestra niente patate né pane: al loro posto un frutto di stagione.",
@@ -634,6 +641,51 @@
    "name": "Budino proteico e banana",
    "how": "1 vasetto intero di budino proteico (200 g) e 1 banana.",
    "kind": "spuntino"
+  },
+  "P-PESTOPOLLO": {
+   "name": "Pasta al pesto + petto di pollo",
+   "how": "Pasta condita con 2 cucchiai di pesto; petto di pollo alla piastra o a pezzetti in padella. Con verdura a scelta; nei giorni di palestra anche un frutto di stagione.",
+   "kind": "pranzo"
+  },
+  "P-PIADINA": {
+   "name": "Piadina con tacchino e mozzarella light",
+   "how": "2 wrap/piadine scaldate in padella con la vaschetta di tacchino, la mozzarella light a fette e la verdura dentro. Con verdura a scelta; nei giorni di palestra anche un frutto di stagione.",
+   "kind": "pranzo"
+  },
+  "C-PIADINA": {
+   "name": "Piadina con cotto e mozzarella light",
+   "how": "Cena al volo: wrap/piadina scaldata con il cotto, la mozzarella light e la verdura dentro. Nei giorni senza palestra 1 sola piadina.",
+   "kind": "cena"
+  },
+  "C-SGOMBRO": {
+   "name": "Sgombro al naturale",
+   "how": "2 scatolette di sgombro sgocciolato con patate lessate o al forno e verdura; 1 cucchiaino d'olio. Con verdura a scelta. Nei giorni senza palestra niente patate: al loro posto un frutto di stagione.",
+   "kind": "cena"
+  },
+  "P-PESTOTONNO": {
+   "name": "Pasta al pesto e tonno",
+   "how": "Pasta condita con 2 cucchiai di pesto e 3 scatolette di tonno al naturale sgocciolato; buona anche fredda. Con verdura a scelta; nei giorni di palestra anche un frutto di stagione.",
+   "kind": "pranzo"
+  },
+  "P-HAMBURGER": {
+   "name": "2 Hamburger di manzo nel panino",
+   "how": "2 hamburger alla piastra nel pane comune tagliato a metà, con la verdura dentro e un cucchiaio di ketchup. Con verdura a scelta; nei giorni di palestra anche un frutto di stagione.",
+   "kind": "pranzo"
+  },
+  "P-PIADINACRUDO": {
+   "name": "Piadina con prosciutto crudo e mozzarella light",
+   "how": "Wrap/piadina scaldata con mezza vaschetta di crudo, una mozzarella light e rucola dentro: 2 nei giorni di palestra, 1 negli altri. Con verdura a scelta; nei giorni di palestra anche un frutto di stagione.",
+   "kind": "pranzo"
+  },
+  "P-POLLOPATATE": {
+   "name": "Petto di pollo alle spezie + patate al forno",
+   "how": "Petto di pollo con spezie alla piastra o in friggitrice ad aria; patate a spicchi in forno o friggitrice ad aria con l'olio. Con verdura a scelta; nei giorni di palestra anche un frutto di stagione.",
+   "kind": "pranzo"
+  },
+  "C-BURGERPOLLOPANE": {
+   "name": "2 Hamburger di pollo nel panino",
+   "how": "2 hamburger di pollo AIA alla piastra nel pane comune, con verdura e un cucchiaio di ketchup. Nei giorni senza palestra metà pane.",
+   "kind": "cena"
   }
  },
  "variants": {
@@ -909,6 +961,138 @@
      "frutta",
      170
     ]
+   ],
+   "P-PESTOPOLLO": [
+    [
+     "pasta",
+     100
+    ],
+    [
+     "pesto",
+     30
+    ],
+    [
+     "pollo",
+     150
+    ],
+    [
+     "verdura",
+     150
+    ],
+    [
+     "frutta",
+     170
+    ]
+   ],
+   "P-PIADINA": [
+    [
+     "wrap",
+     120
+    ],
+    [
+     "tacchino_fette",
+     100
+    ],
+    [
+     "mozz_light",
+     125
+    ],
+    [
+     "verdura",
+     150
+    ],
+    [
+     "frutta",
+     170
+    ]
+   ],
+   "P-PESTOTONNO": [
+    [
+     "pasta",
+     100
+    ],
+    [
+     "pesto",
+     30
+    ],
+    [
+     "tonno",
+     168
+    ],
+    [
+     "verdura",
+     150
+    ],
+    [
+     "frutta",
+     170
+    ]
+   ],
+   "P-HAMBURGER": [
+    [
+     "hamburger",
+     200
+    ],
+    [
+     "pane_comune",
+     100
+    ],
+    [
+     "ketchup",
+     20
+    ],
+    [
+     "verdura",
+     150
+    ],
+    [
+     "frutta",
+     170
+    ]
+   ],
+   "P-PIADINACRUDO": [
+    [
+     "wrap",
+     120
+    ],
+    [
+     "crudo",
+     50
+    ],
+    [
+     "mozz_light",
+     125
+    ],
+    [
+     "verdura",
+     150
+    ],
+    [
+     "frutta",
+     170
+    ]
+   ],
+   "P-POLLOPATATE": [
+    [
+     "pollo",
+     150
+    ],
+    [
+     "patate",
+     400
+    ],
+    [
+     "olio",
+     10
+    ],
+    [
+     "verdura",
+     150
+    ],
+    [
+     "frutta",
+     170
+    ]
    ]
   },
   "pranzo_off": {
@@ -1039,6 +1223,114 @@
      "verdura",
      150
     ]
+   ],
+   "P-PESTOPOLLO": [
+    [
+     "pasta",
+     80
+    ],
+    [
+     "pesto",
+     30
+    ],
+    [
+     "pollo",
+     150
+    ],
+    [
+     "verdura",
+     150
+    ]
+   ],
+   "P-PIADINA": [
+    [
+     "wrap",
+     120
+    ],
+    [
+     "tacchino_fette",
+     100
+    ],
+    [
+     "mozz_light",
+     125
+    ],
+    [
+     "verdura",
+     150
+    ]
+   ],
+   "P-PESTOTONNO": [
+    [
+     "pasta",
+     80
+    ],
+    [
+     "pesto",
+     30
+    ],
+    [
+     "tonno",
+     168
+    ],
+    [
+     "verdura",
+     150
+    ]
+   ],
+   "P-HAMBURGER": [
+    [
+     "hamburger",
+     200
+    ],
+    [
+     "pane_comune",
+     80
+    ],
+    [
+     "ketchup",
+     20
+    ],
+    [
+     "verdura",
+     150
+    ]
+   ],
+   "P-PIADINACRUDO": [
+    [
+     "wrap",
+     60
+    ],
+    [
+     "crudo",
+     50
+    ],
+    [
+     "mozz_light",
+     125
+    ],
+    [
+     "verdura",
+     150
+    ]
+   ],
+   "P-POLLOPATATE": [
+    [
+     "pollo",
+     150
+    ],
+    [
+     "patate",
+     300
+    ],
+    [
+     "olio",
+     10
+    ],
+    [
+     "verdura",
+     150
+    ]
    ]
   },
   "cena_on": {
@@ -1150,28 +1442,6 @@
      150
     ]
    ],
-   "C-FRITTATA": [
-    [
-     "uova",
-     110
-    ],
-    [
-     "albume",
-     250
-    ],
-    [
-     "pane_comune",
-     100
-    ],
-    [
-     "olio",
-     10
-    ],
-    [
-     "verdura",
-     150
-    ]
-   ],
    "C-MERLUZZO": [
     [
      "merluzzo",
@@ -1220,6 +1490,60 @@
     [
      "olio",
      10
+    ],
+    [
+     "verdura",
+     150
+    ]
+   ],
+   "C-PIADINA": [
+    [
+     "wrap",
+     120
+    ],
+    [
+     "cotto",
+     100
+    ],
+    [
+     "mozz_light",
+     125
+    ],
+    [
+     "verdura",
+     150
+    ]
+   ],
+   "C-SGOMBRO": [
+    [
+     "sgombro",
+     180
+    ],
+    [
+     "patate",
+     350
+    ],
+    [
+     "olio",
+     5
+    ],
+    [
+     "verdura",
+     150
+    ]
+   ],
+   "C-BURGERPOLLOPANE": [
+    [
+     "hamburger_pollo",
+     200
+    ],
+    [
+     "pane_comune",
+     100
+    ],
+    [
+     "ketchup",
+     20
     ],
     [
      "verdura",
@@ -1332,28 +1656,6 @@
      170
     ]
    ],
-   "C-FRITTATA": [
-    [
-     "uova",
-     110
-    ],
-    [
-     "albume",
-     250
-    ],
-    [
-     "olio",
-     10
-    ],
-    [
-     "verdura",
-     150
-    ],
-    [
-     "frutta",
-     170
-    ]
-   ],
    "C-MERLUZZO": [
     [
      "merluzzo",
@@ -1406,6 +1708,60 @@
     [
      "frutta",
      170
+    ]
+   ],
+   "C-PIADINA": [
+    [
+     "wrap",
+     60
+    ],
+    [
+     "cotto",
+     100
+    ],
+    [
+     "mozz_light",
+     125
+    ],
+    [
+     "verdura",
+     150
+    ]
+   ],
+   "C-SGOMBRO": [
+    [
+     "sgombro",
+     180
+    ],
+    [
+     "olio",
+     5
+    ],
+    [
+     "verdura",
+     150
+    ],
+    [
+     "frutta",
+     170
+    ]
+   ],
+   "C-BURGERPOLLOPANE": [
+    [
+     "hamburger_pollo",
+     200
+    ],
+    [
+     "pane_comune",
+     50
+    ],
+    [
+     "ketchup",
+     20
+    ],
+    [
+     "verdura",
+     150
     ]
    ]
   },
@@ -1677,7 +2033,7 @@
    "pick": [
     "M1-TAC",
     "M2-TAC",
-    "P-PASTAPOLLO",
+    "P-PESTOPOLLO",
     "C-BURGERPOLLO",
     "S-YOGAVENA"
    ]
@@ -1703,7 +2059,7 @@
    "pick": [
     "M1-BRE",
     "M2-BRE",
-    "P-PASTATACCHINO",
+    "P-POLLOPATATE",
     "C-ORATA",
     "S-YOGAVENA"
    ]
@@ -1716,9 +2072,9 @@
    "pick": [
     "M1-POL",
     "M2-POL",
-    "P-RISOPOLLO",
+    "P-HAMBURGER",
     "C-MERLUZZO",
-    "S-BIRAGHINI"
+    "S-YOGAVENA"
    ]
   },
   {
@@ -1729,9 +2085,9 @@
    "pick": [
     "M1-TAC",
     "M2-TAC",
-    "P-PASTATONNO",
+    "P-PESTOTONNO",
     "C-POLLOLW",
-    "S-YOGAVENA"
+    "S-BIRAGHINI"
    ]
   },
   {
@@ -1741,9 +2097,9 @@
    "wo": null,
    "pick": [
     "B-YOGAVENA",
-    "P-WRAP",
-    "C-BURGER",
-    "S-FIOCCHICRACK"
+    "P-PIADINACRUDO",
+    "C-SGOMBRO",
+    "S-YOGAVENA"
    ]
   },
   {
@@ -1754,7 +2110,7 @@
    "pick": [
     "B-LATTE",
     null,
-    "C-MOZZAFFETTATO",
+    "C-BURGERPOLLOPANE",
     "S-YOGAVENA"
    ]
   }

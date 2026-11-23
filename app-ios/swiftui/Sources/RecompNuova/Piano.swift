@@ -313,8 +313,82 @@ extension Piano {
         return max(p, (g / p).rounded() * p)
     }
 
-    // i cibi che possono prendere il posto di questo nel pasto, con le dosi isocaloriche per quella ricetta
+    // patate, Lamb Weston e pane si scambiano a calorie uguali (il nutrizionista: «l'app calcola i grammi esatti sulle kcal»)
+    private static let aCalorie: Set<String> = ["patate", "patate_lw", "pane_comune", "pane_int"]
+
+    // la tabella di scambio del nutrizionista che vale per questo cibo in questa fascia: proteine (solo pranzo e cena),
+    // affettati, primi. Le patate e il pane no: quelli si scambiano a calorie uguali
+    private func tabellaScambio(_ fid: String, slot: String) -> Equivalent? {
+        guard !Piano.aCalorie.contains(fid) else { return nil }
+        return equivalents.first { t in
+            guard t.ref == fid || t.rows.contains(where: { $0.f == fid }) else { return false }
+            if t.title.hasPrefix("Patate") { return false }
+            if t.title.hasPrefix("Proteine") { return slot.hasPrefix("pranzo") || slot.hasPrefix("cena") }
+            return true
+        }
+    }
+
+    // come si calcolano i grammi delle alternative (la riga sotto «Al suo posto»)
+    func notaScambio(_ fid: String, slot: String) -> String {
+        let proteine = (foods[fid]?.p ?? 0) >= (foods[fid]?.c ?? 0)
+        return conOlio(slot)
+            ? "Stessi macro: \(proteine ? "le stesse proteine" : "gli stessi carboidrati"), e i grassi pareggiati con l'olio del pasto (se il pasto non ha olio da togliere, restano le kcal in più)."
+            : "\(proteine ? "Le stesse proteine" : "Gli stessi carboidrati") (i grassi possono cambiare un po')."
+    }
+
+    // nei pasti cucinati (pranzo e cena) i grassi si pareggiano con l'olio; nei panini, colazione e dopo cena no
+    func conOlio(_ slot: String) -> Bool { slot.hasPrefix("pranzo") || slot.hasPrefix("cena") }
+
+    // uno scambio a macro uguali: il cibo nuovo con i grammi che danno lo stesso macro principale (proteine per carne, pesce,
+    // latticini, affettati; carboidrati per pasta, riso, pane, patate) e l'olio da aggiungere (+) o togliere (−) nel pasto per
+    // pareggiare i grassi. Esempio: 200 g di hamburger di manzo (P 40, G 20) = 175 g di pollo + 18 g di olio
+    struct Scambio { var ref: IngredientRef; var olio: Double }
+
+    func scambi(_ fid: String, _ g: Double, slot: String) -> [Scambio] {
+        let candidati = alternative(fid, g, slot: slot)
+        guard let da = foods[fid] else { return candidati.map { Scambio(ref: $0, olio: 0) } }
+        let proteine = da.p >= da.c
+        let principaleDa = (proteine ? da.p : da.c) * g / 100
+        return candidati.map { a in
+            guard let t = foods[a.f], principaleDa > 1 else { return Scambio(ref: a, olio: 0) }
+            let perCento = proteine ? t.p : t.c
+            guard perCento > 0.5 else { return Scambio(ref: a, olio: 0) }
+            let g2 = doseVera(a.f, principaleDa / perCento * 100)
+            var olio = 0.0
+            if conOlio(slot), foods["olio"] != nil {
+                let diff = (da.f * g - t.f * g2) / 100 / 0.999   // grammi d'olio che danno la differenza di grassi
+                olio = abs(diff) < 3 ? 0 : (diff / 5).rounded() * 5
+            }
+            return Scambio(ref: IngredientRef(f: a.f, g: g2), olio: olio)
+        }
+    }
+
+    // i cibi che possono prendere il posto di questo nel pasto: dalle tabelle di scambio del nutrizionista (in proporzione
+    // ai grammi di adesso: 200 g di hamburger = 160 g di pollo = 168 g di tonno), se no a calorie uguali o porzioni normali
     func alternative(_ fid: String, _ g: Double, slot: String) -> [IngredientRef] {
+        let lista: [IngredientRef]
+        if let t = tabellaScambio(fid, slot: slot), let base = ([EquivRow(f: t.ref, g: t.g)] + t.rows).first(where: { $0.f == fid })?.g, base > 0 {
+            let r = g / base
+            lista = ([EquivRow(f: t.ref, g: t.g)] + t.rows).filter { $0.f != fid && foods[$0.f] != nil }
+                .map { IngredientRef(f: $0.f, g: doseVera($0.f, $0.g * r)) }
+        } else {
+            lista = alternativeACalorie(fid, g, slot: slot)
+        }
+        // si scambia solo dentro la stessa categoria: carne e pesce tra loro, latticini tra loro, uova tra loro
+        guard let gruppo = Piano.gruppoScambio(fid) else { return lista }
+        return lista.filter { gruppo.contains($0.f) }
+    }
+
+    // categorie di scambio (scelte dall'utente il 2026-11-20): il pollo si scambia con altra carne o pesce, mai con i
+    // latticini; la mozzarella con i fiocchi di latte. I cibi senza categoria seguono solo le tabelle del nutrizionista.
+    static let gruppiScambio: [[String]] = [
+        ["pollo", "tacchino", "hamburger_pollo", "hamburger", "tonno", "merluzzo", "orata"],   // carne e pesce
+        ["mozz_light", "fiocchi_latte", "biraghini"],                                         // latticini
+        ["uova", "albume"],                                                                   // uova
+    ]
+    static func gruppoScambio(_ fid: String) -> [String]? { gruppiScambio.first { $0.contains(fid) } }
+
+    private func alternativeACalorie(_ fid: String, _ g: Double, slot: String) -> [IngredientRef] {
         let on = fasciaOn(slot)
         let panino = slot == "m1" || slot == "m2" || slot == "colazione"
         let gCarne = slot.hasPrefix("pranzo") ? 160.0 : 200.0
@@ -380,8 +454,9 @@ extension Piano {
                 IngredientRef(f: "cotto", g: g),
                 IngredientRef(f: "bresaola", g: g),
             ]
-        case "fiocchi_latte", "biraghini":
+        case "fiocchi_latte", "biraghini", "mozz_light":
             lista = [
+                IngredientRef(f: "mozz_light", g: 125),
                 IngredientRef(f: "fiocchi_latte", g: 150),
                 IngredientRef(f: "biraghini", g: 33),
             ]

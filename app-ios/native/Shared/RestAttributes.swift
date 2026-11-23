@@ -1,6 +1,7 @@
 import ActivityKit
 import AppIntents
 import Foundation
+import os
 
 // Indirizzo con cui l'estensione (Live Activity, widget) riapre l'app: «recomp://scheda», «recomp://oggi»…
 enum IndirizzoApp {
@@ -35,6 +36,9 @@ struct EventoIsola: Codable {
     var id: String = UUID().uuidString
     var tipo: String   // "meno15", "piu15", "salta", "fatta"
     var t: Double
+    // il risultato già mostrato sull'isola: fine del recupero in ms (0 = recupero finito). L'app lo copia così com'è:
+    // ripetere lo stesso evento non cambia niente (prima +15″ poteva diventare +30″)
+    var fine: Double? = nil
 }
 
 enum CodaIsola {
@@ -43,11 +47,13 @@ enum CodaIsola {
     private static let chiave = "azioniIsola"
     private static let chiaveAck = "azioniIsolaAck"
     private static var defaults: UserDefaults { UserDefaults(suiteName: WatchShared.group) ?? .standard }
-    nonisolated(unsafe) static var eseguiDiretto: (@Sendable (String) async -> Void)?
+    nonisolated(unsafe) static var eseguiDiretto: (@Sendable (String, Double?) async -> Void)?
 
-    static func accoda(_ tipo: String) {
+    static let registro = Logger(subsystem: "io.github.splancxs.recomp", category: "isola")
+
+    static func accoda(_ tipo: String, fine: Double? = nil) {
         var lista = leggi()
-        lista.append(EventoIsola(tipo: tipo, t: Date().timeIntervalSince1970 * 1000))
+        lista.append(EventoIsola(tipo: tipo, t: Date().timeIntervalSince1970 * 1000, fine: fine))
         if let d = try? JSONEncoder().encode(Array(lista.suffix(20))) {
             defaults.set(d, forKey: chiave)
         }
@@ -81,25 +87,26 @@ enum CodaIsola {
 
     @available(iOS 16.2, *)
     static func esegui(_ tipo: String) async {
-        // Se l'intent gira già nel processo dell'app principale, aggiorna direttamente senza passaggi intermedi
+        let t0 = Date()
+        // dentro l'app: PRIMA l'isola (un solo aggiornamento, calcolato dal suo stato), poi l'app copia il risultato
+        // (allenamento, orologio, notifiche) senza far aspettare il tocco
         if let diretto = eseguiDiretto {
-            await diretto(tipo)
+            let fine = await aggiornaSubitoLive(tipo)
+            registro.notice("RECOMP isola \(tipo, privacy: .public) nell'app: isola aggiornata in \(Int(Date().timeIntervalSince(t0) * 1000)) ms")
+            Task { await diretto(tipo, fine) }
             return
         }
-        // Se gira nell'estensione, sveglia l'app principale (che fa un unico update) e attende fino a 80 ms
-        let prima = defaults.double(forKey: chiaveAck)
-        accoda(tipo)
-        for _ in 0..<16 {
-            try? await Task.sleep(nanoseconds: 5_000_000)
-            if defaults.double(forKey: chiaveAck) > prima { return }
-        }
-        // Fallback se l'app principale era chiusa
-        await aggiornaSubitoLive(tipo)
+        // nell'estensione: l'isola si aggiorna SUBITO, senza aspettare l'app (che può essere sospesa); poi l'app riceve il
+        // risultato (la nuova fine del recupero) e lo copia quando si sveglia
+        let fine = await aggiornaSubitoLive(tipo)
+        accoda(tipo, fine: fine)
+        registro.notice("RECOMP isola \(tipo, privacy: .public) nell'estensione: \(Int(Date().timeIntervalSince(t0) * 1000)) ms")
     }
 
     @available(iOS 16.2, *)
-    static func aggiornaSubitoLive(_ tipo: String) async {
-        guard let a = Activity<RestAttributes>.activities.first(where: { $0.activityState == .active }) else { return }
+    @discardableResult
+    static func aggiornaSubitoLive(_ tipo: String) async -> Double? {
+        guard let a = Activity<RestAttributes>.activities.first(where: { $0.activityState == .active }) else { return nil }
         var s = a.content.state
         let ora = Date()
         switch tipo {
@@ -151,6 +158,8 @@ enum CodaIsola {
         default:
             break
         }
+        guard tipo != "fatta" else { return nil }
+        return s.mode == "go" ? 0 : s.end.timeIntervalSince1970 * 1000
     }
 }
 

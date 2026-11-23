@@ -1,0 +1,33 @@
+# Giro di controllo di Recomp (debug.sh giro): una riga per screenshot, in MODALITÀ PROVA (copia dei dati).
+# nome|azioni|schermata|scorri (punti verso il basso) — azioni e schermate sono in app-ios/swiftui/Sources/RecompNuova/Registro.swift
+01_oggi||oggi|
+02_oggi_giu||oggi|700
+03_oggi_fondo||oggi|1500
+04_piano||piano|
+05_piano_giu||piano|800
+06_spesa||spesa|
+07_scambi||scambi|
+08_miei||miei|
+09_progressi||progressi|
+10_ritmo||progressi|330
+11_progressi_giu||progressi|900
+12_profilo||profilo|
+13_profilo_giu||profilo|900
+14_scheda||scheda|
+15_storico||storico|
+16_numeri||numeri|
+17_dettaglio||dettaglio|
+18_settimana||settimana|
+19_coach||coach|
+# cibi del pasto: scelta con gli scambi a macro uguali (olio), pasto cambiato (differenza sul piano, salva tra i miei)
+20_cibo_scelta||cibo:3:0|
+21_cibi_cambiati|aggiungi:3:parmigiano;scambia:3:0:pollo;grammi:3:1:+|pasto:3|
+23_cibi_oggi|aggiungi:3:parmigiano;scambia:3:0:pollo;mangiato:0;mangiato:1;mangiato:3|oggi|
+24_fuori||fuori:3|
+25_on_pane|onoff:on|cibo:3:1|
+26_on_pane_scambiato|onoff:on;scambia:3:1:patate_lw|pasto:3|
+# allenamento: inizio, serie, in fondo, riepilogo finale con gli esercizi fatti
+27_allen_inizio|avvia:TA|scheda|
+28_allen_serie|avvia:TA;kg:0:0:60;serie:0:0|scheda|
+29_allen_giu|avvia:TA;serie:0:0;serie:0:1;salta|scheda|700
+30_allen_fine|avvia:TA;serie:0:0;serie:0:1;serie:1:0;salta;finisci|scheda|

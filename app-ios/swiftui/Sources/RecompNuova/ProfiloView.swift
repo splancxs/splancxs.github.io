@@ -12,7 +12,7 @@ struct ProfiloView: View {
     // promemoria: chiave, icona, colore, titolo, sottotitolo
     private let promemoria: [(String, String, Color, String, String)] = [
         ("merenda", "takeoutbag.and.cup.and.straw.fill", Tema.ambra, "Panini di domani", "Alle 21:00, con gli ingredienti in grammi"),
-        ("peso", "scalemass.fill", Tema.verde, "Pesata", "Al mattino, a digiuno"),
+        ("peso", "scalemass.fill", Tema.verde, "Pesata", "Al mattino, se non ti pesi da 3 giorni"),
         ("palestra", "dumbbell.fill", Tema.rosso, "Palestra", "Alle 16:00 nei giorni ON"),
         ("creatina", "pills.fill", Tema.g, "Creatina", "Se non l'hai ancora segnata"),
         ("riepilogo", "chart.bar.fill", Color(hex: 0x9B7BFF), "Riepilogo della domenica", "Alle 20:00, la settimana in numeri"),

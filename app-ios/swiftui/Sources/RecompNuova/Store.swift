@@ -14,7 +14,16 @@ final class AppStore: ObservableObject {
     @Published var mostraRiepilogo: Workout?   // allenamento appena finito
     @Published var mostraSettimana = false      // riepilogo della settimana (dalla notifica della domenica)
     @Published var mostraCoach = false          // la chat del coach in Oggi (anche da una sua notifica)
+    @Published var debugApri: String?           // finestra da aprire per il debug dal PC (Registro.swift)
+    @Published var debugSezionePiano: Int?      // debug: sezione del Piano da aprire (0 settimana · 1 spesa · 2 scambi · 3 i miei)
+    @Published var debugSezioneScheda: Int?     // debug: Scheda (1 storico · 2 numeri · 3 dettaglio dell'ultimo allenamento)
     @Published var timerSerie: TimerTempo?      // timer di un esercizio a tempo (plank) in corso
+
+    // modalità prova (debug dal PC, «debug.ps1 prova …»): l'app lavora su una copia dei dati (dati-prova.json) e non
+    // scrive in Salute, non manda niente all'orologio, niente notifiche né Live Activity. I dati veri restano intatti.
+    nonisolated static let inProva = ProcessInfo.processInfo.environment["RECOMP_PROVA"] == "1"
+    // prova della Dynamic Island («debug.ps1 isola»): in prova la Live Activity si accende lo stesso
+    nonisolated static let liveInProva = inProva && ProcessInfo.processInfo.environment["RECOMP_LIVE"] == "1"
 
     private let file: URL
     private var salvataggio: DispatchWorkItem?
@@ -22,15 +31,37 @@ final class AppStore: ObservableObject {
     private init() {
         let cartella = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Recomp", isDirectory: true)
         try? FileManager.default.createDirectory(at: cartella, withIntermediateDirectories: true)
-        file = cartella.appendingPathComponent("dati.json")
-        if let data = try? Data(contentsOf: file), let letto = try? JSONDecoder().decode(AppData.self, from: data) { d = letto } else { d = AppData() }
+        let veri = cartella.appendingPathComponent("dati.json")
+        file = AppStore.inProva ? cartella.appendingPathComponent("dati-prova.json") : veri
+        // in prova si parte sempre dalla copia fresca dei dati veri
+        if let data = try? Data(contentsOf: veri), let letto = try? JSONDecoder().decode(AppData.self, from: data) { d = letto } else { d = AppData() }
+        if AppStore.inProva { d.salute = false; Registro.evento("MODALITÀ PROVA: copia dei dati, niente Salute, orologio e notifiche") }
         if !d.superserie {
             for w in piano.workouts { for e in w.ex { if let sup = e.sup, !sup.isEmpty { let k = "\(w.id):\(sup.dropLast())"; if !d.supSpente.contains(k) { d.supSpente.append(k) } } } }
             d.superserie = true
         }
         allineaPiano()
         allineaAllenamentoOggi()
+        pulisciCibiPasto()
     }
+
+    // i cibi cambiati a mano valgono solo per il loro giorno (chiave «2026-11-20:3»): le chiavi vecchie «giorno della
+    // settimana:fascia» (valevano ogni settimana) e quelle di più di 60 giorni fa si tolgono
+    private func pulisciCibiPasto() {
+        let limite = Cal.key(Cal.giorni(-60, da: Date()))
+        d.cibiPasto = d.cibiPasto.filter { k, _ in
+            let data = k.split(separator: ":").first.map(String.init) ?? ""
+            return data.count == 10 && data >= limite
+        }
+    }
+
+    // i cibi cambiati di quel giorno, con le chiavi «giorno della settimana:fascia» che usa Piano.dayPlan
+    private func cibiDelGiorno(_ key: String, di: Int) -> [String: CibiPasto] {
+        var out: [String: CibiPasto] = [:]
+        for (k, v) in d.cibiPasto where k.hasPrefix(key + ":") { out["\(di):\(k.dropFirst(key.count + 1))"] = v }
+        return out
+    }
+    private func chiaveCibi(_ di: Int, _ si: Int) -> String { "\(chiaveGiorno(di)):\(si)" }
 
     // se oggi (giorno OFF di base) hai già registrato o avviato un allenamento e non hai ancora toccato lo switch ON/OFF, passa a ON
     private func allineaAllenamentoOggi() {
@@ -83,7 +114,7 @@ final class AppStore: ObservableObject {
         let di = Cal.dayIdx(Cal.date(key))
         var conv: Conv?
         if let o = ov(key), let t = o.type, !t.isEmpty { conv = Conv(type: t == "ON" ? "ON" : "OFF_S", keep: o.keep ?? []) }
-        return piano.dayPlan(di, conv: conv, swaps: d.swaps, cibi: d.cibiPasto)
+        return piano.dayPlan(di, conv: conv, swaps: d.swaps, cibi: cibiDelGiorno(key, di: di))
     }
 
     // il piano del giorno di questa settimana (tiene conto se la giornata è stata passata a ON o OFF)
@@ -92,7 +123,7 @@ final class AppStore: ObservableObject {
         if oggi, let o = ov(chiaveGiorno(di)), let t = o.type, !t.isEmpty {
             conv = Conv(type: t == "ON" ? "ON" : "OFF_S", keep: o.keep ?? [])
         }
-        return piano.dayPlan(di, conv: conv, swaps: d.swaps, cibi: d.cibiPasto)
+        return piano.dayPlan(di, conv: conv, swaps: d.swaps, cibi: cibiDelGiorno(chiaveGiorno(di), di: di))
     }
     var pianoOggi: DayPlan { pianoGiorno(oggiIdx) }
 
@@ -148,13 +179,13 @@ final class AppStore: ObservableObject {
         let k = "\(di):\(si)"
         let m = (di == oggiIdx ? pianoOggi : pianoGiorno(di)).meals[si]
         if codice == m.def { d.swaps.removeValue(forKey: k) } else { d.swaps[k] = codice }
-        d.cibiPasto.removeValue(forKey: k)
+        d.cibiPasto.removeValue(forKey: chiaveCibi(di, si))
         Haptic.leggero()
         if d.promemoria["merenda"] == true { riprogrammaPromemoria() }   // il promemoria della sera dice le merende giuste
     }
     func ripristinaGiorno(_ di: Int) {
         d.swaps = d.swaps.filter { !$0.key.hasPrefix("\(di):") }
-        d.cibiPasto = d.cibiPasto.filter { !$0.key.hasPrefix("\(di):") }
+        d.cibiPasto = d.cibiPasto.filter { !$0.key.hasPrefix(chiaveGiorno(di) + ":") }
         d.dayov.removeValue(forKey: chiaveGiorno(di))
         if d.promemoria["merenda"] == true { riprogrammaPromemoria() }
     }
@@ -166,20 +197,24 @@ final class AppStore: ObservableObject {
 
     // MARK: i cibi di un pasto
 
-    // si parte dai cibi che il pasto ha adesso (la ricetta o quelli già cambiati) e si salva la lista nuova;
-    // se torna uguale alla ricetta del piano, non resta niente di cambiato
+    // si parte dai cibi che il pasto ha adesso (la ricetta o quelli già cambiati) e si salva la lista nuova, solo per
+    // quel giorno (domani torna il piano); se torna uguale alla ricetta del piano, non resta niente di cambiato
     private func cambiaCibi(_ di: Int, _ m: MealPlan, _ cambia: (inout [IngredientRef]) -> Void) {
         guard !m.free else { return }
         var cibi = m.lines.map(\.ref)
         cambia(&cibi)
-        let k = "\(di):\(m.si)"
+        let k = chiaveCibi(di, m.si)
         if cibi.isEmpty || cibi == piano.variants[m.slot]?[m.code] { d.cibiPasto.removeValue(forKey: k) }
         else { d.cibiPasto[k] = CibiPasto(slot: m.slot, piatto: m.code, cibi: cibi) }
+        Registro.evento("cibi del pasto \(k): " + cibi.map { "\($0.f) \(Int($0.g))" }.joined(separator: ", "))
+        // pasto di oggi già segnato: in Salute vanno i numeri nuovi (stesso identificativo, sostituisce quello di prima)
+        if di == oggiIdx && mangiati().contains(m.si) { pastoInSalute(si: m.si, mangiato: true) }
         Haptic.leggero()
         if d.promemoria["merenda"] == true { riprogrammaPromemoria() }   // i panini di domani con i cibi giusti
     }
     // un cibo al posto di un altro (se c'è già nel pasto, si sommano i grammi; se rimetti il cibo della ricetta, torna ai grammi esatti della ricetta)
-    func scambiaCibo(di: Int, _ m: MealPlan, _ i: Int, con nuovo: IngredientRef) {
+    // olio: grammi d'olio da aggiungere (+) o togliere (−) nel pasto per pareggiare i grassi (scambio a macro uguali)
+    func scambiaCibo(di: Int, _ m: MealPlan, _ i: Int, con nuovo: IngredientRef, olio: Double = 0) {
         cambiaCibi(di, m) { c in
             guard c.indices.contains(i) else { return }
             var ref = nuovo
@@ -191,6 +226,14 @@ final class AppStore: ObservableObject {
                 c[j].g += ref.g
                 c.remove(at: i)
             } else { c[i] = ref }
+            // l'olio del pasto sale o scende; se non basta da togliere, resta la differenza (si vede nelle kcal)
+            guard olio != 0, ref.f != "olio" else { return }
+            if let j = c.firstIndex(where: { $0.f == "olio" && $0.nome == nil }) {
+                let g = c[j].g + olio
+                if g < 3 { c.remove(at: j) } else { c[j].g = g }
+            } else if olio > 0 {
+                c.append(IngredientRef(f: "olio", g: olio))
+            }
         }
     }
     func grammiCibo(di: Int, _ m: MealPlan, _ i: Int, piu: Bool) {
@@ -243,7 +286,7 @@ final class AppStore: ObservableObject {
         return Array(out.prefix(8))
     }
     func rimettiRicetta(di: Int, _ m: MealPlan) {
-        d.cibiPasto.removeValue(forKey: "\(di):\(m.si)")
+        d.cibiPasto.removeValue(forKey: chiaveCibi(di, m.si))
         Haptic.leggero()
         if d.promemoria["merenda"] == true { riprogrammaPromemoria() }
     }

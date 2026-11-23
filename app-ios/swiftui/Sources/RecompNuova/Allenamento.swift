@@ -281,8 +281,23 @@ extension AppStore {
     }
 
     // applica un pulsante toccato nella Dynamic Island o nella schermata di blocco (−15″, +15″, Salta, Serie fatta)
-    func eseguiAzioneIsola(_ tipo: String) {
+    // fine: il risultato già mostrato sull'isola dall'estensione (fine del recupero in ms, 0 = finito): si copia così com'è
+    func eseguiAzioneIsola(_ tipo: String, fine: Double? = nil) {
         guard let a = d.active else { return }
+        if let fine, tipo != "fatta" {
+            var b = a
+            if fine > Cal.ms() {
+                if b.restEnd <= Cal.ms() { b.restStart = Cal.ms() }
+                b.restEnd = fine
+            } else {
+                b.restEnd = 0
+            }
+            b.restRv = Cal.ms()
+            d.active = b
+            aggiornaRecuperoEsterno()
+            Registro.evento("isola \(tipo) dall'estensione: recupero " + (fine > Cal.ms() ? "ancora \(Int((fine - Cal.ms()) / 1000)) s" : "finito"))
+            return
+        }
         switch tipo {
         case "meno15":
             if a.restEnd - 15_000 <= Cal.ms() + 500 {
@@ -313,19 +328,19 @@ extension AppStore {
     // applica eventuali azioni accodate nel gruppo condiviso (−15″, +15″, Salta, Serie fatta)
     func processaAzioniIsola() {
         let eventi = CodaIsola.leggiESvuota()
-        for ev in eventi { eseguiAzioneIsola(ev.tipo) }
+        for ev in eventi { eseguiAzioneIsola(ev.tipo, fine: ev.fine) }
     }
 
-    func eseguiAzioneIsolaSubito(_ tipo: String) async {
-        eseguiAzioneIsola(tipo)
-        await RecuperoLive.attendiUltimoUpdate()
+    // l'isola è già aggiornata (CodaIsola.esegui): qui l'app copia il risultato. Senza isola attiva (fine nil) fa il conto lei.
+    func eseguiAzioneIsolaSubito(_ tipo: String, fine: Double?) async {
+        eseguiAzioneIsola(tipo, fine: fine)
         CodaIsola.segnaCompletato()
     }
 
     func processaAzioniIsolaSubito() async {
         let eventi = CodaIsola.leggiESvuota()
         guard !eventi.isEmpty else { return }
-        for ev in eventi { eseguiAzioneIsola(ev.tipo) }
+        for ev in eventi { eseguiAzioneIsola(ev.tipo, fine: ev.fine) }
         await RecuperoLive.attendiUltimoUpdate()
         CodaIsola.segnaCompletato()
     }
@@ -511,7 +526,7 @@ enum RecuperoLive {
     static func avvia(inizio: Date, fine: Date, esercizio: String, dettaglio: String, allenamento: String,
                       modo: String? = nil, fatte: Int? = nil, totali: Int? = nil,
                       restSec: Int? = nil, nextEx: String? = nil, nextDet: String? = nil) {
-        guard #available(iOS 16.2, *), ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+        guard #available(iOS 16.2, *), !AppStore.inProva || AppStore.liveInProva, ActivityAuthorizationInfo().areActivitiesEnabled else { return }
         programmaFine(modo == "go" ? nil : fine)
         let stato = RestAttributes.ContentState(start: min(inizio, fine), end: fine, exercise: esercizio, detail: dettaglio,
                                                 mode: modo, done: fatte, total: totali,
@@ -524,6 +539,13 @@ enum RecuperoLive {
         ultimo = chiave
         taskInCorso = Task {
             if let a = aperte.first(where: { $0.attributes.workout == allenamento && $0.activityState == .active }) {
+                // l'isola mostra già questo (l'ha appena aggiornata il tocco su −15″, +15″, Salta): niente secondo
+                // aggiornamento. Ogni aggiornamento fa ridisegnare all'estensione ~96 versioni dell'isola (~0,8 s)
+                let c = a.content.state
+                if abs(c.end.timeIntervalSince(stato.end)) < 1, c.mode == stato.mode, c.exercise == stato.exercise,
+                   c.detail == stato.detail, c.done == stato.done, c.total == stato.total {
+                    return
+                }
                 await a.update(contenuto)
                 for b in aperte where b.id != a.id { await b.end(nil, dismissalPolicy: .immediate) }
                 return
@@ -534,7 +556,7 @@ enum RecuperoLive {
         }
     }
     static func termina() {
-        guard #available(iOS 16.2, *) else { return }
+        guard #available(iOS 16.2, *), !AppStore.inProva || AppStore.liveInProva else { return }
         timerFine?.invalidate()
         timerFine = nil
         chiudiBg()
@@ -553,6 +575,7 @@ enum Notifiche {
         }
     }
     static func recupero(fine: Date, testo: String) {
+        guard !AppStore.inProva else { return }
         let c = UNUserNotificationCenter.current()
         c.removePendingNotificationRequests(withIdentifiers: ["recupero"])
         let t = fine.timeIntervalSinceNow
@@ -568,6 +591,7 @@ enum Notifiche {
     }
     // fine del timer di un esercizio a tempo, se il telefono è bloccato
     static func tempo(fine: Date, testo: String) {
+        guard !AppStore.inProva else { return }
         let c = UNUserNotificationCenter.current()
         let t = fine.timeIntervalSinceNow
         guard t > 1 else { return }

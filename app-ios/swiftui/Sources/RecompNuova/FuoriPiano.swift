@@ -805,7 +805,8 @@ struct CiboPastoSheet: View {
         .onAppear {
             guard !avviato else { return }
             avviato = true
-            if apriScanner { scanner = true } else { scrivendo = true }
+            // aggiungendo si vedono subito le scorciatoie (niente tastiera sopra); sostituendo si scrive subito
+            if apriScanner { scanner = true } else if indice != nil { scrivendo = true }
         }
     }
 
@@ -834,8 +835,30 @@ struct CiboPastoSheet: View {
         .buttonStyle(.plain).accessibilityLabel(nome)
     }
 
+    // i cibi del piano che si aggiungono più spesso a un pasto (con la dose che il piano usa di solito)
+    private let dalPianoSpesso = ["parmigiano", "frutta", "banana", "mela", "verdura", "crackers", "biraghini", "yogurt", "budino", "mandorle", "olio"]
+
     @ViewBuilder private var scorciatoie: some View {
         let recenti = s.cibiEsterniRecenti()
+        if indice == nil {
+            let presenti = Set(m.lines.map(\.f))
+            let spesso = dalPianoSpesso.filter { s.piano.foods[$0] != nil && !presenti.contains($0) }
+            if !spesso.isEmpty {
+                VStack(alignment: .leading, spacing: 0) {
+                    etichetta("Dal tuo piano")
+                    ForEach(spesso, id: \.self) { id in
+                        let g = s.piano.doseNuova(id, slot: m.slot)
+                        Button { scegli(IngredientRef(f: id, g: g)) } label: {
+                            rigaRisultato(Text(s.piano.icona(id)).font(.system(size: 18)), s.piano.foodName(id),
+                                          "\(Int(g)) \(s.piano.unitaPeso(id)) · \(Int(s.piano.line(id, g).k)) kcal", nil)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.bottom, 6)
+                .background(Tema.scheda, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            }
+        }
         if !recenti.isEmpty {
             VStack(alignment: .leading, spacing: 0) {
                 etichetta("Usati di recente")
@@ -854,8 +877,8 @@ struct CiboPastoSheet: View {
             .background(Tema.scheda, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
         VStack(alignment: .leading, spacing: 0) {
-            etichetta("Fuori casa · valori medi")
-            ForEach(CibiFuori.rapidi.compactMap(CibiFuori.cibo), id: \.id) { c in
+            etichetta(indice == nil ? "Snack e bibite · valori medi" : "Fuori casa · valori medi")
+            ForEach((indice == nil ? CibiFuori.snack : CibiFuori.rapidi).compactMap(CibiFuori.cibo), id: \.id) { c in
                 Button { scegliFuori(c) } label: {
                     rigaRisultato(Text(c.icona).font(.system(size: 18)), c.nome, "\(c.quanto) · \(Int(c.porzione)) g · \(Int(c.k * c.porzione / 100)) kcal", nil)
                 }

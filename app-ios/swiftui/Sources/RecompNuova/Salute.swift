@@ -191,9 +191,13 @@ final class Salute {
                 .map { (Cal.key($0.startDate), $0.quantity.doubleValue(for: chilo), $0.startDate.timeIntervalSince1970 * 1000) }
             DispatchQueue.main.async {
                 let s = AppStore.shared
+                var nuove = false
                 for (giorno, kg, t) in voci where !s.d.weights.contains(where: { $0.d == giorno }) {
                     s.d.weights.append(WeightEntry(d: giorno, kg: (kg * 100).rounded() / 100, w: nil, t: t))
+                    nuove = true
                 }
+                // una pesata nuova da Salute sposta il promemoria della pesata (arriva dopo 3 giorni senza)
+                if nuove && s.d.promemoria["peso"] == true { s.riprogrammaPromemoria() }
             }
         }
         store.execute(q)

@@ -16,6 +16,8 @@ Uso:  python applica-patch.py /percorso/di/xtool-src      poi:  swift build -c r
     dell'app principale), e con XTOOL_KEEP_SIGNED=<cartella> salva una copia dell'app firmata (serve per installare
     l'app Watch direttamente sull'orologio).
  6. I gruppi condivisi (App Groups) sono ammessi anche sui team gratuiti: la complicazione legge da lì i dati dell'app Watch.
+ 7. Firma senza Apple (XTOOL_OFFLINE=<cartella>): se l'accesso ai server di Apple non va, firma con il certificato salvato
+    e i profili dell'ultima app firmata, finché valgono (la scadenza resta quella dell'ultimo rinnovo).
 """
 import sys
 from pathlib import Path
@@ -185,6 +187,84 @@ patch("Sources/XKit/Signer/AutoSigner.swift", "XTOOL_KEEP_SIGNED", [(
 # 6 ─ i gruppi condivisi (App Groups) ammessi sui team gratuiti (la complicazione legge i dati dell'app Watch da lì)
 patch("Sources/XKit/DeveloperServices/App IDs/Entitlements/DeveloperServicesCapability.swift", "appGroups, isFree: true", [(
     "DeveloperServicesCapability(.appGroups, isFree: false)", "DeveloperServicesCapability(.appGroups, isFree: true)")])
+
+# 7 ─ firma senza Apple (XTOOL_OFFLINE=<cartella dell'ultima app firmata>): quando l'accesso ai server di Apple non va,
+#     riusa il certificato salvato da xtool e i profili dell'ultima app firmata (stessi identificativi), finché valgono
+patch("Sources/XKit/DeveloperServices/DeveloperServicesProvisioningOperation.swift", "XTOOL_OFFLINE", [(
+    "import Foundation\n", "import Foundation\nimport Dependencies\n"), (
+    """    public func perform() async throws -> Response {
+        progress(0/3)""",
+    """    // Recomp: firma senza passare dai server di Apple. XTOOL_OFFLINE è la cartella con l'app firmata l'ultima volta:
+    // si riusano il certificato salvato da xtool e i profili di quell'app (stessi identificativi), finché non scadono.
+    @Dependency(\\.signingInfoManager) var signingInfoManager
+
+    struct OfflineError: LocalizedError {
+        let errorDescription: String?
+        init(_ testo: String) { errorDescription = testo }
+    }
+
+    private func bundles(_ root: URL) -> [URL] {
+        var apps: [URL] = [root]
+        for pluginsDir in ["PlugIns", "Extensions"] {
+            let plugins = root.appendingPathComponent(pluginsDir)
+            guard plugins.dirExists else { continue }
+            apps += plugins.implicitContents.filter { $0.pathExtension.lowercased() == "appex" }
+        }
+        let watchDir = root.appendingPathComponent("Watch")
+        if watchDir.dirExists {
+            for watchApp in watchDir.implicitContents where watchApp.pathExtension.lowercased() == "app" {
+                apps.append(watchApp)
+                let watchPlugins = watchApp.appendingPathComponent("PlugIns")
+                if watchPlugins.dirExists {
+                    apps += watchPlugins.implicitContents.filter { $0.pathExtension.lowercased() == "appex" }
+                }
+            }
+        }
+        return apps
+    }
+
+    private func performOffline(previous: URL) async throws -> Response {
+        guard let signingInfo = signingInfoManager[context.auth.identityID] else {
+            throw OfflineError("Firma senza Apple: non trovo il certificato salvato da xtool.")
+        }
+        let serial = signingInfo.certificate.serialNumber()
+        var dict: [URL: ProvisioningInfo] = [:]
+        for bundle in bundles(app) {
+            let rel = String(bundle.standardizedFileURL.path.dropFirst(app.standardizedFileURL.path.count))
+            let nome = rel.isEmpty ? "app" : rel
+            let old = previous.appendingPathComponent(rel)
+            guard let profData = try? Data(contentsOf: old.appendingPathComponent("embedded.mobileprovision")) else {
+                throw OfflineError("Firma senza Apple: manca il profilo di \\(nome) nell'ultima app firmata.")
+            }
+            let profile = try Mobileprovision(data: profData)
+            let digest = try profile.digest()
+            guard digest.expirationDate > Date() else {
+                throw OfflineError("Firma senza Apple: il profilo di \\(nome) è scaduto.")
+            }
+            guard digest.certificates.contains(where: { $0.serialNumber() == serial }) else {
+                throw OfflineError("Firma senza Apple: il profilo di \\(nome) non è del certificato salvato.")
+            }
+            // identificativo e permessi: quelli con cui il bundle era firmato l'ultima volta
+            guard let infoData = try? Data(contentsOf: old.appendingPathComponent("Info.plist")),
+                let info = try? PropertyListSerialization.propertyList(from: infoData, format: nil) as? [String: Any],
+                let bundleID = info["CFBundleIdentifier"] as? String,
+                let executable = info["CFBundleExecutable"] as? String else {
+                throw OfflineError("Firma senza Apple: non leggo Info.plist di \\(nome).")
+            }
+            let entsData = try await context.signer.analyze(executable: old.appendingPathComponent(executable))
+            let entitlements = try PropertyListDecoder().decode(Entitlements.self, from: entsData)
+            try? FileManager.default.removeItem(at: bundle.appendingPathComponent("xtool-entitlements.plist"))
+            dict[bundle] = ProvisioningInfo(newBundleID: bundleID, entitlements: entitlements, mobileprovision: profile)
+        }
+        return .init(signingInfo: signingInfo, provisioningDict: dict)
+    }
+
+    public func perform() async throws -> Response {
+        if let previous = ProcessInfo.processInfo.environment["XTOOL_OFFLINE"], !previous.isEmpty {
+            let old = URL(fileURLWithPath: previous, isDirectory: true).appendingPathComponent(app.lastPathComponent)
+            return try await performOffline(previous: old)
+        }
+        progress(0/3)""")])
 
 # 5b ─ il firmatario in C++ (zsign, scaricato da SwiftPM in .build/checkouts): una risorsa di firma per ogni parte
 zup = R / ".build/checkouts/zsign/src/lib/Zupersign.cpp"

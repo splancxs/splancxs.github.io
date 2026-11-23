@@ -179,10 +179,18 @@ struct Anello: View {
 // pagina con titolo grande a sinistra e contenuto che scorre
 struct Pagina<Content: View>: View {
     @ViewBuilder var contenuto: Content
+    @State private var posizione = ScrollPosition(edge: .top)
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) { contenuto }
                 .padding(.horizontal, 20).padding(.top, 2).padding(.bottom, 24)
+        }
+        .scrollPosition($posizione)
+        // debug dal PC (modalità prova): RECOMP_SCORRI=800 fa scorrere la pagina di 800 punti, per gli screenshot più in basso
+        .task {
+            guard AppStore.inProva, let y = ProcessInfo.processInfo.environment["RECOMP_SCORRI"].flatMap(Double.init) else { return }
+            try? await Task.sleep(nanoseconds: 1_200_000_000)
+            withAnimation { posizione.scrollTo(y: y) }
         }
         .scrollIndicators(.hidden)
         .background(Tema.fondo.ignoresSafeArea())

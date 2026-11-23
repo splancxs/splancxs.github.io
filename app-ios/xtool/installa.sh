@@ -3,6 +3,7 @@
 # dentro WSL, con xtool e l'Apple ID gratuito. La firma gratuita dura 7 giorni: per rinnovarla basta rilanciarlo.
 #
 #   installa.sh            compila quello che è cambiato e installa iPhone + orologio
+#   installa.sh iphone     solo l'iPhone, per le prove veloci (con debug.sh): l'orologio resta scollegato fino al prossimo «tutto»
 #   installa.sh orologio   rifà solo l'installazione sull'orologio, con l'app già pronta dall'ultima volta
 #   installa.sh compila    compila senza installare (senza telefono): per controllare che il codice compili
 #
@@ -15,7 +16,7 @@ REPO="$(cd "$QUI/../.." && pwd)"
 . "$QUI/config.sh"
 . "$HOME/.local/share/swiftly/env.sh"
 COSA="${1:-tutto}"
-case "$COSA" in tutto|orologio|compila) ;; *) echo "Uso: installa.sh [orologio|compila]"; exit 1 ;; esac
+case "$COSA" in tutto|iphone|orologio|compila) ;; *) echo "Uso: installa.sh [iphone|orologio|compila]"; exit 1 ;; esac
 export PHONE_ID=io.github.splancxs.recomp.prova   # identificativo dell'app (xtool con l'Apple ID gratuito aggiunge «XTL-…»)
 
 P="$LAVORO/RecompNuova"          # il progetto copiato dentro Linux: lì si compila molto più in fretta che da /mnt/c
@@ -26,6 +27,14 @@ N="$REPO/app-ios/native"
 
 if [ "$COSA" != compila ]; then
   pkill usbmuxd 2>/dev/null || true
+  # il tunnel del debug (debug.sh prepara) blocca l'installazione al 98%: si ferma qui, poi si rifà «debug.sh prepara»
+  if pgrep -f "pymobiledevice3 remote tunneld" >/dev/null; then
+    # Recomp aperta sull'iPhone (spesso lanciata dal debug) blocca l'installazione al 98%: la chiudo prima
+    timeout 20 "$PMD" -m pymobiledevice3 developer dvt pkill --tunnel '' RecompNuova >/dev/null 2>&1 || true
+    pkill -f "pymobiledevice3 remote tunneld" || true
+    echo "Ho fermato il tunnel del debug: dopo l'installazione rilancia «debug.ps1 prepara»."
+    sleep 2
+  fi
   if [ "$(wslinfo --networking-mode 2>/dev/null || true)" = mirrored ]; then
     export USBMUXD_SOCKET_ADDRESS="127.0.0.1:27015"
   else
@@ -41,18 +50,44 @@ if [ "$COSA" != compila ]; then
     exit 1
   fi
   # prima di toccare l'app, i backup automatici dell'iPhone passano sul PC (se in config.sh c'è BACKUP_DIR)
+  # (per le prove veloci, «iphone», si salta se l'ultima copia ha meno di 6 ore)
+  TIMBRO="$LAVORO/ultimo-backup"
   if [ -n "${BACKUP_DIR:-}" ]; then
-    "$PMD" "$QUI/copia_backup.py" "$PHONE_ID" "$BACKUP_DIR" || echo "Backup: non sono riuscito a copiarli (vado avanti)."
+    if [ "$COSA" = iphone ] && [ -n "$(find "$TIMBRO" -mmin -360 2>/dev/null)" ]; then
+      echo "Backup: copiati meno di 6 ore fa, salto (prova veloce)."
+    elif "$PMD" "$QUI/copia_backup.py" "$PHONE_ID" "$BACKUP_DIR"; then
+      touch "$TIMBRO"
+    else
+      echo "Backup: non sono riuscito a copiarli (vado avanti)."
+    fi
   fi
-  # con l'Apple ID gratuito l'elenco dei dispositivi del team si svuota ogni 7 giorni: l'orologio va rimesso
-  if ! "$XTOOL_PATCHATO" ds devices list </dev/null 2>/dev/null | grep -q "$WATCH_UDID"; then
-    echo "Registro l'orologio sul team (l'elenco dei dispositivi si azzera ogni settimana)…"
-    "$XTOOL_PATCHATO" ds devices add --udid "$WATCH_UDID" --name "Apple Watch" </dev/null
+  # con l'Apple ID gratuito l'elenco dei dispositivi del team si svuota ogni 7 giorni: l'orologio va rimesso.
+  # Se i server di Apple non rispondono (accesso scaduto o bloccato), si firma senza Apple: stesso certificato e stessi
+  # profili dell'ultima installazione, che valgono fino alla loro scadenza (la firma NON si rinnova).
+  echo "[${SECONDS}s] controllo l'accesso ad Apple"
+  OFFLINE=""
+  if DISPOSITIVI="$("$XTOOL_PATCHATO" ds devices list </dev/null 2>/dev/null)"; then
+    if ! grep -q "$WATCH_UDID" <<<"$DISPOSITIVI"; then
+      echo "Registro l'orologio sul team (l'elenco dei dispositivi si azzera ogni settimana)…"
+      "$XTOOL_PATCHATO" ds devices add --udid "$WATCH_UDID" --name "Apple Watch" </dev/null
+    fi
+  elif [ "$COSA" != orologio ]; then
+    PROF="$FIRMATO/RecompNuova.app/embedded.mobileprovision"
+    SCADE="$( [ -f "$PROF" ] && openssl smime -inform der -verify -noverify -in "$PROF" 2>/dev/null \
+      | grep -A1 '<key>ExpirationDate</key>' | grep -o '[0-9T:-]*Z' || true)"
+    if [ -z "$SCADE" ] || [ "$(date -d "$SCADE" +%s)" -le "$(date +%s)" ]; then
+      echo "I server di Apple non accettano l'accesso e la firma dell'ultima installazione è scaduta (o manca):"
+      echo "rifai l'accesso con «xtool auth login» quando Apple torna a funzionare."
+      exit 1
+    fi
+    OFFLINE="$LAVORO/firmato-prima"
+    rm -rf "$OFFLINE"; cp -R "$FIRMATO" "$OFFLINE"
+    echo "I server di Apple non accettano l'accesso: firmo senza Apple con la firma attuale (vale fino al $(date -d "$SCADE" '+%d/%m/%Y'))."
   fi
 fi
 
 if [ "$COSA" != orologio ]; then
-  echo "1/4 Preparo il progetto…"
+  echo "[${SECONDS}s] 1/4 Preparo il progetto…"
   # tutto in una cartella d'appoggio, poi rsync confronta il contenuto e copia solo i file cambiati: gli altri restano
   # identici (anche la data), così Swift ricompila solo quello che serve
   T="$LAVORO/appoggio"
@@ -68,20 +103,32 @@ if [ "$COSA" != orologio ]; then
   rsync -rc --delete "$T/Resources/" "$P/Resources/"
   rsync -c "$T/"{xtool.yml,Info.plist,RecompLive-Info.plist,RecompLive.entitlements,App.entitlements,Package.swift} "$P/"
 
-  echo "2/4 App Watch…"
+  echo "[${SECONDS}s] 2/4 App Watch…"
   bash "$QUI/costruisci-orologio.sh"   # si ricompila solo se il suo codice è cambiato
 
-  echo "3/4 Compilo, firmo e installo l'app iPhone…"
-  (cd "$P" && "$XTOOL_STD" dev build </dev/null)
+  echo "[${SECONDS}s] 3/4 Compilo, firmo e installo l'app iPhone…"
+  # CONFIG=release: versione ottimizzata (l'isola si ridisegna più in fretta), più lenta da compilare; di base debug
+  (cd "$P" && "$XTOOL_STD" dev build -c "${CONFIG:-debug}" </dev/null)
   python3 "$QUI/genera_appintents.py" "$APP"
+  echo "[${SECONDS}s] compilata"
   [ "$COSA" = compila ] && { echo "Compilazione riuscita (nessuna installazione)."; exit 0; }
   rm -rf "$APP/Watch"; mkdir -p "$APP/Watch"
   cp -R "$LAVORO/orologio/out/RecompWatch.app" "$APP/Watch/"
-  rm -rf "$FIRMATO"
-  XTOOL_KEEP_SIGNED="$FIRMATO" "$XTOOL_PATCHATO" install --usb "$APP" </dev/null
+  rm -rf "$FIRMATO" "$LAVORO/bundle.txt"   # bundle.txt: l'identificativo salvato da debug.sh, si rilegge
+  # ogni passaggio di xtool con i secondi (senza le righe di avanzamento intermedie): si vede dove si perde tempo
+  XTOOL_OFFLINE="$OFFLINE" XTOOL_KEEP_SIGNED="$FIRMATO" "$XTOOL_PATCHATO" install --usb "$APP" </dev/null 2>&1 \
+    | while IFS= read -r riga; do
+        case "$riga" in *%) case "$riga" in *" 0%"|*100%) ;; *) continue ;; esac ;; esac
+        [ -n "$riga" ] && printf '[%ss] %s\n' "$SECONDS" "$riga"
+      done
 fi
 
-echo "4/4 Installo l'app Watch direttamente sull'orologio…"
+if [ "$COSA" = iphone ]; then
+  echo "[${SECONDS}s] Fatto (solo iPhone). L'orologio non riceve i dati finché non rilanci installa.ps1 senza argomenti."
+  exit 0
+fi
+
+echo "[${SECONDS}s] 4/4 Installo l'app Watch direttamente sull'orologio…"
 W="$FIRMATO/RecompNuova.app/Watch/RecompWatch.app"
 [ -d "$W" ] || { echo "Manca l'app Watch firmata: lancia prima installa.sh senza argomenti."; exit 1; }
 # «Coordinator found … process-scoped»: appena installata l'app iPhone, iOS prova da solo a mettere l'app Watch
@@ -105,5 +152,10 @@ for prova in $(seq 1 12); do
 done
 
 echo
-echo "Fatto. Apri Recomp sull'iPhone: l'orologio riceve i dati da lì."
-echo "La firma gratuita scade tra 7 giorni (da oggi: $(date -d '+7 days' '+%d/%m/%Y')): rilancia questo comando prima."
+echo "[${SECONDS}s] Fatto. Apri Recomp sull'iPhone: l'orologio riceve i dati da lì."
+if [ -n "${OFFLINE:-}" ]; then
+  echo "Firmata senza Apple: la firma NON è rinnovata e scade il $(date -d "$SCADE" '+%d/%m/%Y'). Prima di allora rifai"
+  echo "l'accesso con «xtool auth login» (quando i server di Apple tornano a funzionare) e rilancia questo comando."
+else
+  echo "La firma gratuita scade tra 7 giorni (da oggi: $(date -d '+7 days' '+%d/%m/%Y')): rilancia questo comando prima."
+fi

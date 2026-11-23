@@ -50,6 +50,7 @@ enum CibiFuori {
         // dolci e snack
         .init(id: "gelato", nome: "Gelato", icona: "🍨", porzione: 120, quanto: "1 coppetta, 2 gusti", k: 190, p: 3.5, c: 26, f: 8),
         .init(id: "tiramisu", nome: "Tiramisù", icona: "🍰", porzione: 120, quanto: "1 porzione", k: 290, p: 6, c: 28, f: 17),
+        .init(id: "snack_parmigiano", nome: "Snack di parmigiano", icona: "🧀", porzione: 20, quanto: "1 porzioncina da 20 g", k: 392, p: 33, c: 0, f: 28),
         .init(id: "cioccolato", nome: "Cioccolato al latte", icona: "🍫", porzione: 25, quanto: "1 barretta piccola", k: 545, p: 7.5, c: 57, f: 31),
         .init(id: "patatine_busta", nome: "Patatine in busta", icona: "🥔", porzione: 45, quanto: "1 busta", k: 535, p: 6, c: 52, f: 33),
         .init(id: "biscotti", nome: "Biscotti secchi", icona: "🍪", porzione: 30, quanto: "4 biscotti", k: 440, p: 7, c: 72, f: 13),
@@ -64,6 +65,9 @@ enum CibiFuori {
 
     // quelli che compaiono subito, senza cercare
     static let rapidi = ["pizza", "cornetto", "cappuccino", "piadina", "patatine", "panino_fast", "kebab", "pasta_pomodoro", "gelato", "cola", "te_freddo"]
+
+    // quelli che si aggiungono a un pasto del piano (uno snack, una bibita)
+    static let snack = ["snack_parmigiano", "cioccolato", "biscotti", "patatine_busta", "merendina", "gelato", "cola", "bibita_zero", "te_freddo", "succo"]
 
     static func cibo(_ id: String) -> CiboFuori? { tutti.first { $0.id == id } }
     // l'icona di una voce che viene da qui («fuori:pizza»)

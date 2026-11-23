@@ -17,7 +17,7 @@ final class WatchBridge: NSObject, WCSessionDelegate {
     private var bag = Set<AnyCancellable>()
 
     func avvia() {
-        guard WCSession.isSupported() else { return }
+        guard WCSession.isSupported(), !AppStore.inProva else { return }   // in prova l'orologio resta sui dati veri
         WCSession.default.delegate = self
         WCSession.default.activate()
         // ogni cambiamento dei dati → stato nuovo all'orologio (dopo un attimo, così i tocchi ravvicinati diventano un solo invio)

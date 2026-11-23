@@ -21,11 +21,18 @@ risponde «Coordinator found … process-scoped» (installazione di prima rimast
 | Comando | Cosa fa |
 |---|---|
 | `installa.ps1` | tutto: iPhone + orologio (anche il rinnovo della firma) |
+| `installa.ps1 iphone` | solo l'iPhone, per le prove veloci: l'orologio torna collegato al prossimo `installa.ps1` |
 | `installa.ps1 orologio` | solo l'installazione sull'orologio, con l'app già pronta dall'ultima volta |
 | `installa.ps1 compila` | controlla che compili, senza telefono |
 
 > **Ordine obbligato**: prima l'app iPhone, poi l'orologio. Reinstallare l'app iPhone fa ritenere all'iPhone che l'app
 > Watch non sia installata finché non si reinstalla anche l'orologio: il comando fa sempre tutte e due.
+
+**Se i server di Apple non accettano l'accesso** (sessione scaduta, o il blocco del 20/11/2026: «HTTP 503» da
+`gsa.apple.com` per tutti i programmi non ufficiali), `installa.ps1` firma **senza Apple**: riusa il certificato salvato da
+xtool e i profili dell'ultima installazione (`firmato/`), finché non scadono (modifica 7 di `patches/applica-patch.py`,
+variabile `XTOOL_OFFLINE`). Così gli aggiornamenti si installano lo stesso, ma la firma **non si rinnova**: prima della
+scadenza scritta a fine comando serve di nuovo `xtool auth login` (da WSL) e un `installa.ps1` normale.
 
 **Serve il cavo.** In Wi-Fi l'installazione dell'iPhone si blocca e il servizio che porta all'orologio (`companion_proxy`)
 chiude la connessione: lo script si ferma subito se vede l'iPhone solo in Wi-Fi.
@@ -36,6 +43,40 @@ raggiunge il servizio Apple di Windows su `127.0.0.1:27015` senza altro. Se «No
 
 Non esiste un simulatore dell'Apple Watch su Windows: si prova sull'orologio vero. Screenshot dell'orologio: app Watch
 dell'iPhone → Generali → Abilita screenshot, poi tasto laterale + corona insieme (finiscono in Foto sull'iPhone).
+
+## Debug sul telefono, dal PC
+
+Con l'iPhone collegato col cavo (Modalità sviluppatore attiva) si vede l'app vera senza Mac:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File app-ios\xtool\windows\debug.ps1 prepara          # una volta: tunnel iOS 17+ e immagine sviluppatore
+powershell -ExecutionPolicy Bypass -File app-ios\xtool\windows\debug.ps1 apri cibo:3:1    # rilancia l'app su una schermata
+powershell -ExecutionPolicy Bypass -File app-ios\xtool\windows\debug.ps1 foto C:\percorso\foto.png
+powershell -ExecutionPolicy Bypass -File app-ios\xtool\windows\debug.ps1 registro 30     # i messaggi «RECOMP» dell'app
+```
+
+`apri` accetta oggi, piano, scheda, progressi, profilo, coach, settimana, `pasto:3` (finestra del pasto della fascia 3
+di oggi), `cibo:3:1` (lì, la scelta del cibo 1), `aggiungi:3` (Aggiungi al pasto): vedi `Registro.swift`. Apre solo le
+finestre, non tocca i dati. Non si può toccare lo schermo al posto tuo (servirebbe Xcode).
+
+### Provare le modifiche in fretta
+
+| Comando | Tempo | Cosa fa |
+|---|---|---|
+| `debug.ps1 controlli` | ~3 s | i conti dell'app (scambi a macro uguali con l'olio, porzioni, totali dei giorni) provati **sul PC, senza telefono**: `controlli.sh` compila `Piano.swift`, `Modelli.swift`, `Cibi.swift`, `Aiuti.swift`, `CibiFuori.swift` (gli stessi file dell'app) con `app-ios/swiftui/Controlli/main.swift` e li prova su `piano.json`. `controlli --giorni` stampa anche i totali di ogni giorno |
+| `debug.ps1 stato "<azioni>" <schermata>` | ~6 s | una prova sul telefono: l'app in MODALITÀ PROVA fa le azioni, apre la schermata e scrive nel registro il suo **stato in testo** (giorno, pasti con grammi, kcal e macro, scambi proposti con l'olio, allenamento); aggiungi `--foto` per lo screenshot |
+| `debug.ps1 giro C:\cartella [testo]` | ~1,5 min | tutte le righe di `giro.txt`: per ognuna `nome.txt` (lo stato) e `nome.png`, più i fogli `foglio_N.jpg` con tre screenshot affiancati; gli errori dell'app («RECOMP ERRORE») si stampano subito |
+| `debug.ps1 crash` | ~5 s | gli ultimi crash di Recomp, con il punto del codice |
+| `installa.ps1 iphone` | ~15 s + compilazione | installa solo sull'iPhone, salta il backup se l'ultimo ha meno di 6 ore |
+
+Come va veloce: `giro.py` tiene **una sola connessione** al telefono per tutto il giro (lancio dell'app, registro e
+screenshot) e aspetta il segnale `RECOMP pronto` che l'app scrive quando la schermata è pronta (`statoPerDebug` in
+`Registro.swift`), invece di un tempo fisso. L'identificativo dell'app si salva in `bundle.txt` (lo rilegge dopo ogni
+installazione). Per controllare una funzione nuova basta aggiungere una riga a `giro.txt`. Lo stato si scrive solo in
+modalità prova e resta nel registro dell'iPhone e sul PC.
+
+- **Prima di installare chiudi Recomp sull'iPhone**: se è aperta (anche lanciata da `apri`), l'installazione resta ferma al 98%.
+- `installa.sh` ferma da solo il tunnel del debug; dopo l'installazione si rifà `debug.ps1 prepara`.
 
 ## Che cosa c'è
 
