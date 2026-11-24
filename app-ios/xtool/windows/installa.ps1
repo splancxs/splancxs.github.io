@@ -1,5 +1,6 @@
 # Compila e installa Recomp (iPhone + Apple Watch) dal PC Windows. Da PowerShell, nella cartella del repository:
 #   powershell -ExecutionPolicy Bypass -File app-ios\xtool\windows\installa.ps1            rinnovo e aggiornamento (iPhone + orologio)
+#   ... installa.ps1 rinnova     come sopra, ma rinnova sempre la firma da Apple (/ricarica)
 #   ... installa.ps1 orologio    rifà solo l'installazione sull'orologio
 #   ... installa.ps1 compila     controlla che compili, senza telefono
 # Prima: iPhone collegato col cavo e sbloccato, orologio sbloccato e al polso.

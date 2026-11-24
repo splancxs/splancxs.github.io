@@ -85,6 +85,9 @@ struct WorkoutDef: Codable, Hashable {
     let ex: [WorkoutEx]
 }
 
+// macchina assistita (trazioni, dip): i kg segnati sono l'aiuto della macchina, meno è meglio
+extension ExLib { var assistita: Bool { eq == "Macchina assistita" } }
+
 struct ExLib: Codable, Hashable {
     let id: String
     let n: String

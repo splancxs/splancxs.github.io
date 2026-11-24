@@ -132,9 +132,13 @@ struct Workout: Codable, Hashable, Identifiable {
     }
 
     var minutes: Int { max(1, Int((end - start) / 60000)) }
-    var volume: Double { items.reduce(0) { $0 + volOf($1.sets) } }
+    // senza le macchine assistite (trazioni, dip): lì i kg sono l'aiuto, non carico sollevato
+    var volume: Double { items.reduce(0) { $0 + (esAssistiti.contains($1.ex) ? 0 : volOf($1.sets)) } }
     var workSets: Int { items.reduce(0) { $0 + $1.sets.filter(\.isWork).count } }
 }
+
+// esercizi alla macchina assistita (ExLib.assistita): fuori dal volume in kg
+let esAssistiti: Set<String> = ["pullup", "dips"]
 
 func volOf(_ sets: [SetRec]) -> Double {
     sets.filter(\.isWork).reduce(0) { $0 + (($1.kg ?? 0) > 0 && ($1.r ?? 0) > 0 ? ($1.kg ?? 0) * Double($1.r ?? 0) : 0) }

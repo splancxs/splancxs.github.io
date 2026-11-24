@@ -458,6 +458,17 @@ extension AppStore {
             let e = esercizio(it.ex)
             let work = it.sets.filter(\.isWork)
             if work.isEmpty || (old.kg == 0 && old.e1 == 0 && old.sec == 0) { continue }   // prima volta: nessun confronto
+            // assistita: il record è ripetere di più con la stessa assistenza o meno (i kg sono aiuto, non carico)
+            if e.assistita {
+                let ora = work.compactMap { s in s.kg.map { ($0, s.r ?? 0) } }
+                let prima = cronologia.filter { $0.id != id }.flatMap { $0.items.filter { $0.ex == it.ex } }.flatMap { $0.sets.filter(\.isWork) }
+                    .compactMap { s in s.kg.map { ($0, s.r ?? 0) } }
+                let minAss = prima.map(\.0).min() ?? .infinity
+                if let meglio = ora.filter({ $0.0 < minAss && $0.1 >= it.lo }).min(by: { $0.0 < $1.0 }) {
+                    out.append(RecordPR(ex: it.ex, k: "Assistenza minima", v: "\(fmtKg(meglio.0)) kg"))
+                }
+                continue
+            }
             if e.unit == "sec" {
                 let best = work.map { $0.r ?? 0 }.max() ?? 0
                 if best > old.sec { out.append(RecordPR(ex: it.ex, k: "Tempo massimo", v: "\(best)″")) }

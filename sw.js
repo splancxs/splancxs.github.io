@@ -1,7 +1,7 @@
 // Service worker: prima la rete (contenuti sempre aggiornati), la copia salvata solo se manca la connessione.
-const CACHE = 'recomp-v70';
+const CACHE = 'recomp-v71';
 const ASSETS = [
-  './', './index.html', './assets/css/style.css?v=71', './assets/js/data.js?v=71', './assets/js/app.js?v=71',
+  './', './index.html', './assets/css/style.css?v=72', './assets/js/data.js?v=72', './assets/js/app.js?v=72',
   './assets/icons/favicon.svg', './assets/icons/apple-touch-icon.png',
 ];
 

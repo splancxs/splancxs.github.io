@@ -3,6 +3,7 @@
 # dentro WSL, con xtool e l'Apple ID gratuito. La firma gratuita dura 7 giorni: per rinnovarla basta rilanciarlo.
 #
 #   installa.sh            compila quello che è cambiato e installa iPhone + orologio
+#   installa.sh rinnova    come sopra, ma rinnova sempre la firma da Apple (quello che fa /ricarica)
 #   installa.sh iphone     solo l'iPhone, per le prove veloci (con debug.sh): l'orologio resta scollegato fino al prossimo «tutto»
 #   installa.sh orologio   rifà solo l'installazione sull'orologio, con l'app già pronta dall'ultima volta
 #   installa.sh compila    compila senza installare (senza telefono): per controllare che il codice compili
@@ -16,7 +17,9 @@ REPO="$(cd "$QUI/../.." && pwd)"
 . "$QUI/config.sh"
 . "$HOME/.local/share/swiftly/env.sh"
 COSA="${1:-tutto}"
-case "$COSA" in tutto|iphone|orologio|compila) ;; *) echo "Uso: installa.sh [iphone|orologio|compila]"; exit 1 ;; esac
+# «rinnova» = tutto, ma la firma passa sempre da Apple (senza, i profili che valgono ancora più di 6 giorni si riusano)
+[ "$COSA" = rinnova ] && { COSA=tutto; RINNOVA=1; }
+case "$COSA" in tutto|iphone|orologio|compila) ;; *) echo "Uso: installa.sh [rinnova|iphone|orologio|compila]"; exit 1 ;; esac
 export PHONE_ID=io.github.splancxs.recomp.prova   # identificativo dell'app (xtool con l'Apple ID gratuito aggiunge «XTL-…»)
 
 P="$LAVORO/RecompNuova"          # il progetto copiato dentro Linux: lì si compila molto più in fretta che da /mnt/c
@@ -65,16 +68,23 @@ if [ "$COSA" != compila ]; then
   # Se i server di Apple non rispondono (accesso scaduto o bloccato), si firma senza Apple: stesso certificato e stessi
   # profili dell'ultima installazione, che valgono fino alla loro scadenza (la firma NON si rinnova).
   echo "[${SECONDS}s] controllo l'accesso ad Apple"
-  OFFLINE=""
-  if DISPOSITIVI="$("$XTOOL_PATCHATO" ds devices list </dev/null 2>/dev/null)"; then
+  OFFLINE=""; RIUSO=""
+  PROF="$FIRMATO/RecompNuova.app/embedded.mobileprovision"
+  SCADE="$( [ -f "$PROF" ] && openssl smime -inform der -verify -noverify -in "$PROF" 2>/dev/null \
+    | grep -A1 '<key>ExpirationDate</key>' | grep -o '[0-9T:-]*Z' || true)"
+  # profili appena rinnovati (valgono ancora più di 6 giorni): si riusano senza chiedere niente ad Apple (−12 s circa).
+  # Il rinnovo vero (/ricarica, ogni settimana) passa da Apple come sempre; RINNOVA=1 lo forza.
+  if [ "$COSA" != orologio ] && [ -z "${RINNOVA:-}" ] && [ -n "$SCADE" ] \
+     && [ $(( $(date -d "$SCADE" +%s) - $(date +%s) )) -gt $(( 6 * 86400 )) ]; then
+    OFFLINE="$LAVORO/firmato-prima"; RIUSO=1
+    rm -rf "$OFFLINE"; cp -R "$FIRMATO" "$OFFLINE"
+    echo "Profili rinnovati da poco (valgono fino al $(date -d "$SCADE" '+%d/%m/%Y %H:%M')): li riuso, niente registrazione da Apple."
+  elif DISPOSITIVI="$("$XTOOL_PATCHATO" ds devices list </dev/null 2>/dev/null)"; then
     if ! grep -q "$WATCH_UDID" <<<"$DISPOSITIVI"; then
       echo "Registro l'orologio sul team (l'elenco dei dispositivi si azzera ogni settimana)…"
       "$XTOOL_PATCHATO" ds devices add --udid "$WATCH_UDID" --name "Apple Watch" </dev/null
     fi
   elif [ "$COSA" != orologio ]; then
-    PROF="$FIRMATO/RecompNuova.app/embedded.mobileprovision"
-    SCADE="$( [ -f "$PROF" ] && openssl smime -inform der -verify -noverify -in "$PROF" 2>/dev/null \
-      | grep -A1 '<key>ExpirationDate</key>' | grep -o '[0-9T:-]*Z' || true)"
     if [ -z "$SCADE" ] || [ "$(date -d "$SCADE" +%s)" -le "$(date +%s)" ]; then
       echo "I server di Apple non accettano l'accesso e la firma dell'ultima installazione è scaduta (o manca):"
       echo "rifai l'accesso con «xtool auth login» quando Apple torna a funzionare."
@@ -116,11 +126,20 @@ if [ "$COSA" != orologio ]; then
   cp -R "$LAVORO/orologio/out/RecompWatch.app" "$APP/Watch/"
   rm -rf "$FIRMATO" "$LAVORO/bundle.txt"   # bundle.txt: l'identificativo salvato da debug.sh, si rilegge
   # ogni passaggio di xtool con i secondi (senza le righe di avanzamento intermedie): si vede dove si perde tempo
-  XTOOL_OFFLINE="$OFFLINE" XTOOL_KEEP_SIGNED="$FIRMATO" "$XTOOL_PATCHATO" install --usb "$APP" </dev/null 2>&1 \
-    | while IFS= read -r riga; do
-        case "$riga" in *%) case "$riga" in *" 0%"|*100%) ;; *) continue ;; esac ;; esac
-        [ -n "$riga" ] && printf '[%ss] %s\n' "$SECONDS" "$riga"
-      done
+  installa_app() {
+    XTOOL_OFFLINE="$1" XTOOL_KEEP_SIGNED="$FIRMATO" "$XTOOL_PATCHATO" install --usb "$APP" </dev/null 2>&1 \
+      | while IFS= read -r riga; do
+          case "$riga" in *%) case "$riga" in *" 0%"|*100%) ;; *) continue ;; esac ;; esac
+          [ -n "$riga" ] && printf '[%ss] %s\n' "$SECONDS" "$riga"
+        done
+  }
+  if ! installa_app "$OFFLINE"; then
+    # i profili riusati non bastano (per esempio una parte nuova dell'app): si rifà tutto passando da Apple
+    [ -n "$RIUSO" ] || exit 1
+    echo "[${SECONDS}s] I profili riusati non bastano: registro da Apple e riprovo."
+    OFFLINE=""; RIUSO=""
+    installa_app ""
+  fi
 fi
 
 if [ "$COSA" = iphone ]; then
@@ -153,7 +172,9 @@ done
 
 echo
 echo "[${SECONDS}s] Fatto. Apri Recomp sull'iPhone: l'orologio riceve i dati da lì."
-if [ -n "${OFFLINE:-}" ]; then
+if [ -n "${RIUSO:-}" ]; then
+  echo "Firmata con i profili di questa settimana: la firma scade il $(date -d "$SCADE" '+%d/%m/%Y') (la rinnova il prossimo /ricarica)."
+elif [ -n "${OFFLINE:-}" ]; then
   echo "Firmata senza Apple: la firma NON è rinnovata e scade il $(date -d "$SCADE" '+%d/%m/%Y'). Prima di allora rifai"
   echo "l'accesso con «xtool auth login» (quando i server di Apple tornano a funzionare) e rilancia questo comando."
 else

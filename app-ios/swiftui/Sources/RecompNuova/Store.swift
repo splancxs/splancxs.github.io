@@ -429,6 +429,7 @@ final class AppStore: ObservableObject {
         let work = (p?.sets ?? []).filter { $0.isWork && $0.r != nil }
         if work.isEmpty {
             if e.unit == "sec" { return (false, "Tieni \(it.lo)″ su ogni serie, poi aumenta fino a \(it.hi)″.") }
+            if e.assistita { return (false, "Trova l'assistenza con cui chiudi \(it.lo)–\(it.hi) ripetizioni pulite, con 1–2 in riserva. Segna i kg di aiuto.") }
             if let kg = it.kg { return (false, "Parti da \(pesoConUnita(it.ex, kg)): \(it.lo)–\(it.hi) ripetizioni lasciandone 1–2 in riserva.") }
             return (false, "Carico da testare: trova il peso con cui chiudi \(it.lo)–\(it.hi) ripetizioni con 1–2 in riserva.")
         }
@@ -436,6 +437,19 @@ final class AppStore: ObservableObject {
             let tutte = work.count >= it.sets.count && work.allSatisfy { ($0.r ?? 0) >= it.hi }
             if tutte { return (true, "Tenuto \(it.hi)″ ovunque: oggi prova \(it.hi + Int(e.inc))″.") }
             return (false, "Punta a \(min(it.hi, (work.map { $0.r ?? 0 }.max() ?? 0) + 5))″ su ogni serie.")
+        }
+        // macchina assistita (trazioni, dip): i kg sono l'aiuto, quindi si progredisce TOGLIENDO assistenza
+        if e.assistita {
+            let ass = work.map { $0.kg ?? 0 }.min() ?? 0
+            let meno = r1(max(0, ass - e.inc))
+            if work.count >= max(1, it.sets.filter(\.isWork).count) && work.allSatisfy({ ($0.r ?? 0) >= it.hi }) {
+                return (true, meno == 0 ? "Tutte le serie a \(it.hi): oggi prova senza assistenza!"
+                                        : "Tutte le serie a \(it.hi): oggi scendi a \(pesoConUnita(it.ex, meno)) di assistenza.")
+            }
+            if work.contains(where: { ($0.r ?? 0) < it.lo }) {
+                return (false, "Qualche serie sotto le \(it.lo): resta a \(pesoConUnita(it.ex, ass)) di assistenza (se ricapita, aggiungine un po').")
+            }
+            return (false, "Resta a \(pesoConUnita(it.ex, ass)) di assistenza e aggiungi 1 ripetizione dove riesci.")
         }
         let kg = work.map { $0.kg ?? 0 }.max() ?? 0
         if kg == 0 { return (false, "Registra anche il carico per avere il consiglio.") }

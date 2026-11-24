@@ -57,7 +57,7 @@ struct SchedaAttivaView: View {
     private func testata(_ a: ActiveWorkout) -> some View {
         let fatte = a.items.flatMap(\.sets).filter { $0.done && $0.isWork }.count
         let totali = a.items.flatMap(\.sets).filter(\.isWork).count
-        let volume = a.items.reduce(0) { $0 + volOf($1.sets.filter(\.done)) }
+        let volume = a.items.reduce(0) { $0 + (esAssistiti.contains($1.ex) ? 0 : volOf($1.sets.filter(\.done))) }
         return VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -255,6 +255,18 @@ struct CartaEsercizio: View {
                     .foregroundStyle(Tema.testo)
                 }
                 Text(consiglio.testo).font(.system(size: 13, weight: .medium)).foregroundStyle(consiglio.su ? Tema.verde : Tema.tenue)
+                // il range sempre davanti durante l'allenamento: quante ripetizioni e quando salire di peso
+                HStack(spacing: 6) {
+                    Image(systemName: "target").font(.system(size: 11, weight: .bold))
+                    Text(sec ? "Range \(it.lo)–\(it.hi)″: quando tieni \(it.hi)″ in tutte le serie, allunga"
+                             : e.assistita ? "Range \(it.lo)–\(it.hi) rip.: quando fai \(it.hi) in tutte le serie, togli assistenza"
+                             : "Range \(it.lo)–\(it.hi) rip.: quando fai \(it.hi) in tutte le serie, sali di peso")
+                        .font(.system(size: 12, weight: .semibold)).lineLimit(2).minimumScaleFactor(0.85)
+                }
+                .foregroundStyle(Tema.testo)
+                .padding(.horizontal, 10).padding(.vertical, 6)
+                .background(Tema.scheda2, in: Capsule())
+                .accessibilityElement(children: .combine)
                 if nota {
                     TextField("Nota (sedile, impugnatura, sensazioni…)", text: Binding(get: { it.note }, set: { s.nota(i, $0) }), axis: .vertical)
                         .font(.system(size: 14)).padding(10).background(Tema.scheda2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -262,7 +274,7 @@ struct CartaEsercizio: View {
                 HStack(spacing: 8) {
                     Text("Serie").frame(width: 34)
                     Text("Prima").frame(maxWidth: .infinity)
-                    Text(sec ? "Timer" : s.unita(it.ex)).frame(width: 66)
+                    Text(sec ? "Timer" : e.assistita ? "Aiuto \(s.unita(it.ex))" : s.unita(it.ex)).frame(width: 66)
                     Text(sec ? "sec" : "Rip").frame(width: 56)
                     Text("✓").frame(width: 44)
                 }

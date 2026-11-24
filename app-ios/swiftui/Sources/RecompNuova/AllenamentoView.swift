@@ -302,7 +302,7 @@ struct DettaglioAllenamento: View {
         let sec = e.unit == "sec"
         let record = w.prs.filter { $0.ex == it.ex }
         let lavoro = it.sets.enumerated().filter { $0.element.type == "n" }
-        let migliore = sec ? nil : lavoro.max { e1rm($0.element.kg ?? 0, $0.element.r ?? 0) < e1rm($1.element.kg ?? 0, $1.element.r ?? 0) }?.offset
+        let migliore = sec || e.assistita ? nil : lavoro.max { e1rm($0.element.kg ?? 0, $0.element.r ?? 0) < e1rm($1.element.kg ?? 0, $1.element.r ?? 0) }?.offset
         return VStack(alignment: .leading, spacing: 10) {
             Button { esercizio = IdEsercizio(id: it.ex) } label: {
                 HStack(spacing: 12) {
@@ -335,7 +335,7 @@ struct DettaglioAllenamento: View {
                             .frame(width: 26, height: 26).background(top ? AnyShapeStyle(Tema.testo) : AnyShapeStyle(Tema.scheda2), in: Circle())
                         Text(sec ? "\(st.r ?? 0)″" : "\(s.pesoConUnita(it.ex, st.kg)) × \(st.r ?? 0)").font(.system(size: 16, weight: .bold)).monospacedDigit()
                         Spacer()
-                        if let kg = st.kg, let r = st.r, st.type == "n", !sec {
+                        if let kg = st.kg, let r = st.r, st.type == "n", !sec, !e.assistita {
                             Text("1RM ≈ \(s.pesoConUnita(it.ex, r1(e1rm(kg, r))))").font(.system(size: 12)).foregroundStyle(Tema.tenue).monospacedDigit()
                         }
                     }
